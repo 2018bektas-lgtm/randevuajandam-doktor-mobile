@@ -1,13 +1,17 @@
 {
   "expo": {
-    "name": "randevuajandam-doktor-mobile",
+    "name": "Randevu Ajandam Doktor",
     "slug": "randevuajandam-doktor-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.randevuajandam.doktor",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,6 +24,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "Randevu Ajandam Doktor, oturumunuzu korumak için Face ID erişimi ister."
+        }
+      ]
+    ]
   }
 }
