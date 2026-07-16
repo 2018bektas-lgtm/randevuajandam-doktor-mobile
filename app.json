@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "randevuajandam-doktor",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.randevuajandam.doktor",
@@ -14,13 +15,36 @@
       }
     },
     "android": {
+      "package": "com.randevuajandam.doktor",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "randevuajandam-doktor"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +55,27 @@
         {
           "faceIDPermission": "Randevu Ajandam Doktor, oturumunuzu korumak için Face ID erişimi ister."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Randevu Ajandam Doktor, galeri ve profil görselleri yüklemek için fotoğraflarınıza erişmek ister.",
+          "cameraPermission": "Randevu Ajandam Doktor, profil fotoğrafı çekmek için kameranıza erişmek ister."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#F58A45"
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d08e9f79-bad1-4343-a31b-a6de02116ca9"
+      }
+    },
+    "owner": "bektasozcetin"
   }
 }
