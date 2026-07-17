@@ -10,6 +10,10 @@
       "android": {
         "buildType": "apk"
       },
+      "ios": {
+        "simulator": false,
+        "resourceClass": "m-medium"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
         "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
@@ -22,6 +26,23 @@
       "android": {
         "buildType": "apk"
       },
+      "ios": {
+        "simulator": false,
+        "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
+        "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor"
+      }
+    },
+    "preview-simulator": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "resourceClass": "m-medium"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
         "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
@@ -33,6 +54,9 @@
       "android": {
         "buildType": "app-bundle"
       },
+      "ios": {
+        "resourceClass": "m-medium"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
         "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
@@ -42,6 +66,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "",
+        "ascAppId": "",
+        "appleTeamId": ""
+      }
+    }
   }
 }
