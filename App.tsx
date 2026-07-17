@@ -55,6 +55,7 @@ import { StaffApp, StaffUser } from './src/screens/StaffApp';
 import {
   addNotificationResponseListener,
   registerForPushNotifications,
+  registerForPushNotificationsDetailed,
 } from './src/services/push';
 import { applyPendingPackageAfterAuth, loginPurchasesUser } from './src/services/iap';
 import { colors } from './src/theme';
@@ -119,6 +120,27 @@ export default function App() {
     })();
   }, [introComplete, isRestoring, doctor, staff]);
 
+  /** Phone OS notification tray push (not in-app list). Silent if already OK. */
+  const ensurePhonePush = useCallback(async (showAlert = false) => {
+    const r = await registerForPushNotificationsDetailed();
+    if (r.ok) return;
+    if (!showAlert) return;
+    if (r.reason === 'permission') {
+      Alert.alert(
+        'Bildirim izni',
+        'Telefon ekranında randevu bildirimi için Ayarlar → Uygulamalar → Randevu Ajandam Doktor → Bildirimler’i açın.',
+      );
+      return;
+    }
+    if (r.reason === 'token_failed' || r.reason === 'api_failed') {
+      Alert.alert(
+        'Mobil bildirim kurulumu',
+        r.detail ??
+          'Push token alınamadı. Android için Expo’da FCM (Firebase) kimlik bilgisi gerekir; sonra yeni APK build alın.',
+      );
+    }
+  }, []);
+
   const applyPendingPackage = useCallback(async (doktorId?: number | null) => {
     try {
       if (doktorId) {
@@ -165,10 +187,10 @@ export default function App() {
       setStaff(null);
       setDoctor(doktor);
       setAuthMode('login');
-      void registerForPushNotifications();
+      void ensurePhonePush(true);
       void applyPendingPackage(doktor.id);
     },
-    [applyPendingPackage],
+    [applyPendingPackage, ensurePhonePush],
   );
 
   useEffect(() => {
@@ -197,7 +219,7 @@ export default function App() {
           if (response.ok && payload.success && payload.data?.id) {
             setStaff(payload.data as StaffUser);
             setDoctor(null);
-            void registerForPushNotifications();
+            void ensurePhonePush(false);
             return;
           }
           // Only clear on explicit auth failure (401/403), not network/JSON glitches
@@ -223,7 +245,7 @@ export default function App() {
         if (response.ok && payload.success && payload.data?.id && payload.data?.e_posta) {
           setDoctor(payload.data as Doctor);
           setStaff(null);
-          void registerForPushNotifications();
+          void ensurePhonePush(false);
           return;
         }
         if (response.status === 401 || response.status === 403) {
@@ -270,7 +292,7 @@ export default function App() {
         setStaff(payload.data.personel as StaffUser);
         setDoctor(null);
         setPassword('');
-        void registerForPushNotifications();
+        void ensurePhonePush(true);
         return;
       }
 
@@ -309,7 +331,7 @@ export default function App() {
       setStaff(null);
       setPassword('');
       setTwoFactorToken(null);
-      void registerForPushNotifications();
+      void ensurePhonePush(true);
       void applyPendingPackage(payload.data.doktor.id);
     } catch {
       setErrorMessage('Sunucuya ulaşılamadı. İnternet bağlantınızı ve uygulama ayarını kontrol edin.');
@@ -348,7 +370,7 @@ export default function App() {
       setStaff(null);
       setTwoFactorToken(null);
       setTwoFactorCode('');
-      void registerForPushNotifications();
+      void ensurePhonePush(true);
       void applyPendingPackage(payload.data.doktor.id);
     } catch {
       setErrorMessage('Sunucuya ulaşılamadı.');
