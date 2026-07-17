@@ -36,6 +36,7 @@ import { Button, Card, TextField, SelectField, VideoCallModal } from './src/comp
 import { LegalLinks } from './src/components/LegalLinks';
 import { DateField, TimeField } from './src/components/DateTimeFields';
 import {
+  API_URL,
   apiGet,
   apiPost,
   flushMutationQueue,
@@ -58,9 +59,6 @@ import {
 import { applyPendingPackageAfterAuth, loginPurchasesUser } from './src/services/iap';
 import { colors } from './src/theme';
 import { useLayout } from './src/layout';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://randevuajandam.com/api/mobile/v1';
-const SITE_URL = API_URL.replace(/\/api\/mobile\/v1$/, '');
 
 type Doctor = {
   id: number;

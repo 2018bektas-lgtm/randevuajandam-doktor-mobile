@@ -3,21 +3,26 @@ import { Platform } from 'react-native';
 import { cacheGet, cacheKeyFromUrl, cacheSet } from './offlineCache';
 import { enqueueMutation, getMutationQueue, setMutationQueue } from './mutationQueue';
 
-export const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://randevuajandam.com/api/mobile/v1';
+/** Production mobile API. Local/LAN only if EXPO_PUBLIC_USE_LOCAL_API=1 is set. */
+const PROD_API = 'https://randevuajandam.com/api/mobile/v1';
+const envApi = (process.env.EXPO_PUBLIC_API_URL ?? '').trim();
+const useLocal = process.env.EXPO_PUBLIC_USE_LOCAL_API === '1';
 
-/** Public website origin (legal pages, marketing). */
-export const SITE_URL = (() => {
-  const raw = (API_URL || '').replace(/\/+$/, '');
-  const stripped = raw.replace(/\/api\/mobile\/v\d+$/i, '');
-  if (stripped && stripped !== raw) return stripped;
-  try {
-    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    return 'https://randevuajandam.com';
+function isLocalHost(url: string): boolean {
+  return /localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[0-1])\./i.test(url);
+}
+
+export const API_URL = (() => {
+  if (!envApi) return PROD_API;
+  // Refuse accidental local API in production builds / default runs
+  if (isLocalHost(envApi) && !useLocal) {
+    return PROD_API;
   }
+  return envApi.replace(/\/+$/, '');
 })();
+
+/** Public website origin (legal pages, marketing). Always production host for legal. */
+export const SITE_URL = 'https://randevuajandam.com';
 
 const DOCTOR_TOKEN_KEY = 'randevuajandam.doctor.token';
 const STAFF_TOKEN_KEY = 'randevuajandam.staff.token';

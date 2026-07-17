@@ -26,6 +26,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { API_URL } from '../api/client';
 import { useLayout } from '../layout';
 import { requestNotificationPermission } from '../services/push';
 import { purchasePackageInApp, type IapPeriod } from '../services/iap';
@@ -36,7 +37,6 @@ export const ONBOARDING_KEY = 'randevuajandam.onboarding.done.v9';
 export const ONBOARDING_ANSWERS_KEY = 'randevuajandam.onboarding.answers.v2';
 
 const LOGO = require('../../assets/logo.png');
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://randevuajandam.com/api/mobile/v1';
 
 export type OnboardingFinishMode = 'login' | 'register' | 'packages';
 

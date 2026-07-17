@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.randevuajandam.doktor",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#0D1B2A",
         "foregroundImage": "./assets/logo.png"
