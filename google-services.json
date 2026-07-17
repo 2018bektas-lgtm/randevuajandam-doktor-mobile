@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "307619911609",
+    "project_id": "randevuajandam",
+    "storage_bucket": "randevuajandam.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:307619911609:android:258a87bfd356a98b634868",
+        "android_client_info": {
+          "package_name": "com.randevuajandam.doktor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD4uo3uNNMouhdUbJu9EG3ZEg8tMWmIsK0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

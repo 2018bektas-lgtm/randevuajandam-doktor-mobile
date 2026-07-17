@@ -2923,7 +2923,16 @@ type BalanceItem = {
   kayit_sayisi: number;
 };
 
-export function FinanceBalancesScreen({ onBack }: ModuleProps) {
+/** Bridge selected patient id between balances list → account screen */
+let financeHastaId: number | null = null;
+export function setFinanceHastaId(id: number | null) {
+  financeHastaId = id;
+}
+export function getFinanceHastaId() {
+  return financeHastaId;
+}
+
+export function FinanceBalancesScreen({ onBack, onNavigate }: ModuleProps) {
   const loader = useCallback(async () => {
     const res = await apiGet<BalanceItem[]>('/doctor/finance/balances');
     return res.data ?? [];
@@ -2933,7 +2942,7 @@ export function FinanceBalancesScreen({ onBack }: ModuleProps) {
   return (
     <ScreenShell
       title="Hasta Bakiyeleri"
-      subtitle="Açık bakiyesi olan danışanlar."
+      subtitle="Açık bakiyesi olan danışanlar — hesaba dokunun."
       onBack={onBack}
       loading={loading}
       refreshing={refreshing}
@@ -2943,17 +2952,301 @@ export function FinanceBalancesScreen({ onBack }: ModuleProps) {
         <EmptyState title="Açık bakiye yok" text="Bekleyen veya kısmi ödemeli kayıt bulunmuyor." />
       ) : (
         items.map((item) => (
-          <View key={item.hasta_id} style={s.card}>
+          <Pressable
+            key={item.hasta_id}
+            style={s.card}
+            onPress={() => {
+              setFinanceHastaId(item.hasta_id);
+              onNavigate('financePatientAccount');
+            }}
+          >
             <View style={s.cardHeader}>
               <Text style={s.cardTitle}>{item.hasta_adi}</Text>
               <Text style={[s.cardTitle, { flex: 0, color: '#F3A26B' }]}>{money(item.bakiye)}</Text>
             </View>
             <Text style={s.cardMeta}>
-              {item.telefon || 'Telefon yok'} · {item.kayit_sayisi} kayıt
+              {item.telefon || 'Telefon yok'} · {item.kayit_sayisi} kayıt · Hesabı aç ›
             </Text>
-          </View>
+          </Pressable>
         ))
       )}
+    </ScreenShell>
+  );
+}
+
+type PatientAccountData = {
+  hasta: { id: number; ad_soyad: string; telefon?: string | null; e_posta?: string | null };
+  ozet: {
+    toplam_borc: number;
+    toplam_odenen: number;
+    kalan_bakiye: number;
+    fatura_sayisi?: number;
+    acik_fatura_sayisi?: number;
+  };
+  faturalar: {
+    id: number;
+    tutar: number;
+    odenen_tutar: number;
+    kalan?: number;
+    durum: string;
+    odeme_tarihi?: string;
+    aciklama?: string | null;
+    hizmet?: string | null;
+    kalemler?: { id: number; tutar: number; tarih: string; odeme_yontemi: string; not?: string | null }[];
+  }[];
+  acik_faturalar: { id: number; tutar: number; odenen_tutar: number; kalan?: number; hizmet?: string | null; aciklama?: string | null }[];
+};
+
+export function FinancePatientAccountScreen({ onBack }: ModuleProps) {
+  const hastaId = getFinanceHastaId();
+  const [data, setData] = useState<PatientAccountData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [collectOpen, setCollectOpen] = useState(false);
+  const [debtOpen, setDebtOpen] = useState(false);
+  const [odemeId, setOdemeId] = useState<string | null>(null);
+  const [tutar, setTutar] = useState('');
+  const [tarih, setTarih] = useState(new Date().toISOString().slice(0, 10));
+  const [yontem, setYontem] = useState('nakit');
+  const [not, setNot] = useState('');
+  const [borcTutar, setBorcTutar] = useState('');
+  const [borcAciklama, setBorcAciklama] = useState('');
+  const [borcIlk, setBorcIlk] = useState('0');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const load = useCallback(async (soft = false) => {
+    if (!hastaId) {
+      setLoading(false);
+      return;
+    }
+    if (!soft) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const res = await apiGet<PatientAccountData>(`/doctor/finance/patients/${hastaId}`);
+      setData(res.data ?? null);
+      const acik = res.data?.acik_faturalar ?? [];
+      if (acik.length) {
+        setOdemeId((prev) => prev ?? String(acik[0].id));
+      }
+    } catch (e) {
+      alertError(e, 'Hesap yüklenemedi.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [hastaId]);
+
+  useEffect(() => {
+    void load(false);
+  }, [load]);
+
+  async function submitCollect() {
+    if (!hastaId || !odemeId) {
+      setFormError('Fatura seçin.');
+      return;
+    }
+    const amount = parseFloat(tutar.replace(',', '.'));
+    if (!amount || amount <= 0) {
+      setFormError('Geçerli tutar girin.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiPost(`/doctor/finance/patients/${hastaId}/collect`, {
+        odeme_id: Number(odemeId),
+        tutar: amount,
+        tarih,
+        odeme_yontemi: yontem,
+        not: not.trim() || undefined,
+      });
+      setCollectOpen(false);
+      setTutar('');
+      setNot('');
+      await load(true);
+      Alert.alert('Tamam', 'Tahsilat kaydedildi.');
+    } catch (e) {
+      setFormError(errMessage(e, 'Tahsilat kaydedilemedi.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitDebt() {
+    if (!hastaId) return;
+    const amount = parseFloat(borcTutar.replace(',', '.'));
+    if (!amount || amount <= 0) {
+      setFormError('Geçerli borç tutarı girin.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiPost(`/doctor/finance/patients/${hastaId}/debt`, {
+        tutar: amount,
+        odeme_tarihi: tarih,
+        aciklama: borcAciklama.trim() || undefined,
+        ilk_odeme_tutar: parseFloat(borcIlk.replace(',', '.')) || 0,
+        ilk_odeme_yontemi: yontem,
+      });
+      setDebtOpen(false);
+      setBorcTutar('');
+      setBorcAciklama('');
+      setBorcIlk('0');
+      await load(true);
+      Alert.alert('Tamam', 'Borç kaydı oluşturuldu.');
+    } catch (e) {
+      setFormError(errMessage(e, 'Borç eklenemedi.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!hastaId) {
+    return (
+      <ScreenShell title="Hasta hesabı" onBack={onBack}>
+        <EmptyState title="Hasta seçilmedi" text="Bakiyeler listesinden bir hasta seçin." />
+      </ScreenShell>
+    );
+  }
+
+  const ozet = data?.ozet;
+  const acik = data?.acik_faturalar ?? [];
+
+  return (
+    <ScreenShell
+      title={data?.hasta.ad_soyad ?? 'Hasta hesabı'}
+      subtitle={
+        data
+          ? `${data.hasta.telefon || 'Tel yok'} · Kalan ${money(ozet?.kalan_bakiye ?? 0)}`
+          : 'Yükleniyor…'
+      }
+      onBack={onBack}
+      loading={loading}
+      refreshing={refreshing}
+      onRefresh={() => void load(true)}
+    >
+      {data ? (
+        <>
+          <View style={[s.card, { flexDirection: 'row', gap: 8 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.hint}>Borç</Text>
+              <Text style={s.cardTitle}>{money(ozet?.toplam_borc ?? 0)}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.hint}>Ödenen</Text>
+              <Text style={[s.cardTitle, { color: '#34D399' }]}>{money(ozet?.toplam_odenen ?? 0)}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.hint}>Kalan</Text>
+              <Text style={[s.cardTitle, { color: '#F3A26B' }]}>{money(ozet?.kalan_bakiye ?? 0)}</Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+            <Pressable
+              style={[s.primaryButton, { flex: 1, opacity: acik.length ? 1 : 0.5 }]}
+              disabled={!acik.length}
+              onPress={() => {
+                setFormError(null);
+                if (acik[0]) setOdemeId(String(acik[0].id));
+                setCollectOpen(true);
+              }}
+            >
+              <Text style={s.primaryButtonText}>Tahsilat al</Text>
+            </Pressable>
+            <Pressable
+              style={[s.secondaryButton, { flex: 1 }]}
+              onPress={() => {
+                setFormError(null);
+                setDebtOpen(true);
+              }}
+            >
+              <Text style={s.secondaryButtonText}>Borç ekle</Text>
+            </Pressable>
+          </View>
+
+          {(data.faturalar ?? []).map((f) => (
+            <View key={f.id} style={s.card}>
+              <View style={s.cardHeader}>
+                <Text style={s.cardTitle}>{f.hizmet || f.aciklama || `Fatura #${f.id}`}</Text>
+                <View style={s.pill}>
+                  <Text style={s.pillText}>{f.durum}</Text>
+                </View>
+              </View>
+              <Text style={s.cardMeta}>
+                {f.odeme_tarihi || '—'} · Borç {money(f.tutar)} · Ödenen {money(f.odenen_tutar)} · Kalan{' '}
+                {money(f.kalan ?? Math.max(0, f.tutar - f.odenen_tutar))}
+              </Text>
+              {(f.kalemler ?? []).map((k) => (
+                <Text key={k.id} style={[s.cardBody, { marginTop: 4 }]}>
+                  · {k.tarih} {k.odeme_yontemi} {money(k.tutar)}
+                  {k.not ? ` — ${k.not}` : ''}
+                </Text>
+              ))}
+            </View>
+          ))}
+          {(data.faturalar ?? []).length === 0 ? (
+            <EmptyState title="Hareket yok" text="Bu hastaya henüz borç/tahsilat yazılmamış." />
+          ) : null}
+        </>
+      ) : null}
+
+      <FormModal
+        visible={collectOpen}
+        title="Tahsilat al"
+        onClose={() => setCollectOpen(false)}
+        onSubmit={() => void submitCollect()}
+        submitting={submitting}
+        error={formError}
+        submitLabel="Kaydet"
+      >
+        <SelectField
+          label="Açık fatura"
+          placeholder="Seçin"
+          value={odemeId}
+          onChange={(v) => setOdemeId(String(v))}
+          options={acik.map((f) => ({
+            value: String(f.id),
+            label: `#${f.id} ${f.hizmet || f.aciklama || 'Fatura'} · kalan ${money(f.kalan ?? f.tutar - f.odenen_tutar)}`,
+          }))}
+        />
+        <Text style={s.label}>Tutar</Text>
+        <TextInput style={s.input} keyboardType="decimal-pad" value={tutar} onChangeText={setTutar} placeholder="0.00" placeholderTextColor="#6B7F93" />
+        <DateField label="Tarih" value={tarih} onChange={setTarih} />
+        <SelectField
+          label="Yöntem"
+          value={yontem}
+          onChange={(v) => setYontem(String(v || 'nakit'))}
+          options={[
+            { value: 'nakit', label: 'Nakit' },
+            { value: 'kredi_karti', label: 'Kredi kartı' },
+            { value: 'havale', label: 'Havale' },
+            { value: 'online', label: 'Online' },
+          ]}
+        />
+        <Text style={s.label}>Not</Text>
+        <TextInput style={s.input} value={not} onChangeText={setNot} placeholderTextColor="#6B7F93" />
+      </FormModal>
+
+      <FormModal
+        visible={debtOpen}
+        title="Borç ekle"
+        onClose={() => setDebtOpen(false)}
+        onSubmit={() => void submitDebt()}
+        submitting={submitting}
+        error={formError}
+        submitLabel="Oluştur"
+      >
+        <Text style={s.label}>Toplam tutar</Text>
+        <TextInput style={s.input} keyboardType="decimal-pad" value={borcTutar} onChangeText={setBorcTutar} placeholderTextColor="#6B7F93" />
+        <DateField label="Tarih" value={tarih} onChange={setTarih} />
+        <Text style={s.label}>Açıklama</Text>
+        <TextInput style={s.input} value={borcAciklama} onChangeText={setBorcAciklama} placeholderTextColor="#6B7F93" />
+        <Text style={s.label}>İlk ödeme (opsiyonel)</Text>
+        <TextInput style={s.input} keyboardType="decimal-pad" value={borcIlk} onChangeText={setBorcIlk} placeholderTextColor="#6B7F93" />
+      </FormModal>
     </ScreenShell>
   );
 }
@@ -6957,6 +7250,7 @@ export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>
   financeExpenses: FinanceExpensesScreen,
   financeCategories: FinanceCategoriesScreen,
   financeBalances: FinanceBalancesScreen,
+  financePatientAccount: FinancePatientAccountScreen,
   faq: FaqScreen,
   education: EducationScreen,
   educationApps: EducationAppsScreen,

@@ -20,11 +20,12 @@
     },
     "android": {
       "package": "com.randevuajandam.doktor",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#0D1B2A",
         "foregroundImage": "./assets/logo.png"
       },
+      "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -47,7 +48,10 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK"
       ]
     },
     "web": {
@@ -71,7 +75,9 @@
         "expo-notifications",
         {
           "icon": "./assets/logo.png",
-          "color": "#F58A45"
+          "color": "#F58A45",
+          "defaultChannel": "randevu",
+          "sounds": []
         }
       ]
     ],

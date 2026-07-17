@@ -1754,7 +1754,8 @@ export function OnboardingScreen({ onFinish }: Props) {
         <ScrollView
           contentContainerStyle={{
             paddingTop: L.contentTop,
-            paddingBottom: L.space.md + L.padY,
+            // Room so last options aren't hidden under sticky footer + system nav
+            paddingBottom: L.space.xl + L.btnHeight * 2 + L.footerPad,
             flexGrow: 1,
           }}
           showsVerticalScrollIndicator={false}
@@ -2261,7 +2262,8 @@ export function OnboardingScreen({ onFinish }: Props) {
         style={[
           s.footer,
           {
-            paddingBottom: L.safeBottom,
+            // Clear Android 3-button / gesture system nav
+            paddingBottom: L.footerPad,
             paddingHorizontal: L.padX,
             paddingTop: L.space.sm,
           },

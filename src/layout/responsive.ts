@@ -13,7 +13,8 @@ export type HeightCategory = 'compact' | 'regular' | 'tall' | 'xtall';
 
 const FALLBACK_TOP =
   Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) : 44;
-const FALLBACK_BOTTOM = Platform.OS === 'ios' ? 28 : 16;
+/** Android: clear 3-button system nav; iOS: home indicator reserve */
+const FALLBACK_BOTTOM = Platform.OS === 'ios' ? 28 : 48;
 
 /** Design reference: iPhone 12/13/14 logical */
 const BASE_W = 390;
@@ -93,7 +94,9 @@ export function safeTop(insets?: Partial<Insets> | null): number {
 export function safeBottom(insets?: Partial<Insets> | null): number {
   const b = insets?.bottom;
   if (typeof b === 'number' && b > 0) {
-    return Math.max(b, Platform.OS === 'ios' ? 16 : 12);
+    // Android: keep clear of 3-button / gesture nav (min ~48)
+    // iOS: home indicator
+    return Math.max(b, Platform.OS === 'ios' ? 16 : 48);
   }
   return FALLBACK_BOTTOM;
 }
@@ -164,9 +167,13 @@ export function layoutMetrics(
   const contentTop =
     heightCat === 'compact' ? 4 : heightCat === 'regular' ? 10 : heightCat === 'tall' ? 14 : 18;
 
-  const scrollBottom = sBottom + (compact ? 56 : tall ? 80 : 68);
-  const bottomNav = (compact ? 52 : 60) + sBottom;
+  // Extra breathing room above system nav for fixed footers / double CTAs
+  const footerExtra = Platform.OS === 'android' ? (compact ? 10 : 12) : 4;
+  const scrollBottom = sBottom + (compact ? 64 : tall ? 88 : 76) + footerExtra;
+  const bottomNav = (compact ? 56 : 64) + sBottom + footerExtra;
   const headerBlock = sTop + (compact ? 48 : 56);
+  /** Sticky footer paddingBottom (onboarding / CTA bars) */
+  const footerPad = sBottom + footerExtra;
 
   return {
     width,
@@ -184,6 +191,8 @@ export function layoutMetrics(
     contentTop,
     safeTop: sTop,
     safeBottom: sBottom,
+    /** Use for sticky footers: safe area + Android nav buffer */
+    footerPad,
     scrollBottom,
     bottomNav,
     headerMin: headerBlock,

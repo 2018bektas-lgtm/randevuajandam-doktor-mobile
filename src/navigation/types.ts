@@ -16,6 +16,7 @@ export type ScreenId =
   | 'financeExpenses'
   | 'financeCategories'
   | 'financeBalances'
+  | 'financePatientAccount'
   | 'faq'
   | 'education'
   | 'educationApps'

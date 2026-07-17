@@ -3,7 +3,7 @@ import { safeBottom, safeTop } from '../layout/responsive';
 
 /** @deprecated Prefer useLayout().safeTop — kept for moduleStyles static values */
 export const SAFE_TOP = safeTop();
-/** @deprecated Prefer useLayout().safeBottom */
+/** @deprecated Prefer useLayout().footerPad / safeBottom */
 export const SAFE_BOTTOM = safeBottom();
 
 /** Shared dark-theme styles for hekim panel module screens. */

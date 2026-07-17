@@ -11,7 +11,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   Share,
   StatusBar as RNStatusBar,
@@ -83,6 +82,7 @@ type LoginResponse = {
 };
 
 export default function App() {
+  const L = useLayout();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [staff, setStaff] = useState<StaffUser | null>(null);
   const [loginRole, setLoginRole] = useState<'doctor' | 'staff'>('doctor');
@@ -471,13 +471,19 @@ export default function App() {
         : 'Tüm adımlar uygulama içinde tamamlanır; site sayfası açılmaz.';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: L.safeTop }]}>
       <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: L.footerPad + 32 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.hero}>
             <View style={styles.heroOrbOne} />
             <View style={styles.heroOrbTwo} />
@@ -620,14 +626,15 @@ export default function App() {
           )}
 
           <Text style={styles.footerText}>Randevu Ajandam ile kliniğiniz her zaman yanınızda.</Text>
-          <LegalLinks tone="light" showKvkk style={{ marginBottom: 28, marginTop: 4 }} />
+          <LegalLinks tone="light" showKvkk style={{ marginBottom: 12, marginTop: 4 }} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 function IntroScreen({ onComplete }: { onComplete: () => void }) {
+  const L = useLayout();
   const sceneOpacity = useSharedValue(0);
   const sceneScale = useSharedValue(1.04);
 
@@ -861,7 +868,7 @@ function IntroScreen({ onComplete }: { onComplete: () => void }) {
           </View>
         </View>
 
-        <Animated.View style={[styles.introTrack, trackStyle]}>
+        <Animated.View style={[styles.introTrack, trackStyle, { bottom: L.footerPad + 28 }]}>
           <Animated.View style={[styles.introTrackHighlight, trackHighlightStyle]} />
         </Animated.View>
       </Animated.View>
@@ -1409,7 +1416,16 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   const listToRender = isOverview ? overviewList : dayAppointments;
 
   const bottomNav = (
-    <View style={[styles.bottomNavWrap, { paddingBottom: Math.max(L.safeBottom - 4, 8), paddingHorizontal: Math.max(L.padX - 8, 8) }]}>
+    <View
+      style={[
+        styles.bottomNavWrap,
+        {
+          // Never reduce system inset — Android 3-button nav sits under this
+          paddingBottom: L.footerPad,
+          paddingHorizontal: Math.max(L.padX - 8, 8),
+        },
+      ]}
+    >
       <View style={[styles.bottomNav, { minHeight: L.btnHeight + 14 }]}>
         <Pressable style={styles.bottomNavItem} onPress={() => setScreen('overview')}>
           <View style={[styles.bottomNavIconShell, isOverview && styles.bottomNavIconShellActive]}>
@@ -3681,7 +3697,8 @@ const styles = StyleSheet.create({
   modalBody: {
     paddingHorizontal: 20,
     paddingTop: 14,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    // Android system nav — extra space for sheet actions
+    paddingBottom: Platform.OS === 'ios' ? 36 : 48,
   },
   modalLabel: { color: '#AEBECD', fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 8 },
   modalHint: { color: '#94A7B9', fontSize: 13, lineHeight: 19, marginBottom: 8 },

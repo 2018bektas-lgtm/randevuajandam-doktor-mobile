@@ -135,24 +135,26 @@ export async function registerForPushNotificationsDetailed(): Promise<PushRegist
     }
 
     if (Platform.OS === 'android') {
+      // Kilit ekranı + heads-up: MAX + public lockscreen
+      const channelBase = {
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250] as number[],
+        lightColor: '#F58A45',
+        sound: 'default' as const,
+        enableVibrate: true,
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: false,
+      };
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Randevu Ajandam',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#F58A45',
-        sound: 'default',
-        enableVibrate: true,
-        showBadge: true,
+        ...channelBase,
       });
-      // High-priority channel for appointment alerts
+      // Sunucu Expo payload: channelId = "randevu" (ExpoPushService)
       await Notifications.setNotificationChannelAsync('randevu', {
         name: 'Randevular',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#F58A45',
-        sound: 'default',
-        enableVibrate: true,
-        showBadge: true,
+        description: 'Yeni randevu ve iptal bildirimleri',
+        ...channelBase,
       });
     }
 
@@ -171,7 +173,7 @@ export async function registerForPushNotificationsDetailed(): Promise<PushRegist
         reason: 'token_failed',
         detail:
           msg.includes('Firebase') || msg.includes('FCM') || msg.includes('fcm')
-            ? 'Android FCM kimlik bilgisi EAS’e yüklenmemiş. Expo dashboard → Credentials → FCM.'
+            ? 'Android FCM kimlik bilgisi EAS’e yüklenmemiş. Expo dashboard → Credentials → FCM V1 JSON yükle, sonra yeni APK build al.'
             : msg,
       };
     }
@@ -180,26 +182,26 @@ export async function registerForPushNotificationsDetailed(): Promise<PushRegist
       return { ok: false, token: null, reason: 'token_failed', detail: 'Boş token' };
     }
 
-    const role = await getAuthRole();
-    const path = role === 'staff' ? '/staff/auth/device' : '/doctor/auth/device';
-    const body = {
-      push_token: token,
-      platform: Platform.OS === 'ios' ? 'ios' : 'android',
-      provider: 'expo',
-      device_name: Device.modelName ?? Device.deviceName ?? 'mobile',
-      app_version: Constants.expoConfig?.version ?? '1.0.0',
-    };
-
-    try {
-      await apiPost(path, body);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'API hatası';
+    const save = await savePushTokenToServer(token);
+    if (!save.ok) {
       return {
         ok: false,
         token,
         reason: 'api_failed',
-        detail: `Token alındı ama sunucuya yazılamadı: ${msg}. Site deploy / migration kontrol edin.`,
+        detail: save.detail,
       };
+    }
+
+    // Token yenilenince (FCM rotate) sunucuyu güncelle — onTokenRefresh karşılığı
+    try {
+      Notifications.addPushTokenListener((ev) => {
+        const next = typeof ev.data === 'string' ? ev.data : null;
+        if (next) {
+          void savePushTokenToServer(next);
+        }
+      });
+    } catch {
+      /* ignore */
     }
 
     return { ok: true, token, reason: 'ok' };
@@ -209,6 +211,29 @@ export async function registerForPushNotificationsDetailed(): Promise<PushRegist
       token: null,
       reason: 'token_failed',
       detail: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+async function savePushTokenToServer(token: string): Promise<{ ok: boolean; detail?: string }> {
+  const role = await getAuthRole();
+  const path = role === 'staff' ? '/staff/auth/device' : '/doctor/auth/device';
+  const body = {
+    push_token: token,
+    platform: Platform.OS === 'ios' ? 'ios' : 'android',
+    provider: 'expo',
+    device_name: Device.modelName ?? Device.deviceName ?? 'mobile',
+    app_version: Constants.expoConfig?.version ?? '1.0.0',
+  };
+
+  try {
+    await apiPost(path, body);
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'API hatası';
+    return {
+      ok: false,
+      detail: `Token alındı ama sunucuya yazılamadı: ${msg}. Site deploy / migration kontrol edin.`,
     };
   }
 }

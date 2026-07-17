@@ -60,7 +60,7 @@ export function AppChrome({
             {
               paddingHorizontal: L.padX,
               paddingTop: L.space.sm,
-              paddingBottom: bottomNav ? L.space.xs : L.safeBottom,
+              paddingBottom: bottomNav ? L.space.xs : L.footerPad,
             },
           ]}
         >
@@ -69,7 +69,7 @@ export function AppChrome({
       ) : null}
 
       {bottomNav ? (
-        <View style={{ paddingBottom: L.safeBottom, backgroundColor: bg }}>{bottomNav}</View>
+        <View style={{ paddingBottom: L.footerPad, backgroundColor: bg }}>{bottomNav}</View>
       ) : null}
     </View>
   );

@@ -162,7 +162,7 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
         {tab === 'odemeler' && yetki.odeme ? <StaffPayments /> : null}
       </View>
 
-      <View style={[st.tabBarWrap, { paddingBottom: L.safeBottom, paddingHorizontal: L.padX - 6 }]}>
+      <View style={[st.tabBarWrap, { paddingBottom: L.footerPad, paddingHorizontal: L.padX - 6 }]}>
         <View style={[st.tabBar, { minHeight: L.btnHeight + 12 }]}>
           {tabs.map((t) => {
             const active = tab === t.id;
@@ -238,7 +238,7 @@ function ForcePasswordScreen({
         contentContainerStyle={{
           padding: L.padX,
           paddingTop: L.safeTop + 36,
-          paddingBottom: L.safeBottom + 24,
+          paddingBottom: L.footerPad + 24,
         }}
       >
         <Text style={st.forceTitle}>Yeni şifre belirleyin</Text>

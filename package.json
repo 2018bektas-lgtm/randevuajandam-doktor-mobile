@@ -1,7 +1,7 @@
 {
   "name": "randevuajandam-doktor-mobile",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "index.tsx",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.5",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -19,6 +19,7 @@
     "react-native": "0.86.0",
     "react-native-purchases": "^10.4.3",
     "react-native-reanimated": "4.5.0",
+    "react-native-safe-area-context": "~5.7.0",
     "react-native-web": "^0.21.2",
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.10.0"

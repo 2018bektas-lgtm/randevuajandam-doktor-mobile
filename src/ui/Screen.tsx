@@ -77,6 +77,7 @@ export function ScreenShell({
     </View>
   );
 
+  // Clears sticky bottom tabs + Android system navigation
   const bottomPad = L.scrollBottom;
 
   return (
