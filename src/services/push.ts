@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import { apiPost } from '../api/client';
+import { apiPost, getAuthRole } from '../api/client';
 
 /**
  * Expo Go (SDK 53+) removes Android remote push from expo-notifications and
@@ -26,7 +26,6 @@ function getNotifications(): NotificationsModule | null {
     return null;
   }
   try {
-    // Lazy require — avoid evaluating expo-notifications on Expo Go Android.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     notificationsModule = require('expo-notifications') as NotificationsModule;
     return notificationsModule;
@@ -61,10 +60,38 @@ function ensureHandler() {
 }
 
 /**
- * Request permissions and register Expo push token with the API.
- * No-ops on web, Expo Go Android, or when native module is unavailable.
+ * Safe permission-only request (onboarding / settings).
+ * Never throws; returns skipped on Expo Go Android / web / missing module.
  */
-export async function registerForPushNotifications(): Promise<string | null> {
+export async function requestNotificationPermission(): Promise<
+  'granted' | 'denied' | 'skipped'
+> {
+  if (Platform.OS === 'web') {
+    return 'skipped';
+  }
+  if (isExpoGo() && Platform.OS === 'android') {
+    return 'skipped';
+  }
+
+  const Notifications = getNotifications();
+  if (!Notifications) {
+    return 'skipped';
+  }
+
+  try {
+    ensureHandler();
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    if (existing === 'granted') {
+      return 'granted';
+    }
+    const { status } = await Notifications.requestPermissionsAsync();
+    return status === 'granted' ? 'granted' : 'denied';
+  } catch {
+    return 'skipped';
+  }
+}
+
+async function obtainExpoPushToken(): Promise<string | null> {
   if (Platform.OS === 'web') {
     return null;
   }
@@ -105,21 +132,72 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const tokenResponse = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined,
     );
-    const token = tokenResponse.data;
-    if (!token) {
-      return null;
-    }
-
-    await apiPost('/doctor/auth/device', {
-      push_token: token,
-      platform: Platform.OS === 'ios' ? 'ios' : 'android',
-      provider: 'expo',
-      device_name: Device.modelName ?? Device.deviceName ?? 'mobile',
-      app_version: Constants.expoConfig?.version ?? '1.0.0',
-    });
-
-    return token;
+    return tokenResponse.data || null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Register Expo push token with doctor or staff API (based on auth role).
+ */
+export async function registerForPushNotifications(): Promise<string | null> {
+  const token = await obtainExpoPushToken();
+  if (!token) {
+    return null;
+  }
+
+  const role = await getAuthRole();
+  const path = role === 'staff' ? '/staff/auth/device' : '/doctor/auth/device';
+  const body = {
+    push_token: token,
+    platform: Platform.OS === 'ios' ? 'ios' : 'android',
+    provider: 'expo',
+    device_name: Device.modelName ?? Device.deviceName ?? 'mobile',
+    app_version: Constants.expoConfig?.version ?? '1.0.0',
+  };
+
+  try {
+    await apiPost(path, body);
+  } catch {
+    /* offline / endpoint missing — token still obtained */
+  }
+
+  return token;
+}
+
+export type NotificationOpenPayload = {
+  screen?: string;
+  appointment_id?: number | string;
+  url?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Listen for notification taps → navigate (deep link style data.screen).
+ * Returns unsubscribe. No-op if notifications module unavailable.
+ */
+export function addNotificationResponseListener(
+  onOpen: (data: NotificationOpenPayload) => void,
+): () => void {
+  const Notifications = getNotifications();
+  if (!Notifications) {
+    return () => undefined;
+  }
+  try {
+    ensureHandler();
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = (response.notification.request.content.data ?? {}) as NotificationOpenPayload;
+      onOpen(data);
+    });
+    return () => {
+      try {
+        sub.remove();
+      } catch {
+        /* ignore */
+      }
+    };
+  } catch {
+    return () => undefined;
   }
 }

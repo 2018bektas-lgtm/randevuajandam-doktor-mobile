@@ -6,9 +6,27 @@ import { enqueueMutation, getMutationQueue, setMutationQueue } from './mutationQ
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'https://randevuajandam.com/api/mobile/v1';
 
-export const SITE_URL = API_URL.replace(/\/api\/mobile\/v1$/, '');
+/** Public website origin (legal pages, marketing). */
+export const SITE_URL = (() => {
+  const raw = (API_URL || '').replace(/\/+$/, '');
+  const stripped = raw.replace(/\/api\/mobile\/v\d+$/i, '');
+  if (stripped && stripped !== raw) return stripped;
+  try {
+    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return 'https://randevuajandam.com';
+  }
+})();
 
-const TOKEN_KEY = 'randevuajandam.doctor.token';
+const DOCTOR_TOKEN_KEY = 'randevuajandam.doctor.token';
+const STAFF_TOKEN_KEY = 'randevuajandam.staff.token';
+const AUTH_ROLE_KEY = 'randevuajandam.auth.role';
+
+/** @deprecated use DOCTOR_TOKEN_KEY — kept for any external refs */
+const TOKEN_KEY = DOCTOR_TOKEN_KEY;
+
+export type AuthRole = 'doctor' | 'staff';
 
 export type ApiResponse<T = unknown> = {
   success: boolean;
@@ -18,6 +36,42 @@ export type ApiResponse<T = unknown> = {
   /** true when response served from local cache after network failure */
   fromCache?: boolean;
 };
+
+async function storageGet(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  }
+  return SecureStore.getItemAsync(key);
+}
+
+async function storageSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+    return;
+  }
+  await SecureStore.setItemAsync(key, value);
+}
+
+async function storageRemove(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
+}
+
+export async function getAuthRole(): Promise<AuthRole | null> {
+  const r = await storageGet(AUTH_ROLE_KEY);
+  return r === 'staff' || r === 'doctor' ? r : null;
+}
+
+export async function setAuthRole(role: AuthRole | null): Promise<void> {
+  if (!role) {
+    await storageRemove(AUTH_ROLE_KEY);
+    return;
+  }
+  await storageSet(AUTH_ROLE_KEY, role);
+}
 
 /** Global offline flag for UI banner (simple pub-sub). */
 let offlineListeners: Array<(v: boolean) => void> = [];
@@ -51,39 +105,61 @@ export class ApiError extends Error {
   }
 }
 
-// expo-secure-store doesn't support web — fall back to localStorage.
+// Active session token (doctor or staff based on AUTH_ROLE_KEY).
 export const tokenStore = {
   async get(): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      return typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
-    }
-    return SecureStore.getItemAsync(TOKEN_KEY);
+    const role = await getAuthRole();
+    if (role === 'staff') return storageGet(STAFF_TOKEN_KEY);
+    // default doctor (also legacy sessions without role key)
+    return storageGet(DOCTOR_TOKEN_KEY);
   },
-  async set(value: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(TOKEN_KEY, value);
-      }
+  async set(value: string, role: AuthRole = 'doctor'): Promise<void> {
+    await setAuthRole(role);
+    if (role === 'staff') {
+      await storageSet(STAFF_TOKEN_KEY, value);
       return;
     }
-    await SecureStore.setItemAsync(TOKEN_KEY, value);
+    await storageSet(DOCTOR_TOKEN_KEY, value);
   },
   async remove(): Promise<void> {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(TOKEN_KEY);
-      }
-      return;
+    const role = await getAuthRole();
+    if (role === 'staff') {
+      await storageRemove(STAFF_TOKEN_KEY);
+    } else {
+      await storageRemove(DOCTOR_TOKEN_KEY);
     }
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await setAuthRole(null);
+  },
+  async clearAll(): Promise<void> {
+    await storageRemove(DOCTOR_TOKEN_KEY);
+    await storageRemove(STAFF_TOKEN_KEY);
+    await setAuthRole(null);
+  },
+};
+
+export const staffTokenStore = {
+  async get(): Promise<string | null> {
+    return storageGet(STAFF_TOKEN_KEY);
+  },
+  async set(value: string): Promise<void> {
+    await setAuthRole('staff');
+    await storageSet(STAFF_TOKEN_KEY, value);
+  },
+  async remove(): Promise<void> {
+    await storageRemove(STAFF_TOKEN_KEY);
+    const role = await getAuthRole();
+    if (role === 'staff') await setAuthRole(null);
   },
 };
 
 async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
   const token = await tokenStore.get();
+  const role = await getAuthRole();
   return {
     Accept: 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token && role === 'staff' ? { 'X-Personel-Token': token } : {}),
+    ...(token && role !== 'staff' ? { 'X-Doktor-Token': token } : {}),
     ...extra,
   };
 }

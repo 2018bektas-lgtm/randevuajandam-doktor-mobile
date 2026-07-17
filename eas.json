@@ -11,7 +11,10 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1"
+        "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
+        "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor"
       }
     },
     "preview": {
@@ -20,7 +23,10 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1"
+        "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
+        "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor"
       }
     },
     "production": {
@@ -28,7 +34,10 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1"
+        "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
+        "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor"
       }
     }
   },

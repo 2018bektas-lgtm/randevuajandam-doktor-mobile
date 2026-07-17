@@ -1,4 +1,3 @@
-import * as SecureStore from 'expo-secure-store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
@@ -25,7 +24,6 @@ import Animated, {
   Easing,
   interpolate,
   runOnJS,
-  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -34,45 +32,35 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Button, Card, TextField } from './src/components';
-import { apiGet, flushMutationQueue, subscribeOffline } from './src/api/client';
+import { Button, Card, TextField, SelectField, VideoCallModal } from './src/components';
+import { LegalLinks } from './src/components/LegalLinks';
+import { DateField, TimeField } from './src/components/DateTimeFields';
+import {
+  apiGet,
+  apiPost,
+  flushMutationQueue,
+  getAuthRole,
+  subscribeOffline,
+  tokenStore,
+} from './src/api/client';
 import { ScreenId } from './src/navigation/types';
+import { AuthFlows, AuthMode } from './src/screens/AuthFlows';
 import { MODULE_SCREENS } from './src/screens/Modules';
-import { registerForPushNotifications } from './src/services/push';
+import {
+  isOnboardingDone,
+  OnboardingScreen,
+} from './src/screens/Onboarding';
+import { StaffApp, StaffUser } from './src/screens/StaffApp';
+import {
+  addNotificationResponseListener,
+  registerForPushNotifications,
+} from './src/services/push';
+import { applyPendingPackageAfterAuth, loginPurchasesUser } from './src/services/iap';
 import { colors } from './src/theme';
+import { useLayout } from './src/layout';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://randevuajandam.com/api/mobile/v1';
 const SITE_URL = API_URL.replace(/\/api\/mobile\/v1$/, '');
-const TOKEN_KEY = 'randevuajandam.doctor.token';
-
-// expo-secure-store doesn't support web (see Expo SDK docs: platforms are
-// android/ios/tvos/expo-go only), so fall back to localStorage there.
-const tokenStore = {
-  async get(): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      return typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
-    }
-    return SecureStore.getItemAsync(TOKEN_KEY);
-  },
-  async set(value: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(TOKEN_KEY, value);
-      }
-      return;
-    }
-    await SecureStore.setItemAsync(TOKEN_KEY, value);
-  },
-  async remove(): Promise<void> {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(TOKEN_KEY);
-      }
-      return;
-    }
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-  },
-};
 
 type Doctor = {
   id: number;
@@ -97,15 +85,93 @@ type LoginResponse = {
 
 export default function App() {
   const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [staff, setStaff] = useState<StaffUser | null>(null);
+  const [loginRole, setLoginRole] = useState<'doctor' | 'staff'>('doctor');
   const [isRestoring, setIsRestoring] = useState(true);
   const [introComplete, setIntroComplete] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingReady, setOnboardingReady] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [twoFactorToken, setTwoFactorToken] = useState<string | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
   const completeIntro = useCallback(() => setIntroComplete(true), []);
+
+  useEffect(() => {
+    if (!introComplete || isRestoring) return;
+    // Gerçek oturum varsa tanıtım yok
+    if (doctor || staff) {
+      setShowOnboarding(false);
+      setOnboardingReady(true);
+      return;
+    }
+    void (async () => {
+      try {
+        const done = await isOnboardingDone();
+        // Misafir + tur bitmemiş → tanıtım (Başla / Zaten hesabım var)
+        setShowOnboarding(!done);
+      } catch {
+        setShowOnboarding(true);
+      } finally {
+        setOnboardingReady(true);
+      }
+    })();
+  }, [introComplete, isRestoring, doctor, staff]);
+
+  const applyPendingPackage = useCallback(async (doktorId?: number | null) => {
+    try {
+      if (doktorId) {
+        void loginPurchasesUser(doktorId);
+      }
+      const result = await applyPendingPackageAfterAuth(async (path, body) => {
+        return apiPost(path, body ?? {});
+      }, doktorId);
+      if (!result.applied || result.action === 'none') {
+        return;
+      }
+      if (result.action === 'free_activated') {
+        Alert.alert('Paket aktif', result.message ?? 'Ücretsiz paket aktifleştirildi.');
+        return;
+      }
+      if (result.action === 'klinik_preference') {
+        Alert.alert('Klinik paket tercihi', result.message ?? '');
+        return;
+      }
+      if (result.action === 'open_packages' || result.action === 'preferred_saved') {
+        // WelcomeScreen mounts after login — request packages screen via AsyncStorage flag
+        try {
+          const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+          await AsyncStorage.setItem('randevuajandam.nav.after.login', 'packages');
+        } catch {
+          /* ignore */
+        }
+        Alert.alert('Paket seçiminiz', result.message ?? 'Paketler ekranından devam edin.', [
+          { text: 'Tamam' },
+        ]);
+        return;
+      }
+      if (result.action === 'error' && result.message) {
+        Alert.alert('Paket', result.message);
+      }
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
+
+  const handleRegistered = useCallback(
+    async (token: string, doktor: Doctor) => {
+      await tokenStore.set(token, 'doctor');
+      setStaff(null);
+      setDoctor(doktor);
+      setAuthMode('login');
+      void registerForPushNotifications();
+      void applyPendingPackage(doktor.id);
+    },
+    [applyPendingPackage],
+  );
 
   useEffect(() => {
     void restoreSession();
@@ -113,24 +179,65 @@ export default function App() {
 
   async function restoreSession() {
     try {
+      const role = await getAuthRole();
       const token = await tokenStore.get();
+
+      // Kayıtlı oturum yok → misafir (tanıtım / giriş). Eski token kalıntısını temizle.
       if (!token) {
+        await tokenStore.clearAll();
+        setDoctor(null);
+        setStaff(null);
         return;
       }
 
-      const response = await fetch(`${API_URL}/doctor/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const payload = await response.json();
+      if (role === 'staff') {
+        try {
+          const response = await fetch(`${API_URL}/staff/auth/me`, {
+            headers: { Authorization: `Bearer ${token}`, 'X-Personel-Token': token },
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (response.ok && payload.success && payload.data?.id) {
+            setStaff(payload.data as StaffUser);
+            setDoctor(null);
+            void registerForPushNotifications();
+            return;
+          }
+          // Only clear on explicit auth failure (401/403), not network/JSON glitches
+          if (response.status === 401 || response.status === 403) {
+            await tokenStore.clearAll();
+            setStaff(null);
+            setDoctor(null);
+          }
+          return;
+        } catch {
+          // Network offline — keep token, stay logged-out UI only for this session attempt
+          return;
+        }
+      }
 
-      if (response.ok && payload.success) {
-        setDoctor(payload.data as Doctor);
-        void registerForPushNotifications();
-      } else {
-        await tokenStore.remove();
+      // role doctor veya eski kurulum (role yok ama doctor token var)
+      try {
+        const response = await fetch(`${API_URL}/doctor/auth/me`, {
+          headers: { Authorization: `Bearer ${token}`, 'X-Doktor-Token': token },
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (response.ok && payload.success && payload.data?.id && payload.data?.e_posta) {
+          setDoctor(payload.data as Doctor);
+          setStaff(null);
+          void registerForPushNotifications();
+          return;
+        }
+        if (response.status === 401 || response.status === 403) {
+          await tokenStore.clearAll();
+          setDoctor(null);
+          setStaff(null);
+        }
+      } catch {
+        // Offline: do not wipe SecureStore tokens
       }
     } catch {
-      await tokenStore.remove();
+      // Unexpected — do not clear session on generic errors
     } finally {
       setIsRestoring(false);
     }
@@ -146,6 +253,29 @@ export default function App() {
     setErrorMessage(null);
 
     try {
+      if (loginRole === 'staff') {
+        const response = await fetch(`${API_URL}/staff/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            e_posta: email.trim().toLowerCase(),
+            sifre: password,
+            device: `Randevu Ajandam Personel (${Platform.OS})`,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.success || !payload.data?.token || !payload.data?.personel) {
+          setErrorMessage(payload.message ?? 'Personel girişi yapılamadı.');
+          return;
+        }
+        await tokenStore.set(payload.data.token, 'staff');
+        setStaff(payload.data.personel as StaffUser);
+        setDoctor(null);
+        setPassword('');
+        void registerForPushNotifications();
+        return;
+      }
+
       const response = await fetch(`${API_URL}/doctor/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -176,11 +306,13 @@ export default function App() {
         return;
       }
 
-      await tokenStore.set(payload.data.token);
+      await tokenStore.set(payload.data.token, 'doctor');
       setDoctor(payload.data.doktor);
+      setStaff(null);
       setPassword('');
       setTwoFactorToken(null);
       void registerForPushNotifications();
+      void applyPendingPackage(payload.data.doktor.id);
     } catch {
       setErrorMessage('Sunucuya ulaşılamadı. İnternet bağlantınızı ve uygulama ayarını kontrol edin.');
     } finally {
@@ -213,11 +345,13 @@ export default function App() {
         setErrorMessage(payload.message ?? 'Doğrulama kodu hatalı.');
         return;
       }
-      await tokenStore.set(payload.data.token);
+      await tokenStore.set(payload.data.token, 'doctor');
       setDoctor(payload.data.doktor);
+      setStaff(null);
       setTwoFactorToken(null);
       setTwoFactorCode('');
       void registerForPushNotifications();
+      void applyPendingPackage(payload.data.doktor.id);
     } catch {
       setErrorMessage('Sunucuya ulaşılamadı.');
     } finally {
@@ -227,16 +361,29 @@ export default function App() {
 
   async function signOut() {
     const token = await tokenStore.get();
+    const role = await getAuthRole();
     try {
       if (token) {
-        await fetch(`${API_URL}/doctor/auth/logout`, {
+        const path = role === 'staff' ? '/staff/auth/logout' : '/doctor/auth/logout';
+        await fetch(`${API_URL}${path}`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(role === 'staff' ? { 'X-Personel-Token': token } : {}),
+          },
         });
       }
     } finally {
-      await tokenStore.remove();
+      await tokenStore.clearAll();
       setDoctor(null);
+      setStaff(null);
+      // Çıkış sonrası misafir: tanıtım bitmişse login, bitmemişse tur
+      try {
+        const done = await isOnboardingDone();
+        setShowOnboarding(!done);
+      } catch {
+        setShowOnboarding(true);
+      }
     }
   }
 
@@ -248,9 +395,60 @@ export default function App() {
     return <LoadingScreen />;
   }
 
+  // Logged-in users skip onboarding tour
+  if (staff) {
+    return (
+      <StaffApp
+        staff={staff}
+        onStaffUpdated={setStaff}
+        onSignOut={signOut}
+      />
+    );
+  }
+
   if (doctor) {
     return <WelcomeScreen doctor={doctor} onSignOut={signOut} />;
   }
+
+  if (!onboardingReady) {
+    return <LoadingScreen />;
+  }
+
+  if (showOnboarding) {
+    return (
+      <OnboardingScreen
+        onFinish={(mode) => {
+          setShowOnboarding(false);
+          setLoginRole('doctor');
+          if (mode === 'register') {
+            setAuthMode('register');
+          } else if (mode === 'packages') {
+            // Kullanıcı paket linkine gitti; girişe dönsün
+            setAuthMode('login');
+          } else {
+            setAuthMode('login');
+          }
+        }}
+      />
+    );
+  }
+
+  const heroTitle =
+    twoFactorToken
+      ? 'Doğrulama'
+      : authMode === 'forgot'
+        ? 'Şifre sıfırlama'
+        : authMode === 'register'
+          ? 'Hekim kayıt'
+          : authMode === 'reset'
+            ? 'Yeni şifre'
+            : 'İyi çalışmalar.';
+  const heroDesc =
+    twoFactorToken
+      ? 'Authenticator uygulamanızdaki 6 haneli kodu veya yedek kodunuzu girin.'
+      : authMode === 'login'
+        ? 'Takviminiz, hastalarınız ve kliniğiniz avucunuzda.'
+        : 'Tüm adımlar uygulama içinde tamamlanır; site sayfası açılmaz.';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -266,7 +464,7 @@ export default function App() {
             <View style={styles.brandRow}>
               <View style={styles.logoShell}>
                 <Image
-                  source={{ uri: `${SITE_URL}/assets/images/logo.png` }}
+                  source={require('./assets/logo.png')}
                   style={styles.logoImage}
                   accessibilityLabel="Randevu Ajandam"
                 />
@@ -276,101 +474,133 @@ export default function App() {
                 <Text style={styles.brandSubtitle}>DOKTOR UYGULAMASI</Text>
               </View>
             </View>
-            <Text style={styles.welcome}>{twoFactorToken ? 'Doğrulama' : 'İyi çalışmalar.'}</Text>
-            <Text style={styles.heroDescription}>
-              {twoFactorToken
-                ? 'Authenticator uygulamanızdaki 6 haneli kodu veya yedek kodunuzu girin.'
-                : 'Takviminiz, hastalarınız ve kliniğiniz avucunuzda.'}
-            </Text>
+            <Text style={styles.welcome}>{heroTitle}</Text>
+            <Text style={styles.heroDescription}>{heroDesc}</Text>
           </View>
 
-          <Card style={styles.formCard}>
-            {twoFactorToken ? (
-              <>
-                <Text style={styles.formTitle}>İki adımlı doğrulama</Text>
-                <Text style={styles.formDescription}>Hesabınız 2FA ile korunuyor.</Text>
-                <TextField
-                  autoCapitalize="none"
-                  keyboardType="default"
-                  label="Doğrulama kodu"
-                  onChangeText={setTwoFactorCode}
-                  onSubmitEditing={verifyTwoFactor}
-                  placeholder="123456 veya yedek kod"
-                  value={twoFactorCode}
-                />
-                {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
-                <Button
-                  disabled={isSubmitting}
-                  label="Doğrula ve giriş yap"
-                  loading={isSubmitting}
-                  onPress={verifyTwoFactor}
-                  style={styles.signInButton}
-                />
-                <Pressable
-                  onPress={() => {
-                    setTwoFactorToken(null);
-                    setTwoFactorCode('');
-                    setErrorMessage(null);
-                  }}
-                >
-                  <Text style={styles.forgotPassword}>Geri dön</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-            <Text style={styles.formTitle}>Hesabınıza giriş yapın</Text>
-            <Text style={styles.formDescription}>Doktor panelinize güvenle erişin.</Text>
+          {authMode !== 'login' && !twoFactorToken && loginRole === 'doctor' ? (
+            <AuthFlows mode={authMode} onChangeMode={setAuthMode} onRegistered={handleRegistered} />
+          ) : (
+            <Card style={styles.formCard}>
+              {twoFactorToken ? (
+                <>
+                  <Text style={styles.formTitle}>İki adımlı doğrulama</Text>
+                  <Text style={styles.formDescription}>Hesabınız 2FA ile korunuyor.</Text>
+                  <TextField
+                    autoCapitalize="none"
+                    keyboardType="default"
+                    label="Doğrulama kodu"
+                    onChangeText={setTwoFactorCode}
+                    onSubmitEditing={verifyTwoFactor}
+                    placeholder="123456 veya yedek kod"
+                    value={twoFactorCode}
+                  />
+                  {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
+                  <Button
+                    disabled={isSubmitting}
+                    label="Doğrula ve giriş yap"
+                    loading={isSubmitting}
+                    onPress={verifyTwoFactor}
+                    style={styles.signInButton}
+                  />
+                  <Pressable
+                    onPress={() => {
+                      setTwoFactorToken(null);
+                      setTwoFactorCode('');
+                      setErrorMessage(null);
+                    }}
+                  >
+                    <Text style={styles.forgotPassword}>Geri dön</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <View style={styles.loginRoleRow}>
+                    <Pressable
+                      style={[styles.loginRoleBtn, loginRole === 'doctor' && styles.loginRoleBtnOn]}
+                      onPress={() => {
+                        setLoginRole('doctor');
+                        setErrorMessage(null);
+                        setAuthMode('login');
+                      }}
+                    >
+                      <Text style={[styles.loginRoleText, loginRole === 'doctor' && styles.loginRoleTextOn]}>Hekim</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.loginRoleBtn, loginRole === 'staff' && styles.loginRoleBtnOn]}
+                      onPress={() => {
+                        setLoginRole('staff');
+                        setErrorMessage(null);
+                        setAuthMode('login');
+                        setTwoFactorToken(null);
+                      }}
+                    >
+                      <Text style={[styles.loginRoleText, loginRole === 'staff' && styles.loginRoleTextOn]}>Personel</Text>
+                    </Pressable>
+                  </View>
 
-            <TextField
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              label="E-posta adresi"
-              onChangeText={setEmail}
-              placeholder="ornek@klinigim.com"
-              textContentType="username"
-              value={email}
-            />
+                  <Text style={styles.formTitle}>
+                    {loginRole === 'staff' ? 'Personel girişi' : 'Hesabınıza giriş yapın'}
+                  </Text>
+                  <Text style={styles.formDescription}>
+                    {loginRole === 'staff'
+                      ? 'Klinik sekreter / resepsiyon / muhasebe hesabınızla giriş yapın.'
+                      : 'Doktor panelinize güvenle erişin.'}
+                  </Text>
 
-            <TextField
-              autoComplete="current-password"
-              label="Şifre"
-              onChangeText={setPassword}
-              onSubmitEditing={signIn}
-              placeholder="Şifrenizi girin"
-              secureToggle
-              textContentType="password"
-              value={password}
-            />
+                  <TextField
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    label="E-posta adresi"
+                    onChangeText={setEmail}
+                    placeholder="ornek@klinigim.com"
+                    textContentType="username"
+                    value={email}
+                  />
 
-            {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
+                  <TextField
+                    autoComplete="current-password"
+                    label="Şifre"
+                    onChangeText={setPassword}
+                    onSubmitEditing={signIn}
+                    placeholder="Şifrenizi girin"
+                    secureToggle
+                    textContentType="password"
+                    value={password}
+                  />
 
-            <Button
-              disabled={isSubmitting}
-              label="Giriş yap"
-              loading={isSubmitting}
-              onPress={signIn}
-              style={styles.signInButton}
-            />
+                  {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
 
-            <Pressable onPress={() => void Linking.openURL(`${SITE_URL}/sifremi-unuttum`)}>
-              <Text style={styles.forgotPassword}>Şifremi unuttum</Text>
-            </Pressable>
-            <Pressable onPress={() => void Linking.openURL(`${SITE_URL}/hekim/kayit-ol`)}>
-              <Text style={[styles.forgotPassword, { marginTop: 10 }]}>Hekim olarak kayıt ol</Text>
-            </Pressable>
-            <Pressable onPress={() => void Linking.openURL(`${SITE_URL}/hekim/paket-sec`)}>
-              <Text style={[styles.forgotPassword, { marginTop: 10 }]}>Paket seç / yükselt (web)</Text>
-            </Pressable>
+                  <Button
+                    disabled={isSubmitting}
+                    label={loginRole === 'staff' ? 'Personel paneline gir' : 'Giriş yap'}
+                    loading={isSubmitting}
+                    onPress={signIn}
+                    style={styles.signInButton}
+                  />
 
-            <Pressable onPress={() => void Linking.openURL(`${SITE_URL}/sifremi-unuttum`)}>
-              <Text style={styles.forgotPassword}>Şifremi unuttum</Text>
-            </Pressable>
-              </>
-            )}
-          </Card>
+                  {loginRole === 'doctor' ? (
+                    <>
+                      <Pressable onPress={() => setAuthMode('forgot')}>
+                        <Text style={styles.forgotPassword}>Şifremi unuttum</Text>
+                      </Pressable>
+                      <Pressable onPress={() => setAuthMode('register')}>
+                        <Text style={[styles.forgotPassword, { marginTop: 10 }]}>Hekim olarak kayıt ol</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Text style={[styles.forgotPassword, { marginTop: 18 }]}>
+                      Personel hesabı klinik yöneticiniz tarafından oluşturulur.
+                    </Text>
+                  )}
+                </>
+              )}
+            </Card>
+          )}
 
           <Text style={styles.footerText}>Randevu Ajandam ile kliniğiniz her zaman yanınızda.</Text>
+          <LegalLinks tone="light" showKvkk style={{ marginBottom: 28, marginTop: 4 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -516,19 +746,34 @@ function IntroScreen({ onComplete }: { onComplete: () => void }) {
     transform: [{ translateX: interpolate(shimmerX.value, [-1, 1], [-130, 130]) }, { rotate: '18deg' }],
   }));
 
-  const particleStyle = (value: SharedValue<number>, driftX: number) =>
-    useAnimatedStyle(() => ({
-      opacity: interpolate(value.value, [0, 0.25, 0.75, 1], [0, 0.9, 0.35, 0]),
-      transform: [
-        { translateY: interpolate(value.value, [0, 1], [16, -34]) },
-        { translateX: interpolate(value.value, [0, 1], [0, driftX]) },
-        { scale: interpolate(value.value, [0, 1], [0.3, 1.15]) },
-        { rotate: `${interpolate(value.value, [0, 1], [0, 55])}deg` },
-      ],
-    }));
-  const particle1Style = particleStyle(particle1, -14);
-  const particle2Style = particleStyle(particle2, 10);
-  const particle3Style = particleStyle(particle3, -20);
+  // Hooks must stay at component top-level (not inside a helper).
+  const particle1Style = useAnimatedStyle(() => ({
+    opacity: interpolate(particle1.value, [0, 0.25, 0.75, 1], [0, 0.9, 0.35, 0]),
+    transform: [
+      { translateY: interpolate(particle1.value, [0, 1], [16, -34]) },
+      { translateX: interpolate(particle1.value, [0, 1], [0, -14]) },
+      { scale: interpolate(particle1.value, [0, 1], [0.3, 1.15]) },
+      { rotate: `${interpolate(particle1.value, [0, 1], [0, 55])}deg` },
+    ],
+  }));
+  const particle2Style = useAnimatedStyle(() => ({
+    opacity: interpolate(particle2.value, [0, 0.25, 0.75, 1], [0, 0.9, 0.35, 0]),
+    transform: [
+      { translateY: interpolate(particle2.value, [0, 1], [16, -34]) },
+      { translateX: interpolate(particle2.value, [0, 1], [0, 10]) },
+      { scale: interpolate(particle2.value, [0, 1], [0.3, 1.15]) },
+      { rotate: `${interpolate(particle2.value, [0, 1], [0, 55])}deg` },
+    ],
+  }));
+  const particle3Style = useAnimatedStyle(() => ({
+    opacity: interpolate(particle3.value, [0, 0.25, 0.75, 1], [0, 0.9, 0.35, 0]),
+    transform: [
+      { translateY: interpolate(particle3.value, [0, 1], [16, -34]) },
+      { translateX: interpolate(particle3.value, [0, 1], [0, -20]) },
+      { scale: interpolate(particle3.value, [0, 1], [0.3, 1.15]) },
+      { rotate: `${interpolate(particle3.value, [0, 1], [0, 55])}deg` },
+    ],
+  }));
 
   const brandStyle = useAnimatedStyle(() => ({
     opacity: brandOpacity.value,
@@ -572,7 +817,7 @@ function IntroScreen({ onComplete }: { onComplete: () => void }) {
 
             <Animated.View style={[styles.introLogoMark, logoMarkStyle]}>
               <Image
-                source={{ uri: `${SITE_URL}/assets/images/logo.png` }}
+                source={require('./assets/logo.png')}
                 style={styles.introLogoImage}
                 accessibilityLabel="Randevu Ajandam"
               />
@@ -632,6 +877,7 @@ type Appointment = {
   hekim_notu: string | null;
   online_mi?: boolean;
   join_url?: string | null;
+  join_app_url?: string | null;
   can_join?: boolean;
   platform_join_url?: string | null;
 };
@@ -740,6 +986,7 @@ function sortAppointments(list: Appointment[]): Appointment[] {
 }
 
 function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () => Promise<void> }) {
+  const L = useLayout();
   const title = [doctor.unvan, doctor.ad_soyad].filter(Boolean).join(' ');
   const specialty = doctor.branslar.join(' · ') || doctor.uzmanlik_alani || 'Doktor paneli';
   const todayKey = toDateKey(new Date());
@@ -756,10 +1003,76 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   }, []);
 
   const [screen, setScreen] = useState<ScreenId>('overview');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [deepLinkPending, setDeepLinkPending] = useState<string | null>(null);
   const isCalendar = screen === 'calendar';
   const isOverview = screen === 'overview';
+  const isProfileTab = (
+    screen === 'profile'
+    || screen === 'password'
+    || screen === 'twoFactor'
+    || screen === 'about'
+    || screen === 'website'
+    || screen === 'packages'
+  );
+  const isMenuTab = screen === 'menu';
   const isCoreHome = isOverview || isCalendar;
   const ModuleScreen = !isCoreHome ? MODULE_SCREENS[screen] : undefined;
+
+  // Onboarding paid package → open packages screen after login
+  useEffect(() => {
+    void (async () => {
+      try {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        const next = await AsyncStorage.getItem('randevuajandam.nav.after.login');
+        if (next === 'packages') {
+          await AsyncStorage.removeItem('randevuajandam.nav.after.login');
+          setScreen('packages');
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+
+  // Notification tap → navigate (data.screen / appointment_id)
+  useEffect(() => {
+    return addNotificationResponseListener((data) => {
+      const s = String(data.screen ?? data.url ?? '').toLowerCase();
+      if (s.includes('package') || s.includes('paket')) {
+        setScreen('packages');
+      } else if (s.includes('request') || s.includes('talep')) {
+        setScreen('requests');
+      } else if (s.includes('patient') || s.includes('hasta')) {
+        setScreen('patients');
+      } else if (s.includes('notif')) {
+        setScreen('notifications');
+      } else if (s.includes('calendar') || s.includes('takvim') || s.includes('appointment') || s.includes('randevu')) {
+        setScreen('calendar');
+        const apptId = Number(data.appointment_id ?? data.id);
+        if (apptId) {
+          setDeepLinkPending(String(apptId));
+        }
+      } else if (data.appointment_id) {
+        setScreen('calendar');
+        setDeepLinkPending(String(data.appointment_id));
+      } else {
+        setScreen('notifications');
+      }
+    });
+  }, []);
+
+  const handleModuleBack = useCallback(() => {
+    if (screen === 'menu' || screen === 'profile' || screen === 'notifications') {
+      setScreen('overview');
+      return;
+    }
+    if (isProfileTab) {
+      setScreen('profile');
+      return;
+    }
+    setScreen('menu');
+  }, [isProfileTab, screen]);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [calendarMode, setCalendarMode] = useState<'week' | 'month'>('week');
   const [weekAppointments, setWeekAppointments] = useState<Appointment[]>([]);
@@ -774,16 +1087,21 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
   const [detailTarget, setDetailTarget] = useState<Appointment | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [deepLinkPending, setDeepLinkPending] = useState<string | null>(null);
   const [dashboardStats, setDashboardStats] = useState<{
     toplam_randevu?: number;
     kayitli_hasta?: number;
     bekleyen_talep?: number;
     bugun_randevu?: number;
+    bugun_tamamlanan?: number;
+    bugun_iptal?: number;
+    hafta_randevu?: number;
     bekleme_listesi?: number;
     bekleyen_davet?: number;
+    yorum_bekleyen?: number;
     randevuya_acik_mi?: boolean;
+    sonraki_randevu?: Appointment | null;
     paket?: { id?: number; ad?: string | null } | null;
+    klinik?: { id?: number; ad?: string | null; rol?: string | null } | null;
   } | null>(null);
   const [pendingInvites, setPendingInvites] = useState<
     { id: number; klinik: string; son_kullanma?: string }[]
@@ -806,6 +1124,41 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   const pendingCount = todayAppointments.filter((item) => item.durum === 'beklemede').length;
   const activeCount = todayAppointments.filter((item) => ['beklemede', 'onaylandi'].includes(item.durum)).length;
   const dayActiveCount = dayAppointments.filter((item) => ['beklemede', 'onaylandi'].includes(item.durum)).length;
+  const todayConfirmed = todayAppointments.filter((item) => item.durum === 'onaylandi').length;
+  const todayCompleted = todayAppointments.filter((item) => item.durum === 'tamamlandi').length;
+  const todayCancelled = todayAppointments.filter((item) => item.durum === 'iptal').length;
+  const bookingOpen = dashboardStats?.randevuya_acik_mi !== false;
+
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Günaydın';
+    if (h < 18) return 'İyi günler';
+    return 'İyi akşamlar';
+  })();
+
+  const todayDateLabel = new Date().toLocaleDateString('tr-TR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  const nextAppointment =
+    dashboardStats?.sonraki_randevu ??
+    sortAppointments(
+      todayAppointments.filter((item) => {
+        if (!['beklemede', 'onaylandi'].includes(item.durum)) return false;
+        const now = new Date();
+        const [hh, mm] = (item.saat || '00:00').split(':').map(Number);
+        const t = new Date();
+        t.setHours(hh || 0, mm || 0, 0, 0);
+        return t >= now;
+      }),
+    )[0] ??
+    null;
+
+  const weekStripDates = weeklyDates(todayKey);
+  const weekMaxCount = Math.max(1, ...weekStripDates.map((d) => dayCounts[d] ?? 0));
+  const weekTotalFromCounts = weekStripDates.reduce((sum, d) => sum + (dayCounts[d] ?? 0), 0);
 
   const loadToday = useCallback(async () => {
     try {
@@ -825,10 +1178,16 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         kayitli_hasta?: number;
         bekleyen_talep?: number;
         bugun_randevu?: number;
+        bugun_tamamlanan?: number;
+        bugun_iptal?: number;
+        hafta_randevu?: number;
         bekleme_listesi?: number;
         bekleyen_davet?: number;
+        yorum_bekleyen?: number;
         randevuya_acik_mi?: boolean;
+        sonraki_randevu?: Appointment | null;
         paket?: { id?: number; ad?: string | null } | null;
+        klinik?: { id?: number; ad?: string | null; rol?: string | null } | null;
       }>('/doctor/dashboard');
       if (payload.success) {
         setDashboardStats(payload.data ?? null);
@@ -843,6 +1202,17 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
       const payload = await apiGet<any[]>('/doctor/clinic/invites');
       if (payload.success) {
         setPendingInvites(payload.data ?? []);
+      }
+    } catch {
+      // soft fail
+    }
+  }, []);
+
+  const loadUnreadNotifications = useCallback(async () => {
+    try {
+      const payload = await apiGet<{ unread?: number }>('/doctor/notifications');
+      if (payload.success) {
+        setUnreadNotifications(Number(payload.data?.unread ?? 0));
       }
     } catch {
       // soft fail
@@ -882,8 +1252,15 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
       loadToday(),
       loadDashboard(),
       loadInvites(),
+      loadUnreadNotifications(),
     ]);
-  }, [loadCalendar, loadDashboard, loadInvites, loadToday, weekEnd, weekStart]);
+  }, [loadCalendar, loadDashboard, loadInvites, loadToday, loadUnreadNotifications, weekEnd, weekStart]);
+
+  useEffect(() => {
+    if (screen === 'overview' || screen === 'notifications') {
+      void loadUnreadNotifications();
+    }
+  }, [screen, loadUnreadNotifications]);
 
   useEffect(() => {
     void loadToday();
@@ -895,7 +1272,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
     void loadCalendar(weekStart, weekEnd, true);
   }, [loadCalendar, weekStart, weekEnd]);
 
-  // Deep links: randevuajandam-doktor://calendar | menu | appointment/123 | patients | ...
+  // Deep links: randevuajandam-doktor://calendar | menu | appointment/123 | patients | packages | ...
   useEffect(() => {
     function handleUrl(url: string | null) {
       if (!url) return;
@@ -914,6 +1291,10 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           setScreen('finance');
         } else if (path === 'clinic' || path === 'klinik') {
           setScreen('clinic');
+        } else if (path === 'packages' || path === 'paket') {
+          setScreen('packages');
+        } else if (path === 'notifications' || path === 'bildirim') {
+          setScreen('notifications');
         } else if (path === 'appointment' || path === 'randevu') {
           setScreen('calendar');
           const apptId = Number(idPart);
@@ -986,15 +1367,20 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         setActionMessage(payload.message ?? 'iCal alınamadı.');
         return;
       }
-      const content = payload.data?.content as string;
+      const content = (payload.data?.content as string) || '';
       const filename = (payload.data?.filename as string) || 'randevular.ics';
-      // Share via mailto body (works without file-system deps); also log count.
-      const subject = encodeURIComponent(filename);
-      const body = encodeURIComponent(content.slice(0, 1800));
-      setActionMessage(
-        `iCal hazır (${payload.data?.count ?? 0} etkinlik). E-posta ile paylaşılıyor…`,
-      );
-      void Linking.openURL(`mailto:?subject=${subject}&body=${body}`);
+      const count = payload.data?.count ?? 0;
+      setActionMessage(`iCal hazır (${count} etkinlik). Paylaşım menüsü açılıyor…`);
+      try {
+        await Share.share({
+          title: filename,
+          message: content.length > 12000 ? `${content.slice(0, 12000)}\n…` : content,
+        });
+      } catch {
+        const subject = encodeURIComponent(filename);
+        const body = encodeURIComponent(content.slice(0, 1800));
+        void Linking.openURL(`mailto:?subject=${subject}&body=${body}`);
+      }
     } catch {
       setActionMessage('iCal dışa aktarımında hata oluştu.');
     }
@@ -1002,34 +1388,57 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
 
   const listToRender = isOverview ? overviewList : dayAppointments;
 
+  const bottomNav = (
+    <View style={[styles.bottomNavWrap, { paddingBottom: Math.max(L.safeBottom - 4, 8), paddingHorizontal: Math.max(L.padX - 8, 8) }]}>
+      <View style={[styles.bottomNav, { minHeight: L.btnHeight + 14 }]}>
+        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('overview')}>
+          <View style={[styles.bottomNavIconShell, isOverview && styles.bottomNavIconShellActive]}>
+            <Text style={[styles.bottomNavIcon, isOverview && styles.bottomNavIconActive]}>⌂</Text>
+          </View>
+          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isOverview && styles.bottomNavLabelActive]}>Özet</Text>
+        </Pressable>
+        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('calendar')}>
+          <View style={[styles.bottomNavIconShell, isCalendar && styles.bottomNavIconShellActive]}>
+            <Text style={[styles.bottomNavIcon, isCalendar && styles.bottomNavIconActive]}>▦</Text>
+          </View>
+          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isCalendar && styles.bottomNavLabelActive]}>Takvim</Text>
+        </Pressable>
+        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('menu')}>
+          <View style={[styles.bottomNavIconShell, isMenuTab && styles.bottomNavIconShellActive]}>
+            <Text style={[styles.bottomNavIcon, isMenuTab && styles.bottomNavIconActive]}>☷</Text>
+          </View>
+          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isMenuTab && styles.bottomNavLabelActive]}>Menü</Text>
+        </Pressable>
+        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('profile')}>
+          <View style={[styles.bottomNavIconShell, isProfileTab && styles.bottomNavIconShellActive]}>
+            <View style={[styles.profileNavIcon, isProfileTab && styles.profileNavIconActive]}>
+              <View style={[styles.profileNavHead, isProfileTab && styles.profileNavHeadActive]} />
+              <View style={[styles.profileNavBody, isProfileTab && styles.profileNavBodyActive]} />
+            </View>
+          </View>
+          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isProfileTab && styles.bottomNavLabelActive]}>Profil</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
   if (ModuleScreen) {
     return (
       <View style={styles.dashboard}>
-        <ModuleScreen
-          onBack={() => setScreen(screen === 'menu' ? 'overview' : 'menu')}
-          onNavigate={(next) => setScreen(next === 'calendar' ? 'calendar' : next)}
-          onSignOut={onSignOut}
-        />
-        <View style={styles.bottomNav}>
-          <Pressable style={styles.bottomNavItem} onPress={() => setScreen('overview')}>
-            <Text style={styles.bottomNavIcon}>⌂</Text>
-            <Text style={styles.bottomNavLabel}>Özet</Text>
-          </Pressable>
-          <Pressable style={styles.bottomNavItem} onPress={() => setScreen('calendar')}>
-            <Text style={styles.bottomNavIcon}>▦</Text>
-            <Text style={styles.bottomNavLabel}>Takvim</Text>
-          </Pressable>
-          <Pressable style={styles.bottomNavItem} onPress={() => setScreen('menu')}>
-            <Text style={[styles.bottomNavIcon, screen === 'menu' && styles.bottomNavIconActive]}>☷</Text>
-            <Text style={[styles.bottomNavLabel, screen === 'menu' && styles.bottomNavLabelActive]}>Menü</Text>
-          </Pressable>
+        <View style={styles.moduleBody}>
+          <ModuleScreen
+            onBack={handleModuleBack}
+            onNavigate={(next) => setScreen(next === 'calendar' ? 'calendar' : next)}
+            onSignOut={onSignOut}
+          />
         </View>
+        {bottomNav}
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.dashboard}>
+    <View style={styles.dashboard}>
       <StatusBar style="light" />
       {isOffline ? (
         <Pressable
@@ -1045,28 +1454,56 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           </Text>
         </Pressable>
       ) : null}
-      <View style={styles.dashboardHeader}>
+      <View
+        style={[
+          styles.dashboardHeader,
+          {
+            paddingTop: L.safeTop,
+            paddingHorizontal: L.padX,
+            paddingBottom: L.space.sm,
+          },
+        ]}
+      >
         <View style={styles.dashboardIdentity}>
           <View style={styles.dashboardLogoShell}>
             <Image
-              source={{ uri: `${SITE_URL}/assets/images/logo.png` }}
+              source={require('./assets/logo.png')}
               style={styles.dashboardLogo}
               accessibilityLabel="Randevu Ajandam"
             />
           </View>
-          <View>
-            <Text style={styles.dashboardIdentityTitle}>Randevu Ajandam</Text>
-            <Text style={styles.dashboardIdentitySubtitle}>HEKİM UYGULAMASI</Text>
+          <View style={{ flexShrink: 1 }}>
+            <Text style={[styles.dashboardIdentityTitle, { fontSize: L.font.md }]} numberOfLines={1}>
+              Randevu Ajandam
+            </Text>
+            <Text style={[styles.dashboardIdentitySubtitle, { fontSize: L.font.xs }]}>
+              HEKİM UYGULAMASI
+            </Text>
           </View>
         </View>
-        <Pressable style={styles.dashboardAvatar} onPress={() => setScreen('menu')}>
-          <Text style={styles.dashboardAvatarText}>{doctor.ad_soyad.charAt(0).toLocaleUpperCase('tr-TR')}</Text>
+        <Pressable
+          style={styles.headerNotifyBtn}
+          onPress={() => setScreen('notifications')}
+          accessibilityLabel="Bildirimler"
+          hitSlop={10}
+        >
+          <Text style={styles.headerNotifyIcon}>🔔</Text>
+          {unreadNotifications > 0 ? (
+            <View style={styles.headerNotifyBadge}>
+              <Text style={styles.headerNotifyBadgeText}>
+                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       </View>
 
       <ScrollView
         style={styles.dashboardContent}
-        contentContainerStyle={styles.dashboardScrollContent}
+        contentContainerStyle={[
+          styles.dashboardScrollContent,
+          { paddingHorizontal: L.padX, paddingBottom: L.scrollBottom },
+        ]}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
@@ -1082,11 +1519,32 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           <>
             <View style={styles.dashboardHero}>
               <View style={styles.dashboardHeroGlow} />
-              <Text style={styles.dashboardEyebrow}>{isOverview ? 'GÜNLÜK ÖZET' : 'HAFTALIK TAKVİM'}</Text>
-              <Text style={styles.dashboardTitle}>{isOverview ? `Merhaba,\n${title}` : 'Randevu Takvimi'}</Text>
-              <Text style={styles.dashboardSpecialty}>
-                {isOverview ? specialty : 'Site panelindeki takvim gibi haftalık planınızı yönetin.'}
+              <Text style={styles.dashboardEyebrow}>
+                {isOverview ? `${greeting.toLocaleUpperCase('tr-TR')} · GÜNLÜK ÖZET` : 'HAFTALIK TAKVİM'}
               </Text>
+              <Text style={styles.dashboardTitle}>
+                {isOverview ? `${title}` : 'Randevu Takvimi'}
+              </Text>
+              <Text style={styles.dashboardSpecialty}>
+                {isOverview
+                  ? `${todayDateLabel}${specialty ? ` · ${specialty}` : ''}`
+                  : 'Site panelindeki takvim gibi haftalık planınızı yönetin.'}
+              </Text>
+              {isOverview ? (
+                <View style={styles.heroMetaRow}>
+                  <View style={[styles.heroStatusPill, bookingOpen ? styles.heroStatusOpen : styles.heroStatusClosed]}>
+                    <View style={[styles.heroStatusDot, bookingOpen ? styles.heroStatusDotOpen : styles.heroStatusDotClosed]} />
+                    <Text style={styles.heroStatusText}>
+                      {bookingOpen ? 'Randevu alımı açık' : 'Randevu alımı kapalı'}
+                    </Text>
+                  </View>
+                  {(dashboardStats?.hafta_randevu ?? weekTotalFromCounts) > 0 ? (
+                    <Text style={styles.heroMetaHint}>
+                      Bu hafta {dashboardStats?.hafta_randevu ?? weekTotalFromCounts} randevu
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
 
             {isOverview && (
@@ -1149,32 +1607,190 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                     ))}
                   </View>
                 ) : null}
+
+                {nextAppointment ? (
+                  <Pressable
+                    style={styles.nextApptCard}
+                    onPress={() => {
+                      setSelectedDate(nextAppointment.tarih || todayKey);
+                      setScreen('calendar');
+                      setDetailTarget(nextAppointment);
+                    }}
+                  >
+                    <View style={styles.nextApptTop}>
+                      <Text style={styles.nextApptEyebrow}>SIRADAKİ RANDEVU</Text>
+                      <View
+                        style={[
+                          styles.nextApptStatus,
+                          { backgroundColor: `${APPOINTMENT_STATUS_COLOR[nextAppointment.durum]}22` },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.nextApptStatusText,
+                            { color: APPOINTMENT_STATUS_COLOR[nextAppointment.durum] },
+                          ]}
+                        >
+                          {APPOINTMENT_STATUS_LABEL[nextAppointment.durum]}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.nextApptTime}>
+                      {formatTime(nextAppointment.saat)}
+                      {nextAppointment.bitis_saat ? ` – ${formatTime(nextAppointment.bitis_saat)}` : ''}
+                      {nextAppointment.tarih && nextAppointment.tarih !== todayKey
+                        ? ` · ${(nextAppointment.tarih || '').split('-').reverse().join('.')}`
+                        : ' · Bugün'}
+                    </Text>
+                    <Text style={styles.nextApptPatient}>{nextAppointment.hasta_adi || 'Hasta'}</Text>
+                    {nextAppointment.hizmet ? (
+                      <Text style={styles.nextApptService}>{nextAppointment.hizmet}</Text>
+                    ) : null}
+                    <Text style={styles.nextApptCta}>Detay ve işlemler →</Text>
+                  </Pressable>
+                ) : (
+                  <View style={styles.nextApptEmpty}>
+                    <Text style={styles.nextApptEmptyTitle}>Sıradaki randevu yok</Text>
+                    <Text style={styles.nextApptEmptyText}>
+                      Bugün için kalan aktif randevunuz bulunmuyor. Yeni randevu ekleyebilir veya talepleri kontrol edebilirsiniz.
+                    </Text>
+                    <View style={styles.nextApptEmptyActions}>
+                      <Pressable
+                        style={styles.retryButton}
+                        onPress={() => {
+                          setSelectedDate(todayKey);
+                          setCreateOpen(true);
+                          setScreen('calendar');
+                        }}
+                      >
+                        <Text style={styles.retryButtonText}>＋ Randevu ekle</Text>
+                      </Pressable>
+                      <Pressable onPress={() => setScreen('requests')}>
+                        <Text style={styles.quickSectionLink}>Taleplere bak</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+
                 <View style={styles.statGrid}>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{dashboardStats?.bugun_randevu ?? activeCount}</Text>
-                    <Text style={styles.statLabel}>Bugün aktif</Text>
+                  <View style={styles.statRow}>
+                    <Pressable style={styles.statCard} onPress={() => setScreen('calendar')}>
+                      <Text style={styles.statIcon}>▦</Text>
+                      <Text style={styles.statValue}>{dashboardStats?.bugun_randevu ?? activeCount}</Text>
+                      <Text style={styles.statLabel}>Bugün aktif</Text>
+                      <Text style={styles.statHint}>
+                        {todayConfirmed} onaylı · {dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamam
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.statCard, styles.statCardAccent]}
+                      onPress={() => setScreen('requests')}
+                    >
+                      <Text style={styles.statIcon}>◷</Text>
+                      <Text style={styles.statValue}>{dashboardStats?.bekleyen_talep ?? pendingCount}</Text>
+                      <Text style={styles.statLabel}>Bekleyen talep</Text>
+                      <Text style={styles.statHint}>Onay için dokunun</Text>
+                    </Pressable>
                   </View>
-                  <View style={[styles.statCard, styles.statCardAccent]}>
-                    <Text style={styles.statValue}>{dashboardStats?.bekleyen_talep ?? pendingCount}</Text>
-                    <Text style={styles.statLabel}>Bekleyen talep</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{dashboardStats?.kayitli_hasta ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Kayıtlı hasta</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{dashboardStats?.bekleme_listesi ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Bekleme listesi</Text>
+                  <View style={styles.statRow}>
+                    <Pressable style={styles.statCard} onPress={() => setScreen('patients')}>
+                      <Text style={styles.statIcon}>♙</Text>
+                      <Text style={styles.statValue}>{dashboardStats?.kayitli_hasta ?? '—'}</Text>
+                      <Text style={styles.statLabel}>Kayıtlı hasta</Text>
+                      <Text style={styles.statHint}>Hasta listesi</Text>
+                    </Pressable>
+                    <Pressable style={styles.statCard} onPress={() => setScreen('waitlist')}>
+                      <Text style={styles.statIcon}>◉</Text>
+                      <Text style={styles.statValue}>{dashboardStats?.bekleme_listesi ?? '—'}</Text>
+                      <Text style={styles.statLabel}>Bekleme listesi</Text>
+                      <Text style={styles.statHint}>Boş slot doldur</Text>
+                    </Pressable>
                   </View>
                 </View>
-                <View style={[styles.statCard, { marginTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+
+                <View style={styles.todayBreakdownCard}>
+                  <Text style={styles.todayBreakdownTitle}>Bugünün durumu</Text>
+                  <View style={styles.todayBreakdownRow}>
+                    {[
+                      { label: 'Bekliyor', value: pendingCount, color: APPOINTMENT_STATUS_COLOR.beklemede },
+                      { label: 'Onaylı', value: todayConfirmed, color: APPOINTMENT_STATUS_COLOR.onaylandi },
+                      {
+                        label: 'Tamam',
+                        value: dashboardStats?.bugun_tamamlanan ?? todayCompleted,
+                        color: APPOINTMENT_STATUS_COLOR.tamamlandi,
+                      },
+                      {
+                        label: 'İptal',
+                        value: dashboardStats?.bugun_iptal ?? todayCancelled,
+                        color: APPOINTMENT_STATUS_COLOR.iptal,
+                      },
+                    ].map((item) => (
+                      <View key={item.label} style={styles.todayBreakdownItem}>
+                        <Text style={[styles.todayBreakdownValue, { color: item.color }]}>{item.value}</Text>
+                        <Text style={styles.todayBreakdownLabel}>{item.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.weekActivityCard}>
+                  <View style={styles.weekActivityHeader}>
+                    <View>
+                      <Text style={styles.weekActivityTitle}>Haftalık yoğunluk</Text>
+                      <Text style={styles.weekActivitySubtitle}>
+                        Toplam {dashboardStats?.hafta_randevu ?? weekTotalFromCounts} randevu
+                      </Text>
+                    </View>
+                    <Pressable onPress={() => setScreen('calendar')}>
+                      <Text style={styles.quickSectionLink}>Takvim</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.weekActivityBars}>
+                    {weekStripDates.map((dateKey, index) => {
+                      const count = dayCounts[dateKey] ?? 0;
+                      const height = count > 0 ? Math.max(10, Math.round((count / weekMaxCount) * 52)) : 4;
+                      const isToday = dateKey === todayKey;
+                      return (
+                        <Pressable
+                          key={dateKey}
+                          style={styles.weekActivityCol}
+                          onPress={() => {
+                            setSelectedDate(dateKey);
+                            setScreen('calendar');
+                          }}
+                        >
+                          <View
+                            style={[
+                              styles.weekActivityBar,
+                              { height },
+                              isToday && styles.weekActivityBarToday,
+                              count > 0 && styles.weekActivityBarFilled,
+                            ]}
+                          />
+                          <Text style={[styles.weekActivityDay, isToday && styles.weekActivityDayToday]}>
+                            {WEEKDAY_LABELS[index]}
+                          </Text>
+                          <Text style={styles.weekActivityCount}>{count > 0 ? count : '·'}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.bookingToggleCard}>
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text style={styles.statLabel}>Randevu alımı</Text>
                     <Text style={[styles.statValue, { fontSize: 18, marginTop: 4 }]}>
-                      {dashboardStats?.randevuya_acik_mi === false ? 'Kapalı' : 'Açık'}
+                      {bookingOpen ? 'Açık' : 'Kapalı'}
                     </Text>
                     {dashboardStats?.paket?.ad ? (
                       <Text style={[styles.statLabel, { marginTop: 6 }]}>Paket: {dashboardStats.paket.ad}</Text>
+                    ) : null}
+                    {dashboardStats?.klinik?.ad ? (
+                      <Text style={[styles.statLabel, { marginTop: 4 }]}>
+                        Klinik: {dashboardStats.klinik.ad}
+                        {dashboardStats.klinik.rol ? ` · ${dashboardStats.klinik.rol}` : ''}
+                      </Text>
                     ) : null}
                   </View>
                   <View style={{ alignItems: 'flex-end', gap: 10 }}>
@@ -1213,15 +1829,14 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                         })();
                       }}
                     >
-                      <Text style={styles.retryButtonText}>
-                        {dashboardStats?.randevuya_acik_mi === false ? 'Aç' : 'Kapat'}
-                      </Text>
+                      <Text style={styles.retryButtonText}>{bookingOpen ? 'Kapat' : 'Aç'}</Text>
                     </Pressable>
                     <Pressable onPress={() => setScreen('settings')}>
                       <Text style={styles.quickSectionLink}>Ayarlar</Text>
                     </Pressable>
                   </View>
                 </View>
+
                 <View style={styles.quickSectionHeader}>
                   <Text style={styles.quickSectionTitle}>Hızlı işlemler</Text>
                   <Pressable onPress={() => setScreen('menu')}>
@@ -1235,7 +1850,16 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                     <Text style={styles.quickActionText}>Randevuları yönet</Text>
                   </Pressable>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('requests')}>
-                    <Text style={styles.quickActionIcon}>◷</Text>
+                    <View style={styles.quickActionTop}>
+                      <Text style={styles.quickActionIcon}>◷</Text>
+                      {(dashboardStats?.bekleyen_talep ?? pendingCount) > 0 ? (
+                        <View style={styles.quickBadge}>
+                          <Text style={styles.quickBadgeText}>
+                            {dashboardStats?.bekleyen_talep ?? pendingCount}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.quickActionTitle}>Talepler</Text>
                     <Text style={styles.quickActionText}>Onay bekleyenler</Text>
                   </Pressable>
@@ -1256,12 +1880,23 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('patients')}>
                     <Text style={styles.quickActionIcon}>♙</Text>
                     <Text style={styles.quickActionTitle}>Hastalar</Text>
-                    <Text style={styles.quickActionText}>Kayıtlar</Text>
+                    <Text style={styles.quickActionText}>
+                      {dashboardStats?.kayitli_hasta != null
+                        ? `${dashboardStats.kayitli_hasta} kayıt`
+                        : 'Kayıtlar'}
+                    </Text>
                   </Pressable>
                 </View>
                 <View style={styles.quickActionGrid}>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('waitlist')}>
-                    <Text style={styles.quickActionIcon}>◉</Text>
+                    <View style={styles.quickActionTop}>
+                      <Text style={styles.quickActionIcon}>◉</Text>
+                      {(dashboardStats?.bekleme_listesi ?? 0) > 0 ? (
+                        <View style={styles.quickBadge}>
+                          <Text style={styles.quickBadgeText}>{dashboardStats?.bekleme_listesi}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.quickActionTitle}>Bekleme</Text>
                     <Text style={styles.quickActionText}>Listeyi yönet</Text>
                   </Pressable>
@@ -1271,11 +1906,21 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                     <Text style={styles.quickActionText}>Gelir / gider</Text>
                   </Pressable>
                 </View>
+                {(dashboardStats?.yorum_bekleyen ?? 0) > 0 ? (
+                  <Pressable style={styles.insightBanner} onPress={() => setScreen('reviews')}>
+                    <Text style={styles.insightBannerText}>
+                      {dashboardStats?.yorum_bekleyen} yorum onay bekliyor · İncele →
+                    </Text>
+                  </Pressable>
+                ) : null}
+
                 <View style={styles.sectionHeader}>
                   <View>
                     <Text style={styles.sectionTitle}>Bugünün programı</Text>
                     <Text style={styles.sectionSubtitle}>
-                      {activeCount ? `${activeCount} aktif randevu` : 'Programınız şu an müsait'}
+                      {activeCount
+                        ? `${activeCount} aktif · ${dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamamlandı`
+                        : 'Programınız şu an müsait'}
                     </Text>
                   </View>
                   <Pressable onPress={() => setScreen('calendar')}>
@@ -1519,20 +2164,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           </>
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('overview')}>
-          <Text style={[styles.bottomNavIcon, isOverview && styles.bottomNavIconActive]}>⌂</Text>
-          <Text style={[styles.bottomNavLabel, isOverview && styles.bottomNavLabelActive]}>Özet</Text>
-        </Pressable>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('calendar')}>
-          <Text style={[styles.bottomNavIcon, isCalendar && styles.bottomNavIconActive]}>▦</Text>
-          <Text style={[styles.bottomNavLabel, isCalendar && styles.bottomNavLabelActive]}>Takvim</Text>
-        </Pressable>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('menu')}>
-          <Text style={[styles.bottomNavIcon, screen === 'menu' && styles.bottomNavIconActive]}>☷</Text>
-          <Text style={[styles.bottomNavLabel, screen === 'menu' && styles.bottomNavLabelActive]}>Menü</Text>
-        </Pressable>
-      </View>
+      {bottomNav}
 
       <CreateAppointmentModal
         visible={createOpen}
@@ -1568,7 +2200,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           setRescheduleTarget(a);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -1597,6 +2229,8 @@ function AppointmentCard({
     <Pressable
       style={[styles.appointmentCard, { borderLeftColor: statusColor, borderLeftWidth: 4 }]}
       onPress={onOpenDetail}
+      onLongPress={onReschedule}
+      delayLongPress={380}
     >
       <View style={styles.appointmentCardHeader}>
         <Text style={styles.appointmentTime}>
@@ -1671,6 +2305,7 @@ function AppointmentDetailModal({
   const [hizmetId, setHizmetId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [videoCallOpen, setVideoCallOpen] = useState(false);
 
   useEffect(() => {
     if (!appointment) {
@@ -1832,72 +2467,61 @@ function AppointmentDetailModal({
               </Text>
               <Text style={styles.appointmentMeta}>{APPOINTMENT_STATUS_LABEL[detail.durum]}</Text>
 
-              {(detail.online_mi || detail.gorusme_tipi === 'online') &&
-              (detail.join_url || detail.platform_join_url) ? (
+              {(detail.online_mi || detail.gorusme_tipi === 'online') ? (
                 <>
                   <Text style={[styles.appointmentMeta, { marginTop: 10 }]}>
-                    Online görüşme — tarayıcıda açılır. Uygulama içi WebRTC henüz yok; linki paylaşabilirsiniz.
+                    Online görüşme — uygulama içinde kamera ve mikrofon ile bağlanırsınız. Hasta kendi linkinden katılır.
                   </Text>
-                  {detail.join_url ? (
+                  {detail.durum === 'onaylandi' ? (
                     <Pressable
                       style={[styles.modalPrimaryButton, { marginTop: 14 }]}
-                      onPress={() => void Linking.openURL(detail.join_url!)}
+                      onPress={() => setVideoCallOpen(true)}
                     >
-                      <Text style={styles.modalPrimaryButtonText}>Görüşmeye katıl (tarayıcı)</Text>
+                      <Text style={styles.modalPrimaryButtonText}>📹 Görüşmeye katıl</Text>
                     </Pressable>
-                  ) : null}
-                  {detail.platform_join_url && detail.platform_join_url !== detail.join_url ? (
-                    <Pressable
-                      style={[styles.modalPrimaryButton, { marginTop: 10, backgroundColor: '#1B3A52' }]}
-                      onPress={() => void Linking.openURL(detail.platform_join_url!)}
-                    >
-                      <Text style={[styles.modalPrimaryButtonText, { color: '#F3A26B' }]}>
-                        Platform linki
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  {detail.join_url ? (
+                  ) : (
+                    <Text style={[styles.appointmentMeta, { marginTop: 8 }]}>
+                      Görüşme odası randevu onaylandıktan sonra açılır.
+                    </Text>
+                  )}
+                  {detail.platform_join_url ? (
                     <Pressable
                       style={[styles.modalPrimaryButton, { marginTop: 10, backgroundColor: '#14283B' }]}
                       onPress={() => {
-                        const url = detail.join_url!;
+                        const url = detail.platform_join_url!;
                         void (async () => {
                           try {
-                            if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-                              await navigator.clipboard.writeText(url);
-                              Alert.alert('Kopyalandı', 'Görüşme linki panoya alındı.');
-                              return;
-                            }
-                            await Share.share({ message: url, url, title: 'Online görüşme linki' });
+                            await Share.share({
+                              message: `Online görüşme linkiniz:\n${url}`,
+                              url,
+                              title: 'Hasta görüşme linki',
+                            });
                           } catch {
-                            Alert.alert('Görüşme linki', url);
+                            Alert.alert('Hasta linki', url);
                           }
                         })();
                       }}
                     >
                       <Text style={[styles.modalPrimaryButtonText, { color: '#94A7B9' }]}>
-                        Linki paylaş / kopyala
+                        Hasta linkini paylaş
                       </Text>
                     </Pressable>
                   ) : null}
                 </>
-              ) : (detail.online_mi || detail.gorusme_tipi === 'online') ? (
-                <Text style={[styles.appointmentMeta, { marginTop: 12 }]}>
-                  Online görüşme — link randevu onaylandıktan sonra görünür.
-                </Text>
               ) : null}
 
-              <Text style={styles.modalLabel}>Hizmet</Text>
-              {services.map((svc) => (
-                <Pressable
-                  key={svc.id}
-                  style={[styles.optionRow, hizmetId === svc.id && styles.optionRowSelected]}
-                  onPress={() => setHizmetId(svc.id)}
-                >
-                  <Text style={styles.optionTitle}>{svc.ad}</Text>
-                  <Text style={styles.optionSubtitle}>{svc.sure} dk</Text>
-                </Pressable>
-              ))}
+              <SelectField
+                label="Hizmet"
+                placeholder="Hizmet seçin…"
+                options={services.map((svc) => ({
+                  label: svc.ad,
+                  value: svc.id,
+                  subtitle: `${svc.sure} dk`,
+                }))}
+                value={hizmetId}
+                onChange={setHizmetId}
+                searchable={services.length > 6}
+              />
 
               <Text style={styles.modalLabel}>Hekim notu</Text>
               <TextInput
@@ -1948,6 +2572,12 @@ function AppointmentDetailModal({
           ) : null}
         </View>
       </View>
+
+      <VideoCallModal
+        visible={videoCallOpen}
+        appointmentId={detail?.id ?? appointment?.id ?? null}
+        onClose={() => setVideoCallOpen(false)}
+      />
     </Modal>
   );
 }
@@ -2204,27 +2834,19 @@ function CreateAppointmentModal({
               <Text style={styles.modalLabel}>Tarih (YYYY-AA-GG)</Text>
               <TextInput style={styles.modalInput} value={tarih} onChangeText={setTarih} autoCapitalize="none" />
 
-              <Text style={styles.modalLabel}>Boş slotlar</Text>
               {availableSlots.length > 0 ? (
-                <View style={styles.appointmentActions}>
-                  {availableSlots.map((slot) => (
-                    <Pressable
-                      key={slot}
-                      style={[
-                        styles.appointmentActionButton,
-                        styles.appointmentActionReschedule,
-                        saat === slot && styles.appointmentActionConfirm,
-                      ]}
-                      onPress={() => setSaat(slot)}
-                    >
-                      <Text style={styles.appointmentActionText}>{slot}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <SelectField
+                  label="Boş slotlar"
+                  placeholder="Saat seçin…"
+                  options={availableSlots.map((slot) => ({ label: slot, value: slot }))}
+                  value={saat || null}
+                  onChange={setSaat}
+                  searchable={availableSlots.length > 8}
+                />
               ) : (
                 <Text style={styles.appointmentMeta}>Bu gün için boş slot yok veya gün kapalı. Saati elle girin.</Text>
               )}
-              <Text style={styles.modalLabel}>Saat (SS:DD)</Text>
+              <Text style={styles.modalLabel}>Saat (SS:DD) — manuel</Text>
               <TextInput style={styles.modalInput} value={saat} onChangeText={setSaat} autoCapitalize="none" />
 
               <View style={styles.modalLabelRow}>
@@ -2319,22 +2941,26 @@ function CreateAppointmentModal({
                     </View>
                   ) : (
                     <>
-                      {patients.slice(0, 6).map((patient) => (
-                        <Pressable
-                          key={patient.id}
-                          style={styles.optionRow}
-                          onPress={() => {
+                      {patients.length > 0 ? (
+                        <SelectField
+                          label="Sonuçlardan seç"
+                          placeholder="Danışan seçin…"
+                          searchable
+                          options={patients.map((patient) => ({
+                            label: `${patient.ad} ${patient.soyad}`,
+                            value: patient.id,
+                            subtitle: patient.telefon || patient.e_posta || undefined,
+                          }))}
+                          value={null}
+                          onChange={(id) => {
+                            const patient = patients.find((p) => p.id === id);
+                            if (!patient) return;
                             setSelectedPatient(patient);
                             setPatientQuery(`${patient.ad} ${patient.soyad}`);
                             setPatients([]);
                           }}
-                        >
-                          <Text style={styles.optionTitle}>
-                            {patient.ad} {patient.soyad}
-                          </Text>
-                          <Text style={styles.optionSubtitle}>{patient.telefon || patient.e_posta || '—'}</Text>
-                        </Pressable>
-                      ))}
+                        />
+                      ) : null}
                       {hasSearched && patients.length === 0 && patientQuery.trim().length >= 2 ? (
                         <View style={styles.emptySearchBox}>
                           <Text style={styles.modalHint}>Eşleşen danışan bulunamadı.</Text>
@@ -2353,44 +2979,36 @@ function CreateAppointmentModal({
                 </>
               )}
 
-              <Text style={styles.modalLabel}>Hizmet</Text>
               {services.length === 0 ? (
-                <Text style={styles.modalHint}>Aktif hizmet bulunamadı. Önce web panelinden hizmet ekleyin.</Text>
+                <>
+                  <Text style={styles.modalLabel}>Hizmet</Text>
+                  <Text style={styles.modalHint}>Aktif hizmet bulunamadı. Önce web panelinden hizmet ekleyin.</Text>
+                </>
               ) : (
-                services.map((service) => {
-                  const selected = service.id === selectedServiceId;
-                  return (
-                    <Pressable
-                      key={service.id}
-                      style={[styles.optionRow, selected && styles.optionRowSelected]}
-                      onPress={() => setSelectedServiceId(service.id)}
-                    >
-                      <Text style={styles.optionTitle}>{service.ad}</Text>
-                      <Text style={styles.optionSubtitle}>{service.sure} dk</Text>
-                    </Pressable>
-                  );
-                })
+                <SelectField
+                  label="Hizmet"
+                  placeholder="Hizmet seçin…"
+                  options={services.map((service) => ({
+                    label: service.ad,
+                    value: service.id,
+                    subtitle: `${service.sure} dk`,
+                  }))}
+                  value={selectedServiceId}
+                  onChange={setSelectedServiceId}
+                  searchable={services.length > 6}
+                />
               )}
 
-              <Text style={styles.modalLabel}>Görüşme tipi</Text>
-              <View style={styles.segmentRow}>
-                <Pressable
-                  style={[styles.segmentButton, gorusmeTipi === 'yuz_yuze' && styles.segmentButtonActive]}
-                  onPress={() => setGorusmeTipi('yuz_yuze')}
-                >
-                  <Text style={[styles.segmentButtonText, gorusmeTipi === 'yuz_yuze' && styles.segmentButtonTextActive]}>
-                    Yüz yüze
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.segmentButton, gorusmeTipi === 'online' && styles.segmentButtonActive]}
-                  onPress={() => setGorusmeTipi('online')}
-                >
-                  <Text style={[styles.segmentButtonText, gorusmeTipi === 'online' && styles.segmentButtonTextActive]}>
-                    Online
-                  </Text>
-                </Pressable>
-              </View>
+              <SelectField
+                label="Görüşme tipi"
+                placeholder="Seçin…"
+                options={[
+                  { label: 'Yüz yüze', value: 'yuz_yuze' },
+                  { label: 'Online', value: 'online' },
+                ]}
+                value={gorusmeTipi}
+                onChange={setGorusmeTipi}
+              />
 
               <Text style={styles.modalLabel}>Not (opsiyonel)</Text>
               <TextInput
@@ -2505,12 +3123,33 @@ function RescheduleAppointmentModal({
     }
   }
 
+  function shiftDate(base: string, days: number): string {
+    const d = new Date(`${base}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return base;
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  const today = toDateKey(new Date());
+  const quickDates = appointment
+    ? [
+        { label: 'Bugün', value: today },
+        { label: 'Yarın', value: shiftDate(today, 1) },
+        { label: '+3 gün', value: shiftDate(today, 3) },
+        { label: '+1 hafta', value: shiftDate(today, 7) },
+        { label: 'Aynı gün', value: appointment.tarih },
+      ]
+    : [];
+
   return (
     <Modal visible={!!appointment} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Randevuyu ertele</Text>
+            <Text style={styles.modalTitle}>Randevuyu ertele / taşı</Text>
             <Pressable onPress={onClose}>
               <Text style={styles.modalClose}>Kapat</Text>
             </Pressable>
@@ -2518,31 +3157,34 @@ function RescheduleAppointmentModal({
           <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
             <Text style={styles.modalHint}>
               {appointment?.hasta_adi} · {appointment ? APPOINTMENT_STATUS_LABEL[appointment.durum] : ''}
+              {appointment ? `\nMevcut: ${appointment.tarih} ${formatTime(appointment.saat)}` : ''}
             </Text>
-            <Text style={styles.modalLabel}>Yeni tarih (YYYY-AA-GG)</Text>
-            <TextInput style={styles.modalInput} value={tarih} onChangeText={setTarih} autoCapitalize="none" />
-            <Text style={styles.modalLabel}>Boş slotlar</Text>
+            <Text style={styles.modalLabel}>Hızlı tarih</Text>
+            <View style={styles.quickChipRow}>
+              {quickDates.map((q) => (
+                <Pressable
+                  key={q.label}
+                  style={[styles.quickChip, tarih === q.value && styles.quickChipOn]}
+                  onPress={() => setTarih(q.value)}
+                >
+                  <Text style={[styles.quickChipText, tarih === q.value && styles.quickChipTextOn]}>{q.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <DateField label="Yeni tarih" value={tarih} onChange={setTarih} />
             {slots.length > 0 ? (
-              <View style={styles.appointmentActions}>
-                {slots.map((slot) => (
-                  <Pressable
-                    key={slot}
-                    style={[
-                      styles.appointmentActionButton,
-                      styles.appointmentActionReschedule,
-                      saat === slot && styles.appointmentActionConfirm,
-                    ]}
-                    onPress={() => setSaat(slot)}
-                  >
-                    <Text style={styles.appointmentActionText}>{slot}</Text>
-                  </Pressable>
-                ))}
-              </View>
+              <SelectField
+                label="Boş slotlar (sürükle-bırak yerine hızlı seçim)"
+                placeholder="Saat seçin…"
+                options={slots.map((slot) => ({ label: slot, value: slot }))}
+                value={saat || null}
+                onChange={setSaat}
+                searchable={slots.length > 8}
+              />
             ) : (
-              <Text style={styles.appointmentMeta}>Slot yok / gün kapalı — saati elle girin.</Text>
+              <Text style={styles.appointmentMeta}>Slot yok / gün kapalı — saati elle seçin.</Text>
             )}
-            <Text style={styles.modalLabel}>Yeni saat (SS:DD)</Text>
-            <TextInput style={styles.modalInput} value={saat} onChangeText={setSaat} autoCapitalize="none" />
+            <TimeField label="Yeni saat" value={saat} onChange={setSaat} />
             {formError ? <Text style={styles.modalError}>{formError}</Text> : null}
             <Pressable
               style={[styles.modalPrimaryButton, isSaving && styles.modalPrimaryButtonDisabled]}
@@ -2552,7 +3194,7 @@ function RescheduleAppointmentModal({
               {isSaving ? (
                 <ActivityIndicator color="#1A2B3C" />
               ) : (
-                <Text style={styles.modalPrimaryButtonText}>Kaydet</Text>
+                <Text style={styles.modalPrimaryButtonText}>Yeni saate taşı</Text>
               )}
             </Pressable>
           </ScrollView>
@@ -2652,13 +3294,38 @@ const styles = StyleSheet.create({
   welcome: { color: '#FFFFFF', fontSize: 34, fontWeight: '800', letterSpacing: -1.1, marginTop: 62 },
   heroDescription: { maxWidth: 280, color: '#BEC9D7', fontSize: 16, lineHeight: 24, marginTop: 12 },
   formCard: { marginHorizontal: 20, marginTop: -28 },
+  loginRoleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 18,
+    backgroundColor: '#EEF2F7',
+    borderRadius: 14,
+    padding: 4,
+  },
+  loginRoleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 11,
+    alignItems: 'center',
+  },
+  loginRoleBtnOn: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0D1B2A',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  loginRoleText: { color: '#6D7D8E', fontSize: 14, fontWeight: '700' },
+  loginRoleTextOn: { color: '#102133' },
   formTitle: { color: '#102133', fontSize: 21, fontWeight: '800', letterSpacing: -0.5 },
   formDescription: { color: '#6D7D8E', fontSize: 14, marginTop: 7, marginBottom: 26 },
   signInButton: { marginTop: 25 },
   errorMessage: { color: '#C13C2C', fontSize: 13, lineHeight: 19, marginTop: 12 },
   forgotPassword: { color: '#53667A', fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 22 },
-  footerText: { color: '#7F8C9B', fontSize: 12, textAlign: 'center', paddingHorizontal: 35, marginTop: 25, marginBottom: 28, lineHeight: 18 },
+  footerText: { color: '#7F8C9B', fontSize: 12, textAlign: 'center', paddingHorizontal: 35, marginTop: 25, marginBottom: 8, lineHeight: 18 },
   dashboard: { flex: 1, backgroundColor: '#0D1B2A' },
+  moduleBody: { flex: 1 },
   offlineBanner: {
     backgroundColor: 'rgba(245,138,69,0.2)',
     borderBottomWidth: 1,
@@ -2668,46 +3335,197 @@ const styles = StyleSheet.create({
   },
   offlineBannerText: { color: '#F3A26B', fontSize: 12, fontWeight: '700', textAlign: 'center' },
   dashboardHeader: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) + 14 : 18,
-    paddingBottom: 12,
+    zIndex: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  dashboardIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dashboardIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
   dashboardLogoShell: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   dashboardLogo: { width: 32, height: 32, resizeMode: 'contain' },
   dashboardIdentityTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', letterSpacing: -0.2 },
   dashboardIdentitySubtitle: { color: '#F3A26B', fontSize: 8, letterSpacing: 1.1, fontWeight: '800', marginTop: 2 },
   dashboardAvatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: 'rgba(245,138,69,0.5)', backgroundColor: '#1B2E40', alignItems: 'center', justifyContent: 'center' },
   dashboardAvatarText: { color: '#F8B789', fontSize: 15, fontWeight: '800' },
-  dashboardContent: { flex: 1, paddingHorizontal: 20, paddingTop: 30 },
+  headerNotifyBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    backgroundColor: '#14283B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerNotifyIcon: { fontSize: 18 },
+  headerNotifyBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: '#F58A45',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#0B1722',
+  },
+  headerNotifyBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  dashboardContent: { flex: 1, minHeight: 0, paddingTop: 12 },
   dashboardHero: { paddingHorizontal: 8, paddingVertical: 14, overflow: 'hidden' },
   dashboardHeroGlow: { position: 'absolute', top: -86, right: -45, width: 190, height: 190, borderRadius: 95, backgroundColor: '#F58A45', opacity: 0.13 },
   dashboardEyebrow: { color: '#F3A26B', fontSize: 11, fontWeight: '800', letterSpacing: 1.7 },
   dashboardTitle: { color: '#FFFFFF', fontSize: 30, lineHeight: 37, fontWeight: '800', letterSpacing: -0.9, marginTop: 11 },
   dashboardSpecialty: { color: '#B7C4D3', fontSize: 15, lineHeight: 22, marginTop: 13 },
-  statGrid: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  statCard: { flex: 1, backgroundColor: '#14283B', borderColor: '#2B4055', borderWidth: 1, padding: 16, borderRadius: 18 },
+  heroMetaRow: { marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  heroStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  heroStatusOpen: { backgroundColor: 'rgba(77,189,140,0.12)', borderColor: 'rgba(77,189,140,0.35)' },
+  heroStatusClosed: { backgroundColor: 'rgba(224,104,122,0.12)', borderColor: 'rgba(224,104,122,0.35)' },
+  heroStatusDot: { width: 7, height: 7, borderRadius: 4 },
+  heroStatusDotOpen: { backgroundColor: '#4DBD8C' },
+  heroStatusDotClosed: { backgroundColor: '#E0687A' },
+  heroStatusText: { color: '#E8F0F7', fontSize: 11, fontWeight: '700' },
+  heroMetaHint: { color: '#94A7B9', fontSize: 12, fontWeight: '600' },
+  nextApptCard: {
+    marginTop: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(245,138,69,0.42)',
+    backgroundColor: '#1A2D40',
+    padding: 18,
+  },
+  nextApptTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  nextApptEyebrow: { color: '#F3A26B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  nextApptStatus: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  nextApptStatusText: { fontSize: 11, fontWeight: '800' },
+  nextApptTime: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginTop: 12, letterSpacing: -0.5 },
+  nextApptPatient: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginTop: 6 },
+  nextApptService: { color: '#AEBECD', fontSize: 13, marginTop: 4 },
+  nextApptCta: { color: '#F3A26B', fontSize: 12, fontWeight: '800', marginTop: 14 },
+  nextApptEmpty: {
+    marginTop: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    borderStyle: 'dashed',
+    backgroundColor: '#14283B',
+    padding: 18,
+  },
+  nextApptEmptyTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  nextApptEmptyText: { color: '#94A7B9', fontSize: 13, lineHeight: 19, marginTop: 8 },
+  nextApptEmptyActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
+  statGrid: { gap: 12, marginTop: 16 },
+  statRow: { flexDirection: 'row', gap: 12 },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#14283B',
+    borderColor: '#2B4055',
+    borderWidth: 1,
+    padding: 16,
+    borderRadius: 18,
+  },
   statCardAccent: { borderColor: 'rgba(245,138,69,0.48)', backgroundColor: '#1B2C3D' },
+  statIcon: { color: '#F3A26B', fontSize: 16, fontWeight: '700', marginBottom: 8 },
   statValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', letterSpacing: -0.7 },
   statLabel: { color: '#AEBECD', fontSize: 12, marginTop: 4, fontWeight: '600' },
+  statHint: { color: '#6F8499', fontSize: 11, marginTop: 8, fontWeight: '600' },
+  todayBreakdownCard: {
+    marginTop: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    backgroundColor: '#14283B',
+    padding: 16,
+  },
+  todayBreakdownTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', marginBottom: 12 },
+  todayBreakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  todayBreakdownItem: { flex: 1, alignItems: 'center' },
+  todayBreakdownValue: { fontSize: 20, fontWeight: '800' },
+  todayBreakdownLabel: { color: '#94A7B9', fontSize: 11, marginTop: 4, fontWeight: '600' },
+  weekActivityCard: {
+    marginTop: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    backgroundColor: '#14283B',
+    padding: 16,
+  },
+  weekActivityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  weekActivityTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  weekActivitySubtitle: { color: '#94A7B9', fontSize: 12, marginTop: 3 },
+  weekActivityBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16, gap: 4 },
+  weekActivityCol: { flex: 1, alignItems: 'center' },
+  weekActivityBar: {
+    width: '62%',
+    maxWidth: 22,
+    minHeight: 4,
+    borderRadius: 8,
+    backgroundColor: '#24384C',
+  },
+  weekActivityBarFilled: { backgroundColor: 'rgba(245,138,69,0.55)' },
+  weekActivityBarToday: { backgroundColor: '#F58A45' },
+  weekActivityDay: { color: '#8093A7', fontSize: 10, fontWeight: '700', marginTop: 8 },
+  weekActivityDayToday: { color: '#F3A26B' },
+  weekActivityCount: { color: '#6F8499', fontSize: 10, marginTop: 2, fontWeight: '600' },
+  bookingToggleCard: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#14283B',
+    borderColor: '#2B4055',
+    borderWidth: 1,
+    padding: 16,
+    borderRadius: 18,
+  },
   quickSectionHeader: { marginTop: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   quickSectionTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   quickSectionLink: { color: '#F3A26B', fontSize: 13, fontWeight: '800' },
   quickActionGrid: { flexDirection: 'row', gap: 12, marginTop: 14 },
   quickAction: { flex: 1, borderWidth: 1, borderColor: '#2B4055', backgroundColor: '#14283B', borderRadius: 18, padding: 15 },
+  quickActionTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   quickActionIcon: { color: '#F3A26B', fontSize: 22, fontWeight: '700' },
   quickActionTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', marginTop: 12 },
   quickActionText: { color: '#94A7B9', fontSize: 11, marginTop: 4 },
+  quickBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    backgroundColor: '#F58A45',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  insightBanner: {
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124,166,224,0.35)',
+    backgroundColor: 'rgba(124,166,224,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  insightBannerText: { color: '#C9DBF2', fontSize: 13, fontWeight: '700' },
   sectionHeader: { marginTop: 30, marginBottom: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   sectionTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   sectionSubtitle: { color: '#94A7B9', fontSize: 12, marginTop: 4 },
   comingSoonCard: { borderWidth: 1, borderColor: '#2B4055', backgroundColor: '#14283B', borderRadius: 22, padding: 22, marginTop: 20 },
   comingSoonTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
   comingSoonText: { color: '#B7C4D3', fontSize: 14, lineHeight: 21, marginTop: 9 },
-  dashboardScrollContent: { paddingBottom: 105 },
+  dashboardScrollContent: { flexGrow: 1 },
   appointmentsLoading: { marginTop: 40 },
   calendarToolbar: { marginTop: 22, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   calendarArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 13, borderWidth: 1, borderColor: '#2B4055', backgroundColor: '#14283B' },
@@ -2847,6 +3665,18 @@ const styles = StyleSheet.create({
   },
   modalLabel: { color: '#AEBECD', fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 8 },
   modalHint: { color: '#94A7B9', fontSize: 13, lineHeight: 19, marginBottom: 8 },
+  quickChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  quickChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    backgroundColor: '#0F2132',
+  },
+  quickChipOn: { borderColor: '#F58A45', backgroundColor: 'rgba(245,138,69,0.16)' },
+  quickChipText: { color: '#94A7B9', fontSize: 12, fontWeight: '700' },
+  quickChipTextOn: { color: '#F3A26B' },
   modalInput: {
     borderWidth: 1,
     borderColor: '#2B4055',
@@ -2942,20 +3772,74 @@ const styles = StyleSheet.create({
   segmentButtonActive: { borderColor: '#F58A45', backgroundColor: 'rgba(245,138,69,0.14)' },
   segmentButtonText: { color: '#94A7B9', fontSize: 13, fontWeight: '700' },
   segmentButtonTextActive: { color: '#F3A26B' },
+  bottomNavWrap: {
+    backgroundColor: '#0D1B2A',
+    zIndex: 40,
+    elevation: 16,
+  },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#102133',
-    borderTopWidth: 1,
-    borderTopColor: '#263D52',
-    paddingHorizontal: 25,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 14,
+    alignItems: 'center',
+    backgroundColor: '#12263A',
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    marginBottom: 4,
+    borderRadius: 22,
+    paddingHorizontal: 6,
+    paddingTop: 8,
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 10,
   },
-  bottomNavItem: { flex: 1, alignItems: 'center', gap: 4 },
-  bottomNavIcon: { color: '#8093A7', fontSize: 22, lineHeight: 25 },
+  bottomNavItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 4,
+    minHeight: 48,
+    minWidth: 0,
+  },
+  bottomNavIconShell: {
+    width: 36,
+    height: 28,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomNavIconShellActive: {
+    backgroundColor: 'rgba(245,138,69,0.16)',
+  },
+  bottomNavIcon: { color: '#8093A7', fontSize: 18, lineHeight: 22 },
   bottomNavIconActive: { color: '#F58A45' },
   bottomNavLabel: { color: '#8093A7', fontSize: 10, fontWeight: '700' },
   bottomNavLabelActive: { color: '#FFFFFF' },
+  profileNavIcon: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  profileNavIconActive: {},
+  profileNavHead: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#8093A7',
+    marginBottom: 1.5,
+  },
+  profileNavHeadActive: { backgroundColor: '#F58A45' },
+  profileNavBody: {
+    width: 14,
+    height: 7,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    backgroundColor: '#8093A7',
+  },
+  profileNavBodyActive: { backgroundColor: '#F58A45' },
   menuBack: { marginTop: 7, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 2 },
   menuBackText: { color: '#F3A26B', fontSize: 14, fontWeight: '800' },
   menuTitle: { color: '#FFFFFF', fontSize: 29, fontWeight: '800', letterSpacing: -0.8, marginTop: 14 },

@@ -1,24 +1,16 @@
 import { ReactNode } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
-  StatusBar as RNStatusBar,
   StyleSheet,
   Text,
   View,
   ViewStyle,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-
-/** Extra top inset so back/title clear status bar (clock, wifi, notch). */
-const TOP_PAD =
-  Platform.OS === 'android'
-    ? (RNStatusBar.currentHeight ?? 24) + 14
-    : 18;
+import { useLayout } from '../layout';
 
 type ScreenShellProps = {
   title: string;
@@ -34,6 +26,10 @@ type ScreenShellProps = {
   contentStyle?: ViewStyle;
 };
 
+/**
+ * Module screen shell: header under status bar, body scrolls,
+ * bottom padding clears home indicator + floating bottom nav.
+ */
 export function ScreenShell({
   title,
   subtitle,
@@ -47,118 +43,118 @@ export function ScreenShell({
   scroll = true,
   contentStyle,
 }: ScreenShellProps) {
+  const L = useLayout();
+
   const header = (
-    <View style={styles.headerBlock}>
+    <View
+      style={[
+        styles.headerBlock,
+        {
+          paddingTop: L.safeTop,
+          paddingHorizontal: L.padX,
+          paddingBottom: L.space.sm,
+        },
+      ]}
+    >
       <View style={styles.headerRow}>
         {onBack ? (
-          <Pressable style={styles.backButton} onPress={onBack} hitSlop={10}>
-            <Text style={styles.backText}>{backLabel}</Text>
+          <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
+            <Text style={[styles.backText, { fontSize: L.font.sm }]}>{backLabel}</Text>
           </Pressable>
         ) : (
           <View style={styles.backPlaceholder} />
         )}
         {rightAction ? <View style={styles.rightAction}>{rightAction}</View> : null}
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      <Text style={[styles.title, { fontSize: L.font.xl }]} numberOfLines={2}>
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text style={[styles.subtitle, { fontSize: L.font.sm }]} numberOfLines={3}>
+          {subtitle}
+        </Text>
+      ) : null}
     </View>
   );
 
+  const bottomPad = L.scrollBottom;
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={styles.safe}>
       <StatusBar style="light" />
+      {header}
       {scroll ? (
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={[styles.scrollContent, contentStyle]}
+          contentContainerStyle={[
+            {
+              paddingHorizontal: L.padX,
+              paddingBottom: bottomPad,
+              flexGrow: 1,
+            },
+            contentStyle,
+          ]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             onRefresh ? (
               <RefreshControl
                 refreshing={!!refreshing}
                 onRefresh={onRefresh}
                 tintColor="#F58A45"
+                colors={['#F58A45']}
               />
             ) : undefined
           }
         >
-          {header}
           {loading ? (
-            <ActivityIndicator color="#F58A45" style={styles.loader} />
+            <ActivityIndicator color="#F58A45" style={{ marginTop: L.space.xl }} />
           ) : (
             children
           )}
         </ScrollView>
       ) : (
-        <View style={[styles.flex, styles.staticContent, contentStyle]}>
-          {header}
-          {loading ? (
-            <ActivityIndicator color="#F58A45" style={styles.loader} />
-          ) : (
-            children
-          )}
+        <View style={[styles.flex, { paddingHorizontal: L.padX, paddingBottom: bottomPad }, contentStyle]}>
+          {loading ? <ActivityIndicator color="#F58A45" style={{ marginTop: L.space.xl }} /> : children}
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#0D1B2A',
-  },
-  flex: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: TOP_PAD,
-    paddingBottom: 110,
-  },
-  staticContent: {
-    paddingHorizontal: 20,
-    paddingTop: TOP_PAD,
-    paddingBottom: 110,
-  },
+  safe: { flex: 1, backgroundColor: '#0D1B2A' },
+  flex: { flex: 1, minHeight: 0 },
   headerBlock: {
-    marginBottom: 8,
-    marginTop: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#0D1B2A',
+    zIndex: 20,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 40,
+    minHeight: 36,
   },
   backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    minHeight: 44,
-    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingRight: 12,
+    minWidth: 72,
   },
-  backPlaceholder: { height: 40 },
-  backText: {
-    color: '#F3A26B',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  rightAction: {
-    marginLeft: 12,
-  },
+  backPlaceholder: { minWidth: 72 },
+  backText: { color: '#F3A26B', fontWeight: '700' },
+  rightAction: { marginLeft: 'auto' },
   title: {
     color: '#FFFFFF',
-    fontSize: 28,
     fontWeight: '800',
-    letterSpacing: -0.8,
-    marginTop: 10,
+    letterSpacing: -0.4,
+    marginTop: 6,
   },
   subtitle: {
-    color: '#AEBECD',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 8,
-  },
-  loader: {
-    marginTop: 48,
+    color: '#94A7B9',
+    marginTop: 4,
+    lineHeight: 18,
+    fontWeight: '500',
   },
 });

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useMemo } from 'react';
+import { TextInput, View } from 'react-native';
 import { moduleStyles as s } from '../ui/styles';
+import { SelectField } from './SelectField';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -16,8 +17,9 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
-const TIME_SLOTS = Array.from({ length: 22 }, (_, i) => {
-  const total = 8 * 60 + i * 30; // 08:00 .. 18:30
+const TIME_SLOTS = Array.from({ length: 28 }, (_, i) => {
+  // 07:00 .. 20:30 step 30
+  const total = 7 * 60 + i * 30;
   const h = Math.floor(total / 60);
   const m = total % 60;
   return `${pad(h)}:${pad(m)}`;
@@ -31,10 +33,9 @@ type DateFieldProps = {
 };
 
 export function DateField({ label, value, onChange, placeholder = 'YYYY-AA-GG' }: DateFieldProps) {
-  const [open, setOpen] = useState(false);
   const presets = useMemo(() => {
     const today = new Date();
-    return [
+    const opts = [
       { label: 'Bugün', value: formatDateKey(today) },
       { label: 'Yarın', value: formatDateKey(addDays(today, 1)) },
       { label: '+3 gün', value: formatDateKey(addDays(today, 3)) },
@@ -42,57 +43,38 @@ export function DateField({ label, value, onChange, placeholder = 'YYYY-AA-GG' }
       { label: 'Ay başı', value: formatDateKey(new Date(today.getFullYear(), today.getMonth(), 1)) },
       { label: 'Ay sonu', value: formatDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0)) },
     ];
+    // next 14 days as selectable options
+    for (let i = 0; i < 14; i++) {
+      const d = addDays(today, i);
+      const key = formatDateKey(d);
+      if (!opts.some((o) => o.value === key)) {
+        opts.push({
+          label: d.toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric', month: 'short' }),
+          value: key,
+        });
+      }
+    }
+    return opts;
   }, []);
 
   return (
     <View>
-      <Text style={s.label}>{label}</Text>
-      <Pressable style={s.input} onPress={() => setOpen(true)}>
-        <Text style={{ color: value ? '#FFFFFF' : '#6B7F93', fontSize: 15 }}>{value || placeholder}</Text>
-      </Pressable>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheet, { maxHeight: '70%' }]}>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>{label}</Text>
-              <Pressable onPress={() => setOpen(false)}>
-                <Text style={s.modalClose}>Kapat</Text>
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
-              <View style={s.segmentRow}>
-                {presets.map((p) => (
-                  <Pressable
-                    key={p.label}
-                    style={[s.segmentButton, value === p.value && s.segmentButtonActive]}
-                    onPress={() => {
-                      onChange(p.value);
-                      setOpen(false);
-                    }}
-                  >
-                    <Text style={[s.segmentButtonText, value === p.value && s.segmentButtonTextActive]}>{p.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Text style={s.label}>Manuel (YYYY-AA-GG)</Text>
-              <TextInput
-                style={s.input}
-                value={value}
-                onChangeText={onChange}
-                autoCapitalize="none"
-                placeholder={placeholder}
-                placeholderTextColor="#6B7F93"
-              />
-              <Pressable
-                style={[s.primaryButton, { marginTop: 14 }]}
-                onPress={() => setOpen(false)}
-              >
-                <Text style={s.primaryButtonText}>Tamam</Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <SelectField
+        label={label}
+        placeholder={placeholder}
+        options={presets}
+        value={value || null}
+        onChange={onChange}
+        searchable
+      />
+      <TextInput
+        style={[s.input, { marginTop: 8 }]}
+        value={value}
+        onChangeText={onChange}
+        autoCapitalize="none"
+        placeholder={`Manuel: ${placeholder}`}
+        placeholderTextColor="#6B7F93"
+      />
     </View>
   );
 }
@@ -102,57 +84,39 @@ type TimeFieldProps = {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  slots?: string[];
 };
 
-export function TimeField({ label, value, onChange, placeholder = 'SS:DD' }: TimeFieldProps) {
-  const [open, setOpen] = useState(false);
+export function TimeField({
+  label,
+  value,
+  onChange,
+  placeholder = 'SS:DD',
+  slots,
+}: TimeFieldProps) {
+  const options = useMemo(() => {
+    const list = slots && slots.length > 0 ? slots : TIME_SLOTS;
+    return list.map((t) => ({ label: t, value: t }));
+  }, [slots]);
 
   return (
     <View>
-      <Text style={s.label}>{label}</Text>
-      <Pressable style={s.input} onPress={() => setOpen(true)}>
-        <Text style={{ color: value ? '#FFFFFF' : '#6B7F93', fontSize: 15 }}>{value || placeholder}</Text>
-      </Pressable>
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={s.modalOverlay}>
-          <View style={[s.modalSheet, { maxHeight: '75%' }]}>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>{label}</Text>
-              <Pressable onPress={() => setOpen(false)}>
-                <Text style={s.modalClose}>Kapat</Text>
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
-              <View style={s.segmentRow}>
-                {TIME_SLOTS.map((t) => (
-                  <Pressable
-                    key={t}
-                    style={[s.segmentButton, value === t && s.segmentButtonActive]}
-                    onPress={() => {
-                      onChange(t);
-                      setOpen(false);
-                    }}
-                  >
-                    <Text style={[s.segmentButtonText, value === t && s.segmentButtonTextActive]}>{t}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Text style={s.label}>Manuel (SS:DD)</Text>
-              <TextInput
-                style={s.input}
-                value={value}
-                onChangeText={onChange}
-                autoCapitalize="none"
-                placeholder={placeholder}
-                placeholderTextColor="#6B7F93"
-              />
-              <Pressable style={[s.primaryButton, { marginTop: 14 }]} onPress={() => setOpen(false)}>
-                <Text style={s.primaryButtonText}>Tamam</Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <SelectField
+        label={label}
+        placeholder={placeholder}
+        options={options}
+        value={value || null}
+        onChange={onChange}
+        searchable={options.length > 8}
+      />
+      <TextInput
+        style={[s.input, { marginTop: 8 }]}
+        value={value}
+        onChangeText={onChange}
+        autoCapitalize="none"
+        placeholder={`Manuel: ${placeholder}`}
+        placeholderTextColor="#6B7F93"
+      />
     </View>
   );
 }

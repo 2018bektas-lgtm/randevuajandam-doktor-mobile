@@ -1,9 +1,10 @@
-import { Platform, StatusBar as RNStatusBar, StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { safeBottom, safeTop } from '../layout/responsive';
 
-/** Clear status bar / home indicator on module modals and sheets. */
-export const SAFE_TOP =
-  Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) + 10 : 16;
-export const SAFE_BOTTOM = Platform.OS === 'ios' ? 28 : 16;
+/** @deprecated Prefer useLayout().safeTop — kept for moduleStyles static values */
+export const SAFE_TOP = safeTop();
+/** @deprecated Prefer useLayout().safeBottom */
+export const SAFE_BOTTOM = safeBottom();
 
 /** Shared dark-theme styles for hekim panel module screens. */
 export const moduleStyles = StyleSheet.create({
@@ -364,6 +365,53 @@ export const moduleStyles = StyleSheet.create({
     color: '#F09AA8',
     fontSize: 14,
     fontWeight: '800',
+  },
+  profileHero: {
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    backgroundColor: '#14283B',
+  },
+  profileAvatarImg: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#1B2E40',
+    borderWidth: 2,
+    borderColor: 'rgba(245,138,69,0.45)',
+  },
+  profileAvatarFallback: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#1B2E40',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(245,138,69,0.45)',
+  },
+  profileAvatarLetter: {
+    color: '#F3A26B',
+    fontSize: 34,
+    fontWeight: '800',
+  },
+  profileName: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  profileMeta: {
+    color: '#94A7B9',
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: 'center',
   },
   navLinkCard: {
     borderWidth: 1,

@@ -1,11 +1,13 @@
-import { ComponentType, ReactNode, useCallback, useEffect, useState } from 'react';
+import { ComponentType, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -17,59 +19,20 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { apiDelete, apiGet, apiPost, apiPut, apiUpload, SITE_URL } from '../api/client';
 import { DateField, TimeField } from '../components/DateTimeFields';
+import { SelectField } from '../components/SelectField';
+import { RichTextEditor } from '../components/RichTextEditor';
+
 import type { ModuleProps, ScreenId } from '../navigation/types';
 import { ScreenShell } from '../ui/Screen';
 import { moduleStyles as s } from '../ui/styles';
 
-// â”€â”€ Shared helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Shared helpers ---
 
 function errMessage(e: unknown, fallback = 'Bir hata oluştu.'): string {
   if (e instanceof Error && e.message) {
     return e.message;
   }
   return fallback;
-}
-
-/** Lightweight markdown/HTML insert toolbar for long text fields (mobile-friendly). */
-function MarkdownToolbar({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  function insert(snippet: string) {
-    const base = value || '';
-    const needsNl = base.length > 0 && !base.endsWith('\n');
-    onChange(base + (needsNl ? '\n' : '') + snippet);
-  }
-
-  const tools: { label: string; snippet: string }[] = [
-    { label: 'B', snippet: '**kalın** ' },
-    { label: 'I', snippet: '_italik_ ' },
-    { label: 'H2', snippet: '\n## Başlık\n' },
-    { label: 'H3', snippet: '\n### Alt başlık\n' },
-    { label: 'Liste', snippet: '\n- madde 1\n- madde 2\n' },
-    { label: '1.', snippet: '\n1. madde\n2. madde\n' },
-    { label: 'Alıntı', snippet: '\n> alıntı\n' },
-    { label: 'Kod', snippet: '`kod` ' },
-    { label: 'Link', snippet: '[metin](https://)' },
-    { label: 'P', snippet: '\n\n' },
-  ];
-
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-      {tools.map((t) => (
-        <Pressable
-          key={t.label}
-          style={[s.actionBtn, { paddingHorizontal: 10, paddingVertical: 6 }]}
-          onPress={() => insert(t.snippet)}
-        >
-          <Text style={[s.actionBtnText, { fontSize: 12 }]}>{t.label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
 }
 
 function DnsStepsCard({ steps }: { steps?: { adim: number; baslik: string; aciklama: string }[] | null }) {
@@ -486,25 +449,16 @@ export function WaitlistScreen({ onBack }: ModuleProps) {
       refreshing={refreshing}
       onRefresh={onRefresh}
     >
-      <View style={s.segmentRow}>
-        {(
-          [
-            ['aktif', 'Aktif'],
-            ['beklemede', 'Bekleyen'],
-            ['bildirildi', 'Bildirilen'],
-          ] as const
-        ).map(([key, label]) => (
-          <Pressable
-            key={key}
-            style={[s.segmentButton, filter === key && s.segmentButtonActive]}
-            onPress={() => setFilter(key)}
-          >
-            <Text style={[s.segmentButtonText, filter === key && s.segmentButtonTextActive]}>
-              {label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <SelectField
+        label="Filtre"
+        options={[
+          { label: 'Aktif', value: 'aktif' },
+          { label: 'Bekleyen', value: 'beklemede' },
+          { label: 'Bildirilen', value: 'bildirildi' },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
 
       {items.length === 0 ? (
         <EmptyState title="Kayıt yok" text="Seçili filtrede bekleme listesi kaydı bulunamadı." />
@@ -1206,30 +1160,16 @@ export function WorkingHoursScreen({ onBack }: ModuleProps) {
           </View>
           {h.aktif_mi ? (
             <>
-              <View style={s.timeRow}>
-                <View style={s.timeField}>
-                  <Text style={s.label}>Başlangıç</Text>
-                  <TextInput
-                    style={s.input}
-                    value={timeSlice(h.mesai_baslangic)}
-                    onChangeText={(v) => updateHour(h.id, { mesai_baslangic: v })}
-                    autoCapitalize="none"
-                    placeholder="09:00"
-                    placeholderTextColor="#6B7F93"
-                  />
-                </View>
-                <View style={s.timeField}>
-                  <Text style={s.label}>Bitiş</Text>
-                  <TextInput
-                    style={s.input}
-                    value={timeSlice(h.mesai_bitis)}
-                    onChangeText={(v) => updateHour(h.id, { mesai_bitis: v })}
-                    autoCapitalize="none"
-                    placeholder="17:00"
-                    placeholderTextColor="#6B7F93"
-                  />
-                </View>
-              </View>
+              <TimeField
+                label="Başlangıç"
+                value={timeSlice(h.mesai_baslangic)}
+                onChange={(v) => updateHour(h.id, { mesai_baslangic: v })}
+              />
+              <TimeField
+                label="Bitiş"
+                value={timeSlice(h.mesai_bitis)}
+                onChange={(v) => updateHour(h.id, { mesai_bitis: v })}
+              />
               <View style={s.switchRow}>
                 <Text style={s.switchLabel}>Öğle arası</Text>
                 <Switch
@@ -1240,28 +1180,18 @@ export function WorkingHoursScreen({ onBack }: ModuleProps) {
                 />
               </View>
               {h.ogle_arasi_aktif_mi ? (
-                <View style={s.timeRow}>
-                  <View style={s.timeField}>
-                    <Text style={s.label}>Öğle başlangıç</Text>
-                    <TextInput
-                      style={s.input}
-                      value={timeSlice(h.ogle_baslangic)}
-                      onChangeText={(v) => updateHour(h.id, { ogle_baslangic: v })}
-                      autoCapitalize="none"
-                      placeholderTextColor="#6B7F93"
-                    />
-                  </View>
-                  <View style={s.timeField}>
-                    <Text style={s.label}>Öğle bitiş</Text>
-                    <TextInput
-                      style={s.input}
-                      value={timeSlice(h.ogle_bitis)}
-                      onChangeText={(v) => updateHour(h.id, { ogle_bitis: v })}
-                      autoCapitalize="none"
-                      placeholderTextColor="#6B7F93"
-                    />
-                  </View>
-                </View>
+                <>
+                  <TimeField
+                    label="Öğle başlangıç"
+                    value={timeSlice(h.ogle_baslangic)}
+                    onChange={(v) => updateHour(h.id, { ogle_baslangic: v })}
+                  />
+                  <TimeField
+                    label="Öğle bitiş"
+                    value={timeSlice(h.ogle_bitis)}
+                    onChange={(v) => updateHour(h.id, { ogle_bitis: v })}
+                  />
+                </>
               ) : null}
             </>
           ) : (
@@ -1370,45 +1300,22 @@ export function SettingsScreen({ onBack }: ModuleProps) {
             />
           </View>
 
-          <Text style={s.label}>Onay tipi</Text>
-          <View style={s.segmentRow}>
-            {(['manuel', 'otomatik'] as const).map((key) => (
-              <Pressable
-                key={key}
-                style={[s.segmentButton, form.randevu_onay_tipi === key && s.segmentButtonActive]}
-                onPress={() => patch('randevu_onay_tipi', key)}
-              >
-                <Text
-                  style={[
-                    s.segmentButtonText,
-                    form.randevu_onay_tipi === key && s.segmentButtonTextActive,
-                  ]}
-                >
-                  {key === 'manuel' ? 'Manuel' : 'Otomatik'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <SelectField
+            label="Onay tipi"
+            options={[
+              { label: 'Manuel', value: 'manuel' },
+              { label: 'Otomatik', value: 'otomatik' },
+            ]}
+            value={form.randevu_onay_tipi}
+            onChange={(v) => patch('randevu_onay_tipi', v)}
+          />
 
-          <Text style={s.label}>Randevu periyodu (dk)</Text>
-          <View style={s.segmentRow}>
-            {[15, 20, 30, 45, 60].map((p) => (
-              <Pressable
-                key={p}
-                style={[s.segmentButton, form.randevu_periyodu === p && s.segmentButtonActive]}
-                onPress={() => patch('randevu_periyodu', p)}
-              >
-                <Text
-                  style={[
-                    s.segmentButtonText,
-                    form.randevu_periyodu === p && s.segmentButtonTextActive,
-                  ]}
-                >
-                  {p}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <SelectField
+            label="Randevu periyodu (dk)"
+            options={[15, 20, 30, 45, 60].map((p) => ({ label: `${p} dk`, value: p }))}
+            value={form.randevu_periyodu}
+            onChange={(v) => patch('randevu_periyodu', v)}
+          />
 
           <Text style={s.label}>En erken randevu (saat)</Text>
           <TextInput
@@ -1614,37 +1521,23 @@ export function LeavesScreen({ onBack }: ModuleProps) {
     >
       <Text style={s.sectionTitle}>Hızlı randevu kapatma</Text>
       <Text style={s.hint}>Güne göre slot seçin; dolu ve öğle arası slotlar kilitlenemez.</Text>
-      <Text style={s.label}>Tarih (YYYY-AA-GG)</Text>
-      <TextInput style={s.input} value={qcDate} onChangeText={setQcDate} autoCapitalize="none" />
+      <DateField label="Tarih" value={qcDate} onChange={setQcDate} />
       {qcLoading ? <ActivityIndicator color="#F58A45" style={{ marginTop: 12 }} /> : null}
       {qcMsg ? <Text style={s.hint}>{qcMsg}</Text> : null}
-      <View style={[s.rowWrap, { marginTop: 10 }]}>
-        {qcSlots.map((sl) => {
-          const disabled = sl.ogle_mi || sl.dolu_mu;
-          const on = qcSelected.includes(sl.saat_string);
-          return (
-            <Pressable
-              key={sl.saat_string}
-              disabled={disabled}
-              style={[
-                s.segmentButton,
-                { minWidth: 72, opacity: disabled ? 0.4 : 1 },
-                on && s.segmentButtonActive,
-              ]}
-              onPress={() =>
-                setQcSelected((prev) =>
-                  on ? prev.filter((x) => x !== sl.saat_string) : [...prev, sl.saat_string],
-                )
-              }
-            >
-              <Text style={[s.segmentButtonText, on && s.segmentButtonTextActive]}>
-                {sl.saat_string}
-                {sl.dolu_mu ? '·D' : sl.ogle_mi ? '·Ö' : sl.kapali_mi ? '·K' : ''}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SelectField
+        label="Kapatılacak saatler"
+        placeholder="Saat seçin…"
+        multiple
+        searchable
+        value={qcSelected}
+        onChange={setQcSelected}
+        options={qcSlots.map((sl) => ({
+          label: sl.saat_string,
+          value: sl.saat_string,
+          subtitle: sl.dolu_mu ? 'Dolu' : sl.ogle_mi ? 'Öğle' : sl.kapali_mi ? 'Kapalı' : 'Müsait',
+          disabled: !!sl.ogle_mi || !!sl.dolu_mu,
+        }))}
+      />
       <Pressable
         style={[s.primaryButton, { marginTop: 12 }, qcLoading && s.primaryButtonDisabled]}
         disabled={qcLoading}
@@ -1894,14 +1787,12 @@ export function BlogsScreen({ onBack }: ModuleProps) {
       >
         <Text style={s.label}>Başlık</Text>
         <TextInput style={s.input} value={baslik} onChangeText={setBaslik} placeholderTextColor="#6B7F93" />
-        <Text style={s.label}>İçerik</Text>
-        <MarkdownToolbar value={icerik} onChange={setIcerik} />
-        <TextInput
-          style={[s.input, s.textArea, { minHeight: 140 }]}
+        <RichTextEditor
+          label="İçerik"
           value={icerik}
-          onChangeText={setIcerik}
-          multiline
-          placeholderTextColor="#6B7F93"
+          onChange={setIcerik}
+          minHeight={140}
+          placeholder="Blog içeriği (markdown)"
         />
         <Text style={s.label}>SEO başlık</Text>
         <TextInput style={s.input} value={metaBaslik} onChangeText={setMetaBaslik} placeholderTextColor="#6B7F93" />
@@ -2012,26 +1903,17 @@ export function ReviewsScreen({ onBack }: ModuleProps) {
       refreshing={refreshing}
       onRefresh={onRefresh}
     >
-      <View style={s.segmentRow}>
-        {(
-          [
-            { k: '' as const, l: `Tümü${meta?.toplam != null ? ` (${meta.toplam})` : ''}` },
-            { k: 'beklemede' as const, l: `Bekleyen${meta?.beklemede != null ? ` (${meta.beklemede})` : ''}` },
-            { k: 'onaylandi' as const, l: 'Onaylı' },
-            { k: 'reddedildi' as const, l: 'Red' },
-          ] as const
-        ).map((opt) => (
-          <Pressable
-            key={opt.k || 'all'}
-            style={[s.segmentButton, filter === opt.k && s.segmentButtonActive]}
-            onPress={() => setFilter(opt.k)}
-          >
-            <Text style={[s.segmentButtonText, filter === opt.k && s.segmentButtonTextActive]} numberOfLines={1}>
-              {opt.l}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <SelectField
+        label="Filtre"
+        options={[
+          { label: `Tümü${meta?.toplam != null ? ` (${meta.toplam})` : ''}`, value: '' },
+          { label: `Bekleyen${meta?.beklemede != null ? ` (${meta.beklemede})` : ''}`, value: 'beklemede' },
+          { label: 'Onaylı', value: 'onaylandi' },
+          { label: 'Red', value: 'reddedildi' },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
 
       {items.length === 0 ? (
         <EmptyState title="Yorum yok" text="Danışan yorumları burada listelenir." />
@@ -2618,16 +2500,18 @@ export function FinanceIncomesScreen({ onBack }: ModuleProps) {
           <Text style={s.cardTitle}>Kalem ekle</Text>
           <Text style={s.label}>Tutar</Text>
           <TextInput style={s.input} value={kalemTutar} onChangeText={setKalemTutar} keyboardType="decimal-pad" />
-          <Text style={s.label}>Tarih</Text>
-          <TextInput style={s.input} value={kalemTarih} onChangeText={setKalemTarih} autoCapitalize="none" />
-          <Text style={s.label}>Yöntem</Text>
-          <View style={s.segmentRow}>
-            {(['nakit', 'kredi_karti', 'havale', 'online'] as const).map((y) => (
-              <Pressable key={y} style={[s.segmentButton, kalemYontem === y && s.segmentButtonActive]} onPress={() => setKalemYontem(y)}>
-                <Text style={[s.segmentButtonText, kalemYontem === y && s.segmentButtonTextActive]}>{y}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <DateField label="Tarih" value={kalemTarih} onChange={setKalemTarih} />
+          <SelectField
+            label="Yöntem"
+            options={[
+              { label: 'Nakit', value: 'nakit' },
+              { label: 'Kredi kartı', value: 'kredi_karti' },
+              { label: 'Havale', value: 'havale' },
+              { label: 'Online', value: 'online' },
+            ]}
+            value={kalemYontem}
+            onChange={setKalemYontem}
+          />
           <Pressable style={[s.primaryButton, { marginTop: 12 }]} onPress={() => void addKalem()}>
             <Text style={s.primaryButtonText}>Kalemi kaydet</Text>
           </Pressable>
@@ -2697,25 +2581,17 @@ export function FinanceIncomesScreen({ onBack }: ModuleProps) {
         <DateField label="Ödeme tarihi" value={odemeTarihi} onChange={setOdemeTarihi} />
         <Text style={s.label}>İlk ödeme tutarı</Text>
         <TextInput style={s.input} value={ilkOdeme} onChangeText={setIlkOdeme} keyboardType="decimal-pad" placeholderTextColor="#6B7F93" />
-        <Text style={s.label}>Ödeme yöntemi</Text>
-        <View style={s.segmentRow}>
-          {([
-            ['nakit', 'Nakit'],
-            ['kredi_karti', 'Kart'],
-            ['havale', 'Havale'],
-            ['online', 'Online'],
-          ] as const).map(([key, label]) => (
-            <Pressable
-              key={key}
-              style={[s.segmentButton, yontem === key && s.segmentButtonActive]}
-              onPress={() => setYontem(key)}
-            >
-              <Text style={[s.segmentButtonText, yontem === key && s.segmentButtonTextActive]}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <SelectField
+          label="Ödeme yöntemi"
+          options={[
+            { label: 'Nakit', value: 'nakit' },
+            { label: 'Kart', value: 'kredi_karti' },
+            { label: 'Havale', value: 'havale' },
+            { label: 'Online', value: 'online' },
+          ]}
+          value={yontem}
+          onChange={setYontem}
+        />
         <Text style={s.label}>Açıklama</Text>
         <TextInput style={[s.input, s.textArea]} value={aciklama} onChangeText={setAciklama} multiline placeholderTextColor="#6B7F93" />
       </FormModal>
@@ -3025,20 +2901,15 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
       >
         <Text style={s.label}>Ad</Text>
         <TextInput style={s.input} value={ad} onChangeText={setAd} placeholderTextColor="#6B7F93" />
-        <Text style={s.label}>Tür</Text>
-        <View style={s.segmentRow}>
-          {(['gelir', 'gider'] as const).map((key) => (
-            <Pressable
-              key={key}
-              style={[s.segmentButton, tur === key && s.segmentButtonActive]}
-              onPress={() => setTur(key)}
-            >
-              <Text style={[s.segmentButtonText, tur === key && s.segmentButtonTextActive]}>
-                {key === 'gelir' ? 'Gelir' : 'Gider'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <SelectField
+          label="Tür"
+          options={[
+            { label: 'Gelir', value: 'gelir' },
+            { label: 'Gider', value: 'gider' },
+          ]}
+          value={tur}
+          onChange={setTur}
+        />
       </FormModal>
     </ScreenShell>
   );
@@ -3517,30 +3388,23 @@ export function EducationScreen({ onBack, onNavigate }: ModuleProps) {
         <TextInput style={s.input} value={baslik} onChangeText={setBaslik} placeholderTextColor="#6B7F93" />
         <Text style={s.label}>Özet</Text>
         <TextInput style={[s.input, s.textArea]} value={ozet} onChangeText={setOzet} multiline placeholderTextColor="#6B7F93" />
-        <Text style={s.label}>Detay içerik</Text>
-        <MarkdownToolbar value={icerik} onChange={setIcerik} />
-        <TextInput
-          style={[s.input, s.textArea, { minHeight: 120 }]}
+        <RichTextEditor
+          label="Detay içerik"
           value={icerik}
-          onChangeText={setIcerik}
-          multiline
+          onChange={setIcerik}
+          minHeight={120}
           placeholder="Eğitim detayı (markdown destekli)"
-          placeholderTextColor="#6B7F93"
         />
-        <Text style={s.label}>Tip</Text>
-        <View style={s.segmentRow}>
-          {(
-            [
-              { k: 'yuz_yuze' as const, l: 'Yüz yüze' },
-              { k: 'online' as const, l: 'Online' },
-              { k: 'hibrit' as const, l: 'Hibrit' },
-            ] as const
-          ).map((t) => (
-            <Pressable key={t.k} style={[s.segmentButton, tip === t.k && s.segmentButtonActive]} onPress={() => setTip(t.k)}>
-              <Text style={[s.segmentButtonText, tip === t.k && s.segmentButtonTextActive]}>{t.l}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SelectField
+          label="Tip"
+          options={[
+            { label: 'Yüz yüze', value: 'yuz_yuze' },
+            { label: 'Online', value: 'online' },
+            { label: 'Hibrit', value: 'hibrit' },
+          ]}
+          value={tip}
+          onChange={setTip}
+        />
         <Text style={s.label}>Fiyat (₺)</Text>
         <TextInput style={s.input} value={fiyat} onChangeText={setFiyat} keyboardType="decimal-pad" placeholderTextColor="#6B7F93" />
         <Text style={s.label}>Ödeme notu</Text>
@@ -3573,20 +3437,16 @@ export function EducationScreen({ onBack, onNavigate }: ModuleProps) {
         >
           <Text style={s.secondaryButtonText}>{kapakUri ? 'Kapak seçildi' : 'Kapak görseli'}</Text>
         </Pressable>
-        <Text style={s.label}>Durum</Text>
-        <View style={s.segmentRow}>
-          {(
-            [
-              { k: 'taslak' as const, l: 'Taslak' },
-              { k: 'yayinda' as const, l: 'Yayında' },
-              { k: 'arsiv' as const, l: 'Arşiv' },
-            ] as const
-          ).map((d) => (
-            <Pressable key={d.k} style={[s.segmentButton, durum === d.k && s.segmentButtonActive]} onPress={() => setDurum(d.k)}>
-              <Text style={[s.segmentButtonText, durum === d.k && s.segmentButtonTextActive]}>{d.l}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SelectField
+          label="Durum"
+          options={[
+            { label: 'Taslak', value: 'taslak' },
+            { label: 'Yayında', value: 'yayinda' },
+            { label: 'Arşiv', value: 'arsiv' },
+          ]}
+          value={durum}
+          onChange={setDurum}
+        />
         <View style={s.switchRow}>
           <Text style={s.switchLabel}>Başvuru açık</Text>
           <Switch value={basvuruAcik} onValueChange={setBasvuruAcik} trackColor={{ true: '#F58A45' }} />
@@ -3618,20 +3478,21 @@ export function EducationScreen({ onBack, onNavigate }: ModuleProps) {
               }
               placeholderTextColor="#6B7F93"
             />
-            <Text style={s.label}>Tip</Text>
-            <View style={s.segmentRow}>
-              {(['text', 'textarea', 'select', 'number', 'email', 'tel'] as const).map((t) => (
-                <Pressable
-                  key={t}
-                  style={[s.segmentButton, field.tip === t && s.segmentButtonActive]}
-                  onPress={() =>
-                    setFormFields((prev) => prev.map((f, i) => (i === idx ? { ...f, tip: t } : f)))
-                  }
-                >
-                  <Text style={[s.segmentButtonText, field.tip === t && s.segmentButtonTextActive]}>{t}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <SelectField
+              label="Tip"
+              options={[
+                { label: 'Metin', value: 'text' },
+                { label: 'Uzun metin', value: 'textarea' },
+                { label: 'Seçim', value: 'select' },
+                { label: 'Sayı', value: 'number' },
+                { label: 'E-posta', value: 'email' },
+                { label: 'Telefon', value: 'tel' },
+              ]}
+              value={field.tip}
+              onChange={(t) =>
+                setFormFields((prev) => prev.map((f, i) => (i === idx ? { ...f, tip: t } : f)))
+              }
+            />
             {field.tip === 'select' ? (
               <>
                 <Text style={s.label}>Seçenekler (virgül veya satır)</Text>
@@ -3771,28 +3632,17 @@ export function EducationAppsScreen({ onBack }: ModuleProps) {
     >
       {egitimOptions.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
-          <View style={[s.segmentRow, { flexWrap: 'nowrap' }]}>
-            <Pressable
-              style={[s.segmentButton, egitimFilter == null && s.segmentButtonActive]}
-              onPress={() => setEgitimFilter(null)}
-            >
-              <Text style={[s.segmentButtonText, egitimFilter == null && s.segmentButtonTextActive]}>Tümü</Text>
-            </Pressable>
-            {egitimOptions.map((e) => (
-              <Pressable
-                key={e.id}
-                style={[s.segmentButton, egitimFilter === e.id && s.segmentButtonActive]}
-                onPress={() => setEgitimFilter(e.id)}
-              >
-                <Text
-                  style={[s.segmentButtonText, egitimFilter === e.id && s.segmentButtonTextActive]}
-                  numberOfLines={1}
-                >
-                  {e.baslik}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <SelectField
+            label="Eğitim filtresi"
+            placeholder="Tümü"
+            searchable
+            options={[
+              { label: 'Tümü', value: 0 },
+              ...egitimOptions.map((e) => ({ label: e.baslik, value: e.id })),
+            ]}
+            value={egitimFilter ?? 0}
+            onChange={(v) => setEgitimFilter(v === 0 ? null : v)}
+          />
         </ScrollView>
       ) : null}
       {items.length === 0 ? (
@@ -3895,7 +3745,7 @@ type ProfileData = {
   };
 };
 
-export function ProfileScreen({ onBack }: ModuleProps) {
+export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
   const [form, setForm] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -3903,6 +3753,8 @@ export function ProfileScreen({ onBack }: ModuleProps) {
   const [localPhoto, setLocalPhoto] = useState<string | null>(null);
   const [iller, setIller] = useState<{ id: number; ad: string }[]>([]);
   const [ilceler, setIlceler] = useState<{ id: number; ad: string }[]>([]);
+  const [unvanlar, setUnvanlar] = useState<{ id: number; ad: string }[]>([]);
+  const [showDetails, setShowDetails] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3910,8 +3762,12 @@ export function ProfileScreen({ onBack }: ModuleProps) {
       const res = await apiGet<ProfileData>('/doctor/profile');
       setForm(res.data ?? null);
       setLocalPhoto(null);
-      const meta = await apiGet<{ iller: { id: number; ad: string }[] }>('/doctor/meta');
+      const meta = await apiGet<{
+        iller: { id: number; ad: string }[];
+        unvanlar?: { id: number; ad: string }[];
+      }>('/doctor/meta');
       setIller(meta.data?.iller ?? []);
+      setUnvanlar(meta.data?.unvanlar ?? []);
       if (res.data?.il_id) {
         const ilceRes = await apiGet<{ ilceler: { id: number; ad: string }[] }>('/doctor/meta', {
           il_id: res.data.il_id,
@@ -4018,74 +3874,127 @@ export function ProfileScreen({ onBack }: ModuleProps) {
         : `${SITE_URL}/storage/${form.profil_resmi.replace(/^storage\//, '')}`
       : null);
 
+  const accountLinks: { icon: string; title: string; description: string; screen: ScreenId }[] = [
+    { icon: '🔑', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
+    { icon: '🛡', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
+    { icon: '📦', title: 'Paket & Abonelik', description: 'Paket listesi ve ödeme', screen: 'packages' },
+    { icon: 'ℹ', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about' },
+    { icon: '🌐', title: 'Web Sitesi', description: 'Site bilgisi ve panel', screen: 'website' },
+    { icon: '🔔', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
+  ];
+
   return (
-    <ScreenShell title="Profil" subtitle="Kişisel ve iletişim bilgileriniz." onBack={onBack} loading={loading}>
+    <ScreenShell
+      title="Profil"
+      subtitle="Hesap bilgileriniz ve güvenlik ayarları."
+      onBack={onBack}
+      backLabel="‹  Panele dön"
+      loading={loading}
+    >
       {form ? (
         <>
-          <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 8 }}>
+          <View style={s.profileHero}>
             {photoUri ? (
-              <Image source={{ uri: photoUri }} style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#1B2E40' }} />
+              <Image source={{ uri: photoUri }} style={s.profileAvatarImg} />
             ) : (
-              <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#1B2E40', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#F3A26B', fontSize: 32, fontWeight: '800' }}>
+              <View style={s.profileAvatarFallback}>
+                <Text style={s.profileAvatarLetter}>
                   {(form.ad_soyad || '?').charAt(0).toLocaleUpperCase('tr-TR')}
                 </Text>
               </View>
             )}
-            <Pressable style={[s.secondaryButton, { marginTop: 12, minWidth: 160 }]} onPress={() => void pickPhoto()}>
+            <Text style={s.profileName}>
+              {[form.unvan, form.ad_soyad].filter(Boolean).join(' ')}
+            </Text>
+            <Text style={s.profileMeta}>{form.e_posta}</Text>
+            {form.uzmanlik_alani ? <Text style={s.profileMeta}>{form.uzmanlik_alani}</Text> : null}
+            {form.telefon ? <Text style={s.profileMeta}>{form.telefon}</Text> : null}
+            <Pressable style={[s.secondaryButton, { marginTop: 14, minWidth: 180 }]} onPress={() => void pickPhoto()}>
               <Text style={s.secondaryButtonText}>Profil fotoğrafı seç</Text>
             </Pressable>
           </View>
-          <Text style={s.label}>Ad Soyad</Text>
+
+          <Text style={s.menuGroupTitle}>Hesap işlemleri</Text>
+          <View style={s.menuCard}>
+            {accountLinks.map((item, index) => (
+              <Pressable
+                key={item.screen}
+                style={[s.menuItem, index > 0 && s.menuItemBorder]}
+                onPress={() => onNavigate(item.screen)}
+              >
+                <View style={s.menuIconWrap}>
+                  <Text style={s.menuIcon}>{item.icon}</Text>
+                </View>
+                <View style={s.menuItemCopy}>
+                  <Text style={s.menuItemTitle}>{item.title}</Text>
+                  <Text style={s.menuItemDescription}>{item.description}</Text>
+                </View>
+                <Text style={s.menuChevron}>›</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={[s.secondaryButton, { marginTop: 18 }]}
+            onPress={() => setShowDetails((v) => !v)}
+          >
+            <Text style={s.secondaryButtonText}>
+              {showDetails ? 'Profil formunu gizle' : 'Profil bilgilerini düzenle'}
+            </Text>
+          </Pressable>
+
+          {showDetails ? (
+            <>
+          <Text style={[s.label, { marginTop: 16 }]}>Ad Soyad</Text>
           <TextInput
             style={s.input}
             value={form.ad_soyad}
             onChangeText={(v) => setForm({ ...form, ad_soyad: v })}
             placeholderTextColor="#6B7F93"
           />
-          <Text style={s.label}>Unvan</Text>
-          <TextInput
-            style={s.input}
-            value={form.unvan ?? ''}
-            onChangeText={(v) => setForm({ ...form, unvan: v })}
-            placeholder="Örn. Prof. Dr."
-            placeholderTextColor="#6B7F93"
-          />
+          {unvanlar.length > 0 ? (
+            <SelectField
+              label="Unvan"
+              placeholder="Unvan seçin…"
+              searchable
+              options={unvanlar.map((u) => ({ label: u.ad, value: u.ad }))}
+              value={form.unvan ?? null}
+              onChange={(v) => setForm({ ...form, unvan: v })}
+            />
+          ) : (
+            <>
+              <Text style={s.label}>Unvan</Text>
+              <TextInput
+                style={s.input}
+                value={form.unvan ?? ''}
+                onChangeText={(v) => setForm({ ...form, unvan: v })}
+                placeholder="Örn. Prof. Dr."
+                placeholderTextColor="#6B7F93"
+              />
+            </>
+          )}
+          {unvanlar.length > 0 ? (
+            <Text style={s.hint}>Listede yoksa kaydetmeden önce web yönetiminden unvan eklenebilir; isterseniz serbest metin için listeden en yakınını seçin.</Text>
+          ) : null}
           <Text style={s.label}>E-posta</Text>
           <TextInput style={[s.input, { opacity: 0.7 }]} value={form.e_posta} editable={false} />
-          <Text style={s.label}>İl</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={s.segmentRow}>
-              {iller.slice(0, 40).map((il) => (
-                <Pressable
-                  key={il.id}
-                  style={[s.segmentButton, form.il_id === il.id && s.segmentButtonActive]}
-                  onPress={() => void onSelectIl(il.id)}
-                >
-                  <Text style={[s.segmentButtonText, form.il_id === il.id && s.segmentButtonTextActive]}>{il.ad}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </ScrollView>
+          <SelectField
+            label="İl"
+            placeholder="İl seçin…"
+            searchable
+            options={iller.map((il) => ({ label: il.ad, value: il.id }))}
+            value={form.il_id ?? null}
+            onChange={(id) => void onSelectIl(id)}
+          />
           {ilceler.length > 0 ? (
-            <>
-              <Text style={s.label}>İlçe</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={s.segmentRow}>
-                  {ilceler.map((ilce) => (
-                    <Pressable
-                      key={ilce.id}
-                      style={[s.segmentButton, form.ilce_id === ilce.id && s.segmentButtonActive]}
-                      onPress={() => setForm({ ...form, ilce_id: ilce.id })}
-                    >
-                      <Text style={[s.segmentButtonText, form.ilce_id === ilce.id && s.segmentButtonTextActive]}>
-                        {ilce.ad}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </ScrollView>
-            </>
+            <SelectField
+              label="İlçe"
+              placeholder="İlçe seçin…"
+              searchable
+              options={ilceler.map((ilce) => ({ label: ilce.ad, value: ilce.id }))}
+              value={form.ilce_id ?? null}
+              onChange={(id) => setForm({ ...form, ilce_id: id })}
+            />
           ) : null}
           <Text style={s.label}>Enlem</Text>
           <TextInput
@@ -4198,6 +4107,28 @@ export function ProfileScreen({ onBack }: ModuleProps) {
               <Text style={s.primaryButtonText}>Profili kaydet</Text>
             )}
           </Pressable>
+            </>
+          ) : null}
+
+          {onSignOut ? (
+            <Pressable
+              style={[s.secondaryButton, { marginTop: 22, marginBottom: 12, borderColor: 'rgba(224,104,122,0.45)' }]}
+              onPress={() => {
+                Alert.alert('Çıkış yap', 'Hesabınızdan çıkmak istiyor musunuz?', [
+                  { text: 'Vazgeç', style: 'cancel' },
+                  {
+                    text: 'Çıkış yap',
+                    style: 'destructive',
+                    onPress: () => {
+                      void onSignOut();
+                    },
+                  },
+                ]);
+              }}
+            >
+              <Text style={[s.secondaryButtonText, { color: '#E0687A' }]}>Çıkış yap</Text>
+            </Pressable>
+          ) : null}
         </>
       ) : null}
     </ScreenShell>
@@ -4306,6 +4237,8 @@ type AboutData = {
 export function AboutScreen({ onBack }: ModuleProps) {
   const [data, setData] = useState<AboutData | null>(null);
   const [selectedBrans, setSelectedBrans] = useState<number[]>([]);
+  const [mezuniyet, setMezuniyet] = useState<string[]>([]);
+  const [mezuniyetDraft, setMezuniyetDraft] = useState('');
   const [biyografi, setBiyografi] = useState('');
   const [klinikAdi, setKlinikAdi] = useState('');
   const [loading, setLoading] = useState(true);
@@ -4318,7 +4251,8 @@ export function AboutScreen({ onBack }: ModuleProps) {
       const res = await apiGet<AboutData>('/doctor/about');
       if (res.data) {
         setData(res.data);
-        setSelectedBrans(res.data.branslar.map((b) => b.id));
+        setSelectedBrans((res.data.branslar ?? []).map((b) => b.id));
+        setMezuniyet(Array.isArray(res.data.mezuniyet) ? res.data.mezuniyet.filter(Boolean) : []);
         setBiyografi(res.data.biyografi ?? '');
         setKlinikAdi(res.data.klinik_adi ?? '');
       }
@@ -4333,10 +4267,24 @@ export function AboutScreen({ onBack }: ModuleProps) {
     void load();
   }, [load]);
 
-  function toggleBrans(id: number) {
-    setSelectedBrans((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+  const bransOptions = (data?.tum_branslar ?? []).map((b) => ({
+    label: b.ad,
+    value: b.id,
+  }));
+
+  const selectedBransLabels = (data?.tum_branslar ?? [])
+    .filter((b) => selectedBrans.includes(b.id))
+    .map((b) => b.ad);
+
+  function addMezuniyet() {
+    const v = mezuniyetDraft.trim();
+    if (!v) return;
+    if (mezuniyet.some((m) => m.toLocaleLowerCase('tr-TR') === v.toLocaleLowerCase('tr-TR'))) {
+      Alert.alert('Uyarı', 'Bu mezuniyet zaten listede.');
+      return;
+    }
+    setMezuniyet((prev) => [...prev, v]);
+    setMezuniyetDraft('');
   }
 
   async function save() {
@@ -4351,11 +4299,12 @@ export function AboutScreen({ onBack }: ModuleProps) {
         branslar: selectedBrans,
         biyografi: biyografi,
         klinik_adi: klinikAdi.trim() || null,
-        mezuniyet: data?.mezuniyet ?? [],
+        mezuniyet: mezuniyet.map((m) => m.trim()).filter(Boolean),
       });
       if (res.data) {
         setData(res.data);
-        setSelectedBrans(res.data.branslar.map((b) => b.id));
+        setSelectedBrans((res.data.branslar ?? []).map((b) => b.id));
+        setMezuniyet(Array.isArray(res.data.mezuniyet) ? res.data.mezuniyet.filter(Boolean) : []);
       }
       setMessage('Hakkımda bilgileri güncellendi.');
     } catch (e) {
@@ -4366,7 +4315,7 @@ export function AboutScreen({ onBack }: ModuleProps) {
   }
 
   return (
-    <ScreenShell title="Hakkımda" subtitle="Biyografi ve branş seçimi." onBack={onBack} loading={loading}>
+    <ScreenShell title="Hakkımda" subtitle="Biyografi, branş ve mezuniyet." onBack={onBack} loading={loading}>
       <Text style={s.label}>Klinik adı</Text>
       <TextInput
         style={s.input}
@@ -4374,30 +4323,76 @@ export function AboutScreen({ onBack }: ModuleProps) {
         onChangeText={setKlinikAdi}
         placeholderTextColor="#6B7F93"
       />
-      <Text style={s.label}>Biyografi</Text>
-      <MarkdownToolbar value={biyografi} onChange={setBiyografi} />
-      <TextInput
-        style={[s.input, s.textArea, { minHeight: 140 }]}
+      <RichTextEditor
+        label="Biyografi"
         value={biyografi}
-        onChangeText={setBiyografi}
-        multiline
-        placeholderTextColor="#6B7F93"
+        onChange={setBiyografi}
+        minHeight={140}
+        placeholder="Hakkınızda metni…"
       />
-      <Text style={s.label}>Branşlar</Text>
-      <Text style={s.hint}>En az bir branş seçin.</Text>
-      {(data?.tum_branslar ?? []).map((b) => {
-        const active = selectedBrans.includes(b.id);
-        return (
-          <Pressable
-            key={b.id}
-            style={[s.optionRow, active && s.optionRowSelected]}
-            onPress={() => toggleBrans(b.id)}
-          >
-            <Text style={s.optionTitle}>{b.ad}</Text>
-            <Text style={s.optionSubtitle}>{active ? 'Seçili' : 'Seç'}</Text>
+
+      <Text style={s.sectionTitle}>Mezuniyet</Text>
+      <Text style={s.hint}>Okul / program satırları ekleyin (ör. İstanbul Üni. Tıp Fakültesi).</Text>
+      {mezuniyet.length === 0 ? (
+        <Text style={[s.hint, { marginTop: 6 }]}>Henüz mezuniyet eklenmedi.</Text>
+      ) : (
+        mezuniyet.map((m, idx) => (
+          <View key={`${m}-${idx}`} style={[s.card, { marginTop: 8 }]}>
+            <View style={s.cardHeader}>
+              <Text style={[s.cardTitle, { flex: 1 }]}>{m}</Text>
+              <Pressable
+                style={[s.actionBtn, s.actionBtnDanger]}
+                onPress={() => setMezuniyet((prev) => prev.filter((_, i) => i !== idx))}
+              >
+                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+              </Pressable>
+            </View>
+          </View>
+        ))
+      )}
+      <Text style={s.label}>Yeni mezuniyet</Text>
+      <TextInput
+        style={s.input}
+        value={mezuniyetDraft}
+        onChangeText={setMezuniyetDraft}
+        placeholder="Üniversite / program"
+        placeholderTextColor="#6B7F93"
+        onSubmitEditing={addMezuniyet}
+      />
+      <Pressable style={[s.secondaryButton, { marginTop: 8 }]} onPress={addMezuniyet}>
+        <Text style={s.secondaryButtonText}>+ Mezuniyet ekle</Text>
+      </Pressable>
+
+      {bransOptions.length === 0 ? (
+        <View style={[s.card, { marginTop: 12 }]}>
+          <Text style={s.cardTitle}>Branş listesi yok</Text>
+          <Text style={s.cardBody}>
+            Sistemde tanımlı branş bulunamadı. Yönetim panelinden branş eklenmesi gerekir.
+          </Text>
+          <Pressable style={[s.secondaryButton, { marginTop: 10 }]} onPress={() => void load()}>
+            <Text style={s.secondaryButtonText}>Yenile</Text>
           </Pressable>
-        );
-      })}
+        </View>
+      ) : (
+        <>
+          <SelectField
+            label="Branşlar"
+            placeholder="Branş seçin…"
+            multiple
+            searchable
+            clearable
+            options={bransOptions}
+            value={selectedBrans}
+            onChange={setSelectedBrans}
+          />
+          <Text style={s.hint}>
+            {selectedBrans.length === 0
+              ? 'En az bir branş seçmelisiniz.'
+              : `Seçili (${selectedBrans.length}): ${selectedBransLabels.join(', ')}`}
+          </Text>
+        </>
+      )}
+
       {message ? <Text style={s.successText}>{message}</Text> : null}
       <Pressable
         style={[s.primaryButton, { marginTop: 20 }, saving && s.primaryButtonDisabled]}
@@ -4605,16 +4600,9 @@ export function WebsiteScreen({ onBack }: ModuleProps) {
                 void openUrl(host.startsWith('http') ? host : `https://${host}`);
               }}
             >
-              <Text style={s.primaryButtonText}>Siteyi ac</Text>
+              <Text style={s.primaryButtonText}>Yayınlanan sitemi aç</Text>
             </Pressable>
           ) : null}
-
-          <Pressable
-            style={[s.secondaryButton, { marginTop: 12 }]}
-            onPress={() => void openUrl(data.panel_url || `${SITE_URL}/hekim/web-sitesi/kurulum`)}
-          >
-            <Text style={s.secondaryButtonText}>Web panelini ac</Text>
-          </Pressable>
         </>
       ) : null}
     </ScreenShell>
@@ -5230,21 +5218,16 @@ export function ClinicScreen({ onBack }: ModuleProps) {
         <EmptyState title="Klinik üyeliği yok" text="Bir kliniğe bağlı değilsiniz." />
       ) : (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-            <View style={[s.segmentRow, { flexWrap: 'nowrap' }]}>
-              {tabs
-                .filter((t) => !t.ownerOnly || isOwner)
-                .map((t) => (
-                  <Pressable
-                    key={t.key}
-                    style={[s.segmentButton, { minWidth: 88 }, tab === t.key && s.segmentButtonActive]}
-                    onPress={() => setTab(t.key)}
-                  >
-                    <Text style={[s.segmentButtonText, tab === t.key && s.segmentButtonTextActive]}>{t.label}</Text>
-                  </Pressable>
-                ))}
-            </View>
-          </ScrollView>
+          <SelectField
+            label="Klinik bölümü"
+            placeholder="Bölüm seçin…"
+            searchable
+            options={tabs
+              .filter((t) => !t.ownerOnly || isOwner)
+              .map((t) => ({ label: t.label, value: t.key }))}
+            value={tab}
+            onChange={setTab}
+          />
 
           {tab === 'bilgi' ? (
             <>
@@ -5418,14 +5401,16 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                 <TextInput style={s.input} value={staffForm.telefon} onChangeText={(v) => setStaffForm({ ...staffForm, telefon: v })} />
                 <Text style={s.label}>Şifre</Text>
                 <TextInput style={s.input} value={staffForm.sifre} onChangeText={(v) => setStaffForm({ ...staffForm, sifre: v })} secureTextEntry />
-                <Text style={s.label}>Rol</Text>
-                <View style={s.segmentRow}>
-                  {(['sekreter', 'muhasebeci', 'resepsiyonist'] as const).map((r) => (
-                    <Pressable key={r} style={[s.segmentButton, staffForm.rol === r && s.segmentButtonActive]} onPress={() => setStaffForm({ ...staffForm, rol: r })}>
-                      <Text style={[s.segmentButtonText, staffForm.rol === r && s.segmentButtonTextActive]}>{r}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <SelectField
+                  label="Rol"
+                  options={[
+                    { label: 'Sekreter', value: 'sekreter' },
+                    { label: 'Muhasebeci', value: 'muhasebeci' },
+                    { label: 'Resepsiyonist', value: 'resepsiyonist' },
+                  ]}
+                  value={staffForm.rol}
+                  onChange={(r) => setStaffForm({ ...staffForm, rol: r })}
+                />
                 <Pressable style={[s.primaryButton, { marginTop: 12 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void addStaff()}>
                   <Text style={s.primaryButtonText}>Kaydet</Text>
                 </Pressable>
@@ -5441,14 +5426,16 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                   <TextInput style={s.input} value={editStaffForm.telefon} onChangeText={(v) => setEditStaffForm({ ...editStaffForm, telefon: v })} />
                   <Text style={s.label}>Yeni şifre (opsiyonel)</Text>
                   <TextInput style={s.input} value={editStaffForm.sifre} onChangeText={(v) => setEditStaffForm({ ...editStaffForm, sifre: v })} secureTextEntry />
-                  <Text style={s.label}>Rol</Text>
-                  <View style={s.segmentRow}>
-                    {(['sekreter', 'muhasebeci', 'resepsiyonist'] as const).map((r) => (
-                      <Pressable key={r} style={[s.segmentButton, editStaffForm.rol === r && s.segmentButtonActive]} onPress={() => setEditStaffForm({ ...editStaffForm, rol: r })}>
-                        <Text style={[s.segmentButtonText, editStaffForm.rol === r && s.segmentButtonTextActive]}>{r}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
+                  <SelectField
+                    label="Rol"
+                    options={[
+                      { label: 'Sekreter', value: 'sekreter' },
+                      { label: 'Muhasebeci', value: 'muhasebeci' },
+                      { label: 'Resepsiyonist', value: 'resepsiyonist' },
+                    ]}
+                    value={editStaffForm.rol}
+                    onChange={(r) => setEditStaffForm({ ...editStaffForm, rol: r })}
+                  />
                   <View style={s.actions}>
                     <Pressable style={[s.actionBtn, s.actionBtnSuccess]} disabled={busy} onPress={() => void saveEditStaff()}>
                       <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Kaydet</Text>
@@ -5516,21 +5503,31 @@ export function ClinicScreen({ onBack }: ModuleProps) {
               {requests.length === 0 ? (
                 <EmptyState title="Talep yok" text="Bekleyen klinik randevu talebi yok." />
               ) : (
-                requests.map((r) => {
-                  const on = selectedReq.includes(r.id);
-                  return (
-                    <Pressable
-                      key={r.id}
-                      style={[s.card, on && s.optionRowSelected]}
-                      onPress={() => setSelectedReq((prev) => (on ? prev.filter((id) => id !== r.id) : [...prev, r.id]))}
-                    >
+                <>
+                  <SelectField
+                    label="Toplu işlem için talepler"
+                    placeholder="Talep seçin…"
+                    multiple
+                    searchable
+                    options={requests.map((r) => ({
+                      label: r.hasta_adi,
+                      value: r.id,
+                      subtitle: `${r.doktor} · ${r.tarih} ${r.saat}${r.hizmet ? ` · ${r.hizmet}` : ''}`,
+                    }))}
+                    value={selectedReq}
+                    onChange={setSelectedReq}
+                  />
+                  {requests.map((r) => (
+                    <View key={r.id} style={s.card}>
                       <Text style={s.cardTitle}>{r.hasta_adi}</Text>
                       <Text style={s.cardMeta}>{r.doktor} · {r.tarih} {r.saat}</Text>
                       {r.hizmet ? <Text style={s.cardBody}>{r.hizmet}</Text> : null}
-                      <Text style={s.hint}>{on ? 'Seçili' : 'Seçmek için dokunun'}</Text>
-                    </Pressable>
-                  );
-                })
+                      <Text style={s.hint}>
+                        {selectedReq.includes(r.id) ? 'Toplu seçimde işaretli' : 'Listede görünür'}
+                      </Text>
+                    </View>
+                  ))}
+                </>
               )}
             </>
           ) : null}
@@ -5540,10 +5537,8 @@ export function ClinicScreen({ onBack }: ModuleProps) {
               {rescheduleId ? (
                 <View style={s.card}>
                   <Text style={s.cardTitle}>Randevuyu ertele</Text>
-                  <Text style={s.label}>Tarih YYYY-AA-GG</Text>
-                  <TextInput style={s.input} value={rescheduleDate} onChangeText={setRescheduleDate} autoCapitalize="none" />
-                  <Text style={s.label}>Saat SS:DD</Text>
-                  <TextInput style={s.input} value={rescheduleTime} onChangeText={setRescheduleTime} autoCapitalize="none" />
+                  <DateField label="Yeni tarih" value={rescheduleDate} onChange={setRescheduleDate} />
+                  <TimeField label="Yeni saat" value={rescheduleTime} onChange={setRescheduleTime} />
                   <View style={s.actions}>
                     <Pressable style={[s.actionBtn, s.actionBtnSuccess]} disabled={busy} onPress={() => void clinicApptReschedule()}>
                       <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Kaydet</Text>
@@ -5603,14 +5598,16 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                   <TextInput style={s.input} value={annForm.baslik} onChangeText={(v) => setAnnForm({ ...annForm, baslik: v })} />
                   <Text style={s.label}>İçerik</Text>
                   <TextInput style={[s.input, s.textArea]} value={annForm.icerik} onChangeText={(v) => setAnnForm({ ...annForm, icerik: v })} multiline />
-                  <Text style={s.label}>Önem</Text>
-                  <View style={s.segmentRow}>
-                    {(['genel', 'onemli', 'acil'] as const).map((k) => (
-                      <Pressable key={k} style={[s.segmentButton, annForm.onem_derecesi === k && s.segmentButtonActive]} onPress={() => setAnnForm({ ...annForm, onem_derecesi: k })}>
-                        <Text style={[s.segmentButtonText, annForm.onem_derecesi === k && s.segmentButtonTextActive]}>{k}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
+                  <SelectField
+                    label="Önem"
+                    options={[
+                      { label: 'Genel', value: 'genel' },
+                      { label: 'Önemli', value: 'onemli' },
+                      { label: 'Acil', value: 'acil' },
+                    ]}
+                    value={annForm.onem_derecesi}
+                    onChange={(k) => setAnnForm({ ...annForm, onem_derecesi: k })}
+                  />
                   <Pressable style={[s.primaryButton, { marginTop: 12 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void saveAnnouncement()}>
                     <Text style={s.primaryButtonText}>Yayınla</Text>
                   </Pressable>
@@ -5731,18 +5728,19 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                 <Text style={s.label}>Tutar</Text>
                 <TextInput style={s.input} value={expForm.tutar} onChangeText={(v) => setExpForm({ ...expForm, tutar: v })} keyboardType="decimal-pad" />
                 <DateField label="Tarih" value={expForm.tarih} onChange={(v) => setExpForm({ ...expForm, tarih: v })} />
-                <Text style={s.label}>Kategori</Text>
-                <View style={s.segmentRow}>
-                  {(['diger', 'kira', 'personel', 'malzeme', 'pazarlama', 'teknoloji'] as const).map((k) => (
-                    <Pressable
-                      key={k}
-                      style={[s.segmentButton, expForm.kategori === k && s.segmentButtonActive]}
-                      onPress={() => setExpForm({ ...expForm, kategori: k })}
-                    >
-                      <Text style={[s.segmentButtonText, expForm.kategori === k && s.segmentButtonTextActive]}>{k}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <SelectField
+                  label="Kategori"
+                  options={[
+                    { label: 'Diğer', value: 'diger' },
+                    { label: 'Kira', value: 'kira' },
+                    { label: 'Personel', value: 'personel' },
+                    { label: 'Malzeme', value: 'malzeme' },
+                    { label: 'Pazarlama', value: 'pazarlama' },
+                    { label: 'Teknoloji', value: 'teknoloji' },
+                  ]}
+                  value={expForm.kategori}
+                  onChange={(k) => setExpForm({ ...expForm, kategori: k })}
+                />
                 <Text style={s.label}>Açıklama</Text>
                 <TextInput style={s.input} value={expForm.aciklama} onChangeText={(v) => setExpForm({ ...expForm, aciklama: v })} />
                 <View style={s.actions}>
@@ -5803,24 +5801,28 @@ export function ClinicScreen({ onBack }: ModuleProps) {
             <>
               <View style={s.card}>
                 <Text style={s.cardTitle}>Hakediş hesapla</Text>
-                <Text style={s.label}>Hekim</Text>
-                <View style={s.segmentRow}>
-                  {settlementDoctors.map((d) => (
-                    <Pressable
-                      key={d.id}
-                      style={[s.segmentButton, settleForm.doktor_id === String(d.id) && s.segmentButtonActive]}
-                      onPress={() => setSettleForm({ ...settleForm, doktor_id: String(d.id) })}
-                    >
-                      <Text style={[s.segmentButtonText, settleForm.doktor_id === String(d.id) && s.segmentButtonTextActive]} numberOfLines={1}>
-                        {d.ad_soyad}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <SelectField
+                  label="Hekim"
+                  placeholder="Hekim seçin…"
+                  searchable
+                  options={settlementDoctors.map((d) => ({
+                    label: d.ad_soyad,
+                    value: String(d.id),
+                  }))}
+                  value={settleForm.doktor_id || null}
+                  onChange={(id) => setSettleForm({ ...settleForm, doktor_id: id })}
+                />
                 <Text style={s.label}>Dönem başlangıç</Text>
-                <TextInput style={s.input} value={settleForm.donem_baslangic} onChangeText={(v) => setSettleForm({ ...settleForm, donem_baslangic: v })} placeholder="YYYY-AA-GG" placeholderTextColor="#6B7F93" />
-                <Text style={s.label}>Dönem bitiş</Text>
-                <TextInput style={s.input} value={settleForm.donem_bitis} onChangeText={(v) => setSettleForm({ ...settleForm, donem_bitis: v })} placeholder="YYYY-AA-GG" placeholderTextColor="#6B7F93" />
+                <DateField
+                  label="Dönem başlangıç"
+                  value={settleForm.donem_baslangic}
+                  onChange={(v) => setSettleForm({ ...settleForm, donem_baslangic: v })}
+                />
+                <DateField
+                  label="Dönem bitiş"
+                  value={settleForm.donem_bitis}
+                  onChange={(v) => setSettleForm({ ...settleForm, donem_bitis: v })}
+                />
                 <Text style={s.label}>Komisyon %</Text>
                 <TextInput style={s.input} value={settleForm.komisyon_orani} onChangeText={(v) => setSettleForm({ ...settleForm, komisyon_orani: v })} keyboardType="decimal-pad" />
                 <Pressable style={[s.primaryButton, { marginTop: 12 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void saveSettlement()}>
@@ -5836,22 +5838,21 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                     <Text style={s.cardMeta}>{h.donem_baslangic} → {h.donem_bitis}</Text>
                     <Text style={s.cardBody}>Gelir: {money(h.toplam_gelir)} · Komisyon: {money(h.komisyon_tutari)}</Text>
                     <Text style={s.cardBody}>Net: {money(h.net_hakedis)} · {h.durum}</Text>
-                    <View style={s.actions}>
-                      {(['hesaplandi', 'onaylandi', 'odendi'] as const).map((st) => (
-                        <Pressable
-                          key={st}
-                          style={[s.actionBtn, h.durum === st && s.actionBtnSuccess]}
-                          onPress={() =>
-                            void apiPost(`/doctor/clinic/settlements/${h.id}/status`, { durum: st })
-                              .then(() => apiGet<any>('/doctor/clinic/settlements'))
-                              .then((r) => setSettlements(r.data?.items ?? []))
-                              .catch(alertError)
-                          }
-                        >
-                          <Text style={[s.actionBtnText, h.durum === st && s.actionBtnSuccessText]}>{st}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
+                    <SelectField
+                      label="Durum güncelle"
+                      options={[
+                        { label: 'Hesaplandı', value: 'hesaplandi' },
+                        { label: 'Onaylandı', value: 'onaylandi' },
+                        { label: 'Ödendi', value: 'odendi' },
+                      ]}
+                      value={h.durum || 'hesaplandi'}
+                      onChange={(st) =>
+                        void apiPost(`/doctor/clinic/settlements/${h.id}/status`, { durum: st })
+                          .then(() => apiGet<any>('/doctor/clinic/settlements'))
+                          .then((r) => setSettlements(r.data?.items ?? []))
+                          .catch(alertError)
+                      }
+                    />
                   </View>
                 ))
               )}
@@ -6077,7 +6078,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { icon: '🔑', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
       { icon: '🛡', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
       { icon: '🔔', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
-      { icon: '📦', title: 'Paket & Abonelik', description: 'Paket listesi ve web ödeme', screen: 'packages' },
+      { icon: '📦', title: 'Paket & Abonelik', description: 'Paket seçimi ve abonelik', screen: 'packages' },
       { icon: 'ℹ', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about', feature: 'hakkimda' },
       { icon: '🌐', title: 'Web Sitesi', description: 'Site bilgisi ve panel bağlantısı', screen: 'website', feature: 'web_sitesi' },
     ],
@@ -6134,12 +6135,12 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
                     if (locked) {
                       Alert.alert(
                         'Paket gerekli',
-                        'Bu özellik mevcut paketinizde yok. Web panelinden paket yükseltebilirsiniz.',
+                        'Bu özellik mevcut paketinizde yok. Uygulama içinden paket yükseltebilirsiniz.',
                         [
                           { text: 'Tamam', style: 'cancel' },
                           {
-                            text: "Web'de aç",
-                            onPress: () => void Linking.openURL(`${SITE_URL}/hekim/paket-sec`),
+                            text: 'Paketlere git',
+                            onPress: () => onNavigate('packages'),
                           },
                         ],
                       );
@@ -6192,41 +6193,236 @@ export function PackagesScreen({ onBack }: ModuleProps) {
     ozellik_sayisi?: number;
   } | null>(null);
   const [items, setItems] = useState<any[]>([]);
-  const [paketSecUrl, setPaketSecUrl] = useState(`${SITE_URL}/hekim/paket-sec`);
-  const [klinikGecisUrl, setKlinikGecisUrl] = useState(`${SITE_URL}/hekim/klinik/gecis`);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [periodById, setPeriodById] = useState<Record<number, 'aylik' | 'yillik'>>({});
+  const [havaleById, setHavaleById] = useState<Record<number, string>>({});
+  const [pendingBanner, setPendingBanner] = useState<{
+    name: string;
+    paketId?: number | null;
+    period?: string;
+    isKlinik?: boolean;
+  } | null>(null);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiGet<{
+        mevcut: any;
+        uyelik?: any;
+        items: any[];
+      }>('/doctor/packages');
+      setMevcut(res.data?.mevcut ?? null);
+      setUyelik(res.data?.uyelik ?? null);
+      setItems(res.data?.items ?? []);
+    } catch (e) {
+      alertError(e, 'Paketler yüklenemedi.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
+    void load();
+  }, [load]);
+
+  // Onboarding'den gelen paket tercihi
+  useEffect(() => {
     void (async () => {
-      setLoading(true);
       try {
-        const res = await apiGet<{
-          mevcut: any;
-          uyelik?: any;
-          items: any[];
-          paket_sec_url?: string;
-          klinik_gecis_url?: string;
-        }>('/doctor/packages');
-        setMevcut(res.data?.mevcut ?? null);
-        setUyelik(res.data?.uyelik ?? null);
-        setItems(res.data?.items ?? []);
-        if (res.data?.paket_sec_url) setPaketSecUrl(res.data.paket_sec_url);
-        if (res.data?.klinik_gecis_url) setKlinikGecisUrl(res.data.klinik_gecis_url);
-      } catch (e) {
-        alertError(e, 'Paketler yüklenemedi.');
-      } finally {
-        setLoading(false);
+        const { loadPendingIap, clearPendingIap } = await import('../services/iap');
+        const pending = await loadPendingIap();
+        if (!pending) return;
+        const isKlinik =
+          pending.tur === 'klinik' || pending.packageKey.startsWith('klinik_');
+        setPendingBanner({
+          name: pending.packageName,
+          paketId: pending.paketId,
+          period: pending.period,
+          isKlinik,
+        });
+        if (pending.paketId) {
+          setHighlightId(pending.paketId);
+          if (pending.period) {
+            setPeriodById((prev) => ({ ...prev, [pending.paketId!]: pending.period }));
+          }
+        }
+        // Free auto-applied at login; if still pending free, try once
+        if (pending.productId === 'free' && pending.paketId && !isKlinik) {
+          try {
+            await apiPost('/doctor/packages/subscribe', {
+              paket_id: pending.paketId,
+              odeme_periyodu: pending.period,
+              odeme_yontemi: 'ucretsiz',
+            });
+            await clearPendingIap();
+            setPendingBanner(null);
+            await load();
+            Alert.alert('Paket aktif', `${pending.packageName} aktifleştirildi.`);
+          } catch {
+            /* user can retry below */
+          }
+        }
+      } catch {
+        /* ignore */
       }
     })();
-  }, []);
+  }, [load]);
+
+  async function subscribe(paket: any) {
+    const period = periodById[paket.id] ?? 'aylik';
+    const isFree = !!paket.ucretsiz_mi;
+    const ref = (havaleById[paket.id] ?? '').trim();
+    const isKlinik = (paket.tur ?? '') === 'klinik' || String(paket.ad ?? '').toLowerCase().includes('klinik');
+
+    if (isKlinik) {
+      try {
+        await apiPost('/doctor/packages/prefer', {
+          paket_id: paket.id,
+          odeme_periyodu: period,
+          tur: 'klinik',
+        });
+        Alert.alert(
+          'Klinik paket',
+          'Klinik paketleri mobil abonelikle açılamaz. Tercihiniz kaydedildi; klinik kaydı ve paket bağlama web panelinden yapılır.',
+        );
+      } catch (e) {
+        alertError(e, 'Klinik paket tercihi kaydedilemedi.');
+      }
+      return;
+    }
+
+    if (!isFree && !ref) {
+      Alert.alert(
+        'Havale referansı',
+        'Ücretli paket için havale/EFT referans numaranızı girin veya “Mağazadan satın al” kullanın.',
+      );
+      return;
+    }
+
+    setBusyId(paket.id);
+    try {
+      const res = await apiPost('/doctor/packages/subscribe', {
+        paket_id: paket.id,
+        odeme_periyodu: period,
+        odeme_yontemi: isFree ? 'ucretsiz' : 'havale',
+        havale_referans: isFree ? undefined : ref,
+      });
+      try {
+        const { clearPendingIap } = await import('../services/iap');
+        await clearPendingIap();
+        setPendingBanner(null);
+      } catch {
+        /* ignore */
+      }
+      Alert.alert('Tamam', res.message ?? (isFree ? 'Paket aktifleştirildi.' : 'Havale talebiniz alındı.'));
+      await load();
+    } catch (e) {
+      alertError(e, 'Paket aboneliği başarısız.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function buyWithStore(paket: any) {
+    const period = periodById[paket.id] ?? 'aylik';
+    const isFree = !!paket.ucretsiz_mi;
+    if (isFree) {
+      void subscribe(paket);
+      return;
+    }
+    const isKlinik = (paket.tur ?? '') === 'klinik';
+    if (isKlinik) {
+      Alert.alert('Klinik paket', 'Klinik paketleri mağaza IAP ile satılmaz.');
+      return;
+    }
+    setBusyId(paket.id);
+    try {
+      const { purchaseStorePackage } = await import('../services/iap');
+      const { isIapConfigured } = await import('../config/store');
+      if (!isIapConfigured()) {
+        Alert.alert(
+          'Mağaza IAP',
+          'RevenueCat anahtarı veya production build yok. Havale referansı ile devam edebilir veya EAS production build + RC anahtarı ekleyin.',
+        );
+        return;
+      }
+      let doktorId: number | null = null;
+      try {
+        const me = await apiGet<{ id?: number }>('/doctor/auth/me');
+        doktorId = me.data?.id ?? null;
+      } catch {
+        /* optional */
+      }
+      const res = await purchaseStorePackage({
+        paketId: Number(paket.id),
+        packageName: String(paket.ad ?? 'Paket'),
+        period,
+        doktorId,
+      });
+      if (!res.ok) {
+        Alert.alert('Satın alma', res.message);
+        return;
+      }
+      Alert.alert('Tamam', res.message);
+      setPendingBanner(null);
+      await load();
+    } catch (e) {
+      alertError(e, 'Mağaza satın alma başarısız.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function restoreStorePurchases() {
+    try {
+      const { restorePurchases } = await import('../services/iap');
+      const res = await restorePurchases();
+      Alert.alert(res.ok ? 'Geri yükleme' : 'Hata', res.message);
+      if (res.ok) await load();
+    } catch (e) {
+      alertError(e, 'Geri yükleme başarısız.');
+    }
+  }
 
   return (
     <ScreenShell
       title="Paket & Abonelik"
-      subtitle={mevcut?.ad ? `Mevcut: ${mevcut.ad}` : 'Paket secimi web uzerinden tamamlanir (iyzico).'}
+      subtitle={mevcut?.ad ? `Mevcut: ${mevcut.ad}` : 'Paket seçimi ve abonelik uygulama içinde yapılır.'}
       onBack={onBack}
       loading={loading}
     >
+      {pendingBanner ? (
+        <View style={[s.card, { borderColor: 'rgba(245,138,69,0.55)', marginBottom: 8 }]}>
+          <Text style={s.cardTitle}>Onboarding seçiminiz</Text>
+          <Text style={s.cardBody}>
+            {pendingBanner.name}
+            {pendingBanner.period ? ` · ${pendingBanner.period === 'yillik' ? 'Yıllık' : 'Aylık'}` : ''}
+          </Text>
+          {pendingBanner.isKlinik ? (
+            <Text style={s.hint}>
+              Klinik paket — mobil abonelik yok. Web panelinden klinik kaydı ve paket bağlama gerekir.
+            </Text>
+          ) : (
+            <Text style={s.hint}>Aşağıdan bu paketi aktifleştirin veya havale referansı girin.</Text>
+          )}
+          <Pressable
+            style={{ marginTop: 8 }}
+            onPress={() => {
+              void (async () => {
+                const { clearPendingIap } = await import('../services/iap');
+                await clearPendingIap();
+                setPendingBanner(null);
+                setHighlightId(null);
+              })();
+            }}
+          >
+            <Text style={[s.hint, { color: '#F58A45' }]}>Seçimi temizle</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {uyelik ? (
         <View style={s.card}>
           <View style={s.cardHeader}>
@@ -6257,44 +6453,111 @@ export function PackagesScreen({ onBack }: ModuleProps) {
         </View>
       ) : null}
 
-      <Pressable style={[s.primaryButton, { marginTop: 8 }]} onPress={() => void Linking.openURL(paketSecUrl)}>
-        <Text style={s.primaryButtonText}>Web'de paket seç / yükselt</Text>
-      </Pressable>
-      <Pressable style={[s.secondaryButton, { marginTop: 10 }]} onPress={() => void Linking.openURL(klinikGecisUrl)}>
-        <Text style={s.secondaryButtonText}>Klinik paketine geçiş (web)</Text>
-      </Pressable>
+      <View style={[s.card, { marginTop: 4 }]}>
+        <Text style={s.cardTitle}>Ödeme bilgilendirmesi</Text>
+        <Text style={s.cardBody}>
+          Ücretsiz paketler anında aktifleşir. Ücretli bireysel paketler: App Store / Google Play (IAP) veya
+          havale/EFT. Kart (iyzico) web panelindedir.
+        </Text>
+        <Text style={[s.hint, { marginTop: 8 }]}>
+          Klinik paketi bu uygulamadan başlatılamaz. Mağaza ürün kimlikleri:
+          com.randevuajandam.doktor.pkg.[paketId].monthly / .yearly
+        </Text>
+        <Pressable style={[s.actionBtn, { marginTop: 12 }]} onPress={() => void restoreStorePurchases()}>
+          <Text style={s.actionBtnText}>Mağaza satın almalarını geri yükle</Text>
+        </Pressable>
+      </View>
 
       {items.length === 0 ? (
         <EmptyState title="Paket listesi yok" text="Aktif paket bulunamadı." />
       ) : (
-        items.map((p) => (
-          <View key={p.id} style={[s.card, p.aktif_paket_mi && { borderColor: 'rgba(245,138,69,0.55)' }]}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{p.ad}</Text>
-              {p.aktif_paket_mi ? (
-                <View style={[s.pill, s.pillSuccess]}>
-                  <Text style={[s.pillText, s.pillSuccessText]}>Aktif</Text>
-                </View>
+        items.map((p) => {
+          const period = periodById[p.id] ?? 'aylik';
+          const isFree = !!p.ucretsiz_mi;
+          const highlighted = highlightId != null && Number(p.id) === Number(highlightId);
+          return (
+            <View
+              key={p.id}
+              style={[
+                s.card,
+                (p.aktif_paket_mi || highlighted) && { borderColor: 'rgba(245,138,69,0.55)' },
+              ]}
+            >
+              <View style={s.cardHeader}>
+                <Text style={s.cardTitle}>{p.ad}</Text>
+                {p.aktif_paket_mi ? (
+                  <View style={[s.pill, s.pillSuccess]}>
+                    <Text style={[s.pillText, s.pillSuccessText]}>Aktif</Text>
+                  </View>
+                ) : isFree ? (
+                  <View style={[s.pill, s.pillMuted]}>
+                    <Text style={[s.pillText, s.pillMutedText]}>Ücretsiz</Text>
+                  </View>
+                ) : null}
+              </View>
+              {p.aciklama ? <Text style={s.cardBody}>{p.aciklama}</Text> : null}
+              <Text style={s.cardMeta}>
+                Aylık: {p.aylik_indirimli_fiyat ?? p.aylik_fiyat ?? '—'} ₺
+                {p.yillik_fiyat != null ? ` · Yıllık: ${p.yillik_indirimli_fiyat ?? p.yillik_fiyat} ₺` : ''}
+              </Text>
+              {Array.isArray(p.features) && p.features.length > 0 ? (
+                <Text style={s.hint}>{p.features.slice(0, 8).join(' · ')}</Text>
+              ) : null}
+
+              {!p.aktif_paket_mi ? (
+                <>
+                  <SelectField
+                    label="Ödeme periyodu"
+                    options={[
+                      { label: 'Aylık', value: 'aylik' },
+                      { label: 'Yıllık', value: 'yillik' },
+                    ]}
+                    value={period}
+                    onChange={(v) =>
+                      setPeriodById((prev) => ({ ...prev, [p.id]: (v as 'aylik' | 'yillik') || 'aylik' }))
+                    }
+                  />
+                  {!isFree ? (
+                    <>
+                      <Text style={s.label}>Havale / EFT referansı</Text>
+                      <TextInput
+                        style={s.input}
+                        placeholder="Dekont no veya açıklama"
+                        placeholderTextColor="#6B7F93"
+                        value={havaleById[p.id] ?? ''}
+                        onChangeText={(t) => setHavaleById((prev) => ({ ...prev, [p.id]: t }))}
+                      />
+                    </>
+                  ) : null}
+                  {!isFree ? (
+                    <Pressable
+                      style={[s.actionBtn, { marginTop: 10, opacity: busyId === p.id ? 0.6 : 1 }]}
+                      disabled={busyId === p.id}
+                      onPress={() => void buyWithStore(p)}
+                    >
+                      <Text style={s.actionBtnText}>
+                        {busyId === p.id ? 'İşleniyor…' : 'Mağazadan satın al (IAP)'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    style={[s.actionBtn, s.actionBtnSuccess, { marginTop: 10, opacity: busyId === p.id ? 0.6 : 1 }]}
+                    disabled={busyId === p.id}
+                    onPress={() => void subscribe(p)}
+                  >
+                    <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>
+                      {busyId === p.id
+                        ? 'İşleniyor…'
+                        : isFree
+                          ? 'Ücretsiz paketi aktifleştir'
+                          : 'Havale ile talep gönder'}
+                    </Text>
+                  </Pressable>
+                </>
               ) : null}
             </View>
-            {p.aciklama ? <Text style={s.cardBody}>{p.aciklama}</Text> : null}
-            <Text style={s.cardMeta}>
-              Aylik: {p.aylik_indirimli_fiyat ?? p.aylik_fiyat ?? '—'} ₺
-              {p.yillik_fiyat != null ? ` · Yillik: ${p.yillik_indirimli_fiyat ?? p.yillik_fiyat} ₺` : ''}
-            </Text>
-            {Array.isArray(p.features) && p.features.length > 0 ? (
-              <Text style={s.hint}>{p.features.slice(0, 8).join(' · ')}</Text>
-            ) : null}
-            {!p.aktif_paket_mi && p.odeme_url ? (
-              <Pressable
-                style={[s.actionBtn, s.actionBtnSuccess, { marginTop: 10 }]}
-                onPress={() => void Linking.openURL(p.odeme_url)}
-              >
-                <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Odemeye git (web)</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ))
+          );
+        })
       )}
     </ScreenShell>
   );
@@ -6302,10 +6565,195 @@ export function PackagesScreen({ onBack }: ModuleProps) {
 
 // â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+type NotifItem = {
+  id: string;
+  title: string;
+  body: string;
+  read_at?: string | null;
+  created_at?: string;
+  data?: any;
+};
+
+const SWIPE_ACTION_W = 88;
+const SWIPE_OPEN = SWIPE_ACTION_W;
+const SWIPE_THRESHOLD = 48;
+
+function SwipeableNotificationRow({
+  item,
+  onMarkRead,
+  onDelete,
+}: {
+  item: NotifItem;
+  onMarkRead: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const offset = useRef(0);
+  const unread = !item.read_at;
+
+  const close = useCallback(() => {
+    offset.current = 0;
+    Animated.spring(translateX, {
+      toValue: 0,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 20,
+    }).start();
+  }, [translateX]);
+
+  const openLeft = useCallback(() => {
+    // swipe right → reveal Okundu (left side)
+    offset.current = SWIPE_OPEN;
+    Animated.spring(translateX, {
+      toValue: SWIPE_OPEN,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 20,
+    }).start();
+  }, [translateX]);
+
+  const openRight = useCallback(() => {
+    // swipe left → reveal Sil (right side)
+    offset.current = -SWIPE_OPEN;
+    Animated.spring(translateX, {
+      toValue: -SWIPE_OPEN,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 20,
+    }).start();
+  }, [translateX]);
+
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2,
+      onPanResponderGrant: () => {
+        translateX.stopAnimation((v) => {
+          offset.current = v;
+        });
+      },
+      onPanResponderMove: (_, g) => {
+        let next = offset.current + g.dx;
+        // Clamp: right open max SWIPE_OPEN, left open max -SWIPE_OPEN
+        // If already read, still allow left delete; right "okundu" still ok
+        next = Math.max(-SWIPE_OPEN - 20, Math.min(SWIPE_OPEN + 20, next));
+        translateX.setValue(next);
+      },
+      onPanResponderRelease: (_, g) => {
+        const current = offset.current + g.dx;
+        if (current > SWIPE_THRESHOLD || (offset.current > 0 && current > SWIPE_THRESHOLD / 2)) {
+          openLeft();
+          return;
+        }
+        if (current < -SWIPE_THRESHOLD || (offset.current < 0 && current < -SWIPE_THRESHOLD / 2)) {
+          openRight();
+          return;
+        }
+        close();
+      },
+      onPanResponderTerminate: () => close(),
+    }),
+  ).current;
+
+  return (
+    <View style={swipeStyles.wrap}>
+      {/* Left action: Okundu (revealed when swiping right) */}
+      <View style={[swipeStyles.actionSide, swipeStyles.actionLeft]}>
+        <Pressable
+          style={[swipeStyles.actionBtn, swipeStyles.actionRead]}
+          onPress={() => {
+            close();
+            onMarkRead(item.id);
+          }}
+        >
+          <Text style={swipeStyles.actionIcon}>✓</Text>
+          <Text style={swipeStyles.actionLabel}>Okundu</Text>
+        </Pressable>
+      </View>
+      {/* Right action: Sil (revealed when swiping left) */}
+      <View style={[swipeStyles.actionSide, swipeStyles.actionRight]}>
+        <Pressable
+          style={[swipeStyles.actionBtn, swipeStyles.actionDelete]}
+          onPress={() => {
+            close();
+            onDelete(item.id);
+          }}
+        >
+          <Text style={swipeStyles.actionIcon}>🗑</Text>
+          <Text style={swipeStyles.actionLabel}>Sil</Text>
+        </Pressable>
+      </View>
+
+      <Animated.View
+        style={[swipeStyles.card, unread && swipeStyles.cardUnread, { transform: [{ translateX }] }]}
+        {...pan.panHandlers}
+      >
+        <View style={swipeStyles.cardInner}>
+          {!item.read_at ? <View style={swipeStyles.unreadDot} /> : <View style={swipeStyles.unreadSpacer} />}
+          <View style={{ flex: 1 }}>
+            <Text style={s.cardTitle}>{item.title}</Text>
+            <Text style={s.cardBody}>{item.body}</Text>
+            <Text style={s.cardMeta}>{item.created_at ? formatDateTime(item.created_at) : ''}</Text>
+            <Text style={swipeStyles.hint}>← Sil · Okundu →</Text>
+          </View>
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
+const swipeStyles = {
+  wrap: {
+    marginTop: 12,
+    position: 'relative' as const,
+    borderRadius: 18,
+    overflow: 'hidden' as const,
+  },
+  actionSide: {
+    position: 'absolute' as const,
+    top: 0,
+    bottom: 0,
+    width: SWIPE_ACTION_W,
+    justifyContent: 'center' as const,
+  },
+  actionLeft: { left: 0 },
+  actionRight: { right: 0 },
+  actionBtn: {
+    flex: 1,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: 8,
+  },
+  actionRead: { backgroundColor: '#2D8A62' },
+  actionDelete: { backgroundColor: '#C94B5A' },
+  actionIcon: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' as const },
+  actionLabel: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' as const, marginTop: 4 },
+  card: {
+    backgroundColor: '#14283B',
+    borderWidth: 1,
+    borderColor: '#2B4055',
+    borderRadius: 18,
+    padding: 16,
+    minHeight: 88,
+  },
+  cardUnread: {
+    borderColor: 'rgba(245,138,69,0.55)',
+    backgroundColor: '#1B2C3D',
+  },
+  cardInner: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 10 },
+  unreadDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#F58A45',
+    marginTop: 6,
+  },
+  unreadSpacer: { width: 9, marginTop: 6 },
+  hint: { color: '#5A7085', fontSize: 10, marginTop: 8, fontWeight: '600' as const },
+};
+
 export function NotificationsScreen({ onBack }: ModuleProps) {
-  const [items, setItems] = useState<
-    { id: string; title: string; body: string; read_at?: string | null; created_at?: string; data?: any }[]
-  >([]);
+  const [items, setItems] = useState<NotifItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -6327,40 +6775,169 @@ export function NotificationsScreen({ onBack }: ModuleProps) {
   }, [load]);
 
   async function markAllRead() {
+    if (items.length === 0) return;
+    if (unread === 0) {
+      Alert.alert('Bildirimler', 'Okunmamış bildirim yok.');
+      return;
+    }
     try {
       await apiPost('/doctor/notifications/read');
-      await load();
+      setUnread(0);
+      setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
     } catch (e) {
-      alertError(e);
+      alertError(e, 'Tümü okundu işaretlenemedi.');
     }
+  }
+
+  function deleteAll() {
+    if (items.length === 0) return;
+    Alert.alert(
+      'Tümünü sil',
+      `${items.length} bildirim kalıcı olarak silinecek. Emin misiniz?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Tümünü sil',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              const prevItems = items;
+              const prevUnread = unread;
+              setItems([]);
+              setUnread(0);
+              try {
+                await apiDelete('/doctor/notifications');
+              } catch (e) {
+                setItems(prevItems);
+                setUnread(prevUnread);
+                alertError(e, 'Toplu silme başarısız.');
+                void load();
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }
+
+  async function markOneRead(id: string) {
+    const item = items.find((n) => n.id === id);
+    if (!item || item.read_at) {
+      return;
+    }
+    setItems((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)),
+    );
+    setUnread((u) => Math.max(0, u - 1));
+    try {
+      await apiPost('/doctor/notifications/read', { ids: [id] });
+    } catch (e) {
+      alertError(e, 'Okundu işaretlenemedi.');
+      void load();
+    }
+  }
+
+  function deleteOne(id: string) {
+    Alert.alert('Bildirimi sil', 'Bu bildirim kalıcı olarak silinsin mi?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            const prevItems = items;
+            const wasUnread = !items.find((n) => n.id === id)?.read_at;
+            setItems((list) => list.filter((n) => n.id !== id));
+            if (wasUnread) setUnread((u) => Math.max(0, u - 1));
+            try {
+              await apiDelete(`/doctor/notifications/${id}`);
+            } catch (e) {
+              setItems(prevItems);
+              alertError(e, 'Silinemedi.');
+              void load();
+            }
+          })();
+        },
+      },
+    ]);
   }
 
   return (
     <ScreenShell
       title="Bildirimler"
-      subtitle={unread > 0 ? `${unread} okunmamış` : 'Tüm bildirimler'}
+      subtitle={
+        unread > 0
+          ? `${unread} okunmamış · Sola sil · Sağa okundu`
+          : items.length > 0
+            ? 'Sola kaydır: Sil · Sağa kaydır: Okundu'
+            : 'Yeni bildirimler burada görünür'
+      }
       onBack={onBack}
       loading={loading}
-      rightAction={
-        <Pressable onPress={() => void markAllRead()}>
-          <Text style={s.modalClose}>Okundu</Text>
-        </Pressable>
-      }
     >
+      {items.length > 0 ? (
+        <View style={bulkStyles.row}>
+          <Pressable
+            style={[bulkStyles.btn, bulkStyles.btnRead, unread === 0 && bulkStyles.btnDisabled]}
+            onPress={() => void markAllRead()}
+            disabled={unread === 0}
+          >
+            <Text style={bulkStyles.btnText}>✓ Tümünü okundu</Text>
+          </Pressable>
+          <Pressable style={[bulkStyles.btn, bulkStyles.btnDelete]} onPress={deleteAll}>
+            <Text style={bulkStyles.btnText}>🗑 Tümünü sil</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {items.length === 0 ? (
-        <EmptyState title="Bildirim yok" text="Yeni randevu talepleri burada listelenir." />
+        <EmptyState title="Bildirim yok" text="Yeni randevu talepleri ve uyarılar burada listelenir." />
       ) : (
         items.map((n) => (
-          <View key={n.id} style={[s.card, !n.read_at && { borderColor: 'rgba(245,138,69,0.55)' }]}>
-            <Text style={s.cardTitle}>{n.title}</Text>
-            <Text style={s.cardBody}>{n.body}</Text>
-            <Text style={s.cardMeta}>{n.created_at ? formatDateTime(n.created_at) : ''}</Text>
-          </View>
+          <SwipeableNotificationRow
+            key={n.id}
+            item={n}
+            onMarkRead={(id) => void markOneRead(id)}
+            onDelete={deleteOne}
+          />
         ))
       )}
     </ScreenShell>
   );
 }
+
+const bulkStyles = {
+  row: {
+    flexDirection: 'row' as const,
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  btn: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  btnRead: {
+    backgroundColor: 'rgba(45,138,98,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(45,138,98,0.45)',
+  },
+  btnDelete: {
+    backgroundColor: 'rgba(201,75,90,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,75,90,0.4)',
+  },
+  btnDisabled: { opacity: 0.45 },
+  btnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800' as const,
+  },
+};
 
 // â”€â”€ Module map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
