@@ -36,12 +36,11 @@ import { AppIcon } from './src/components/AppIcon';
 import {
   AppointmentTile,
   HeaderIconButton,
-  MetricTile,
-  SectionHeader,
 } from './src/components/ContentUI';
 import { TabBar, type TabId } from './src/components/TabBar';
 import { LegalLinks } from './src/components/LegalLinks';
 import { DateField, TimeField } from './src/components/DateTimeFields';
+import { DashboardOverview } from './src/screens/Dashboard';
 import {
   API_URL,
   apiGet,
@@ -1570,426 +1569,142 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         }
       >
           <>
-            <View style={styles.dashboardHero}>
-              <Text style={styles.dashboardEyebrow}>
-                {isOverview ? greeting : 'Plan'}
-              </Text>
-              <Text style={styles.dashboardTitle}>
-                {isOverview ? todayDateLabel : 'Randevu takvimi'}
-              </Text>
-              <Text style={styles.dashboardSpecialty}>
-                {isOverview
-                  ? specialty || 'Bugünkü programınız'
-                  : 'Gün ve hafta görünümü'}
-              </Text>
-              {isOverview ? (
-                <View style={styles.heroMetaRow}>
-                  <View style={[styles.heroStatusPill, bookingOpen ? styles.heroStatusOpen : styles.heroStatusClosed]}>
-                    <View style={[styles.heroStatusDot, bookingOpen ? styles.heroStatusDotOpen : styles.heroStatusDotClosed]} />
-                    <Text style={styles.heroStatusText}>
-                      {bookingOpen ? 'Alım açık' : 'Alım kapalı'}
-                    </Text>
-                  </View>
-                  {(dashboardStats?.hafta_randevu ?? weekTotalFromCounts) > 0 ? (
-                    <Text style={styles.heroMetaHint}>
-                      Bu hafta {dashboardStats?.hafta_randevu ?? weekTotalFromCounts}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-
-            {isOverview && (
-              <>
-                {pendingInvites.length > 0 ? (
-                  <View style={styles.inlineNotice}>
-                    <Text style={styles.inlineNoticeText}>
-                      {pendingInvites.length} klinik davetiniz var
-                    </Text>
-                    {pendingInvites.map((inv) => (
-                      <View key={inv.id} style={{ marginTop: 10 }}>
-                        <Text style={{ color: '#102133', fontWeight: '700' }}>{inv.klinik}</Text>
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                          <Pressable
-                            style={[styles.retryButton, { backgroundColor: 'rgba(77,189,140,0.2)' }]}
-                            onPress={() => {
-                              void (async () => {
-                                try {
-                                  const token = await tokenStore.get();
-                                  const res = await fetch(`${API_URL}/doctor/clinic/invites/${inv.id}/accept`, {
-                                    method: 'POST',
-                                    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-                                  });
-                                  const payload = await res.json();
-                                  if (!res.ok || !payload.success) {
-                                    setActionMessage(payload.message ?? 'Davet kabul edilemedi.');
-                                    return;
-                                  }
-                                  setActionMessage('Kliniğe katıldınız.');
-                                  await refreshAll(false);
-                                } catch {
-                                  setActionMessage('Bağlantı hatası.');
-                                }
-                              })();
-                            }}
-                          >
-                            <Text style={styles.retryButtonText}>Kabul et</Text>
-                          </Pressable>
-                          <Pressable
-                            style={styles.retryButton}
-                            onPress={() => {
-                              void (async () => {
-                                try {
-                                  const token = await tokenStore.get();
-                                  await fetch(`${API_URL}/doctor/clinic/invites/${inv.id}/reject`, {
-                                    method: 'POST',
-                                    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-                                  });
-                                  await loadInvites();
-                                } catch {
-                                  //
-                                }
-                              })();
-                            }}
-                          >
-                            <Text style={styles.retryButtonText}>Reddet</Text>
-                          </Pressable>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-
-                {nextAppointment ? (
-                  <Pressable
-                    style={styles.nextApptCard}
-                    onPress={() => {
-                      setSelectedDate(nextAppointment.tarih || todayKey);
-                      setScreen('calendar');
-                      setDetailTarget(nextAppointment);
-                    }}
-                  >
-                    <View style={styles.nextApptTop}>
-                      <Text style={styles.nextApptEyebrow}>SIRADAKİ RANDEVU</Text>
-                      <View
-                        style={[
-                          styles.nextApptStatus,
-                          { backgroundColor: `${APPOINTMENT_STATUS_COLOR[nextAppointment.durum]}22` },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.nextApptStatusText,
-                            { color: APPOINTMENT_STATUS_COLOR[nextAppointment.durum] },
-                          ]}
-                        >
-                          {APPOINTMENT_STATUS_LABEL[nextAppointment.durum]}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.nextApptTime}>
-                      {formatTime(nextAppointment.saat)}
-                      {nextAppointment.bitis_saat ? ` – ${formatTime(nextAppointment.bitis_saat)}` : ''}
-                      {nextAppointment.tarih && nextAppointment.tarih !== todayKey
-                        ? ` · ${(nextAppointment.tarih || '').split('-').reverse().join('.')}`
-                        : ' · Bugün'}
-                    </Text>
-                    <Text style={styles.nextApptPatient}>{nextAppointment.hasta_adi || 'Hasta'}</Text>
-                    {nextAppointment.hizmet ? (
-                      <Text style={styles.nextApptService}>{nextAppointment.hizmet}</Text>
-                    ) : null}
-                    <Text style={styles.nextApptCta}>Detay ve işlemler →</Text>
-                  </Pressable>
-                ) : (
-                  <View style={styles.nextApptEmpty}>
-                    <Text style={styles.nextApptEmptyTitle}>Sıradaki randevu yok</Text>
-                    <Text style={styles.nextApptEmptyText}>
-                      Bugün için kalan aktif randevunuz bulunmuyor. Yeni randevu ekleyebilir veya talepleri kontrol edebilirsiniz.
-                    </Text>
-                    <View style={styles.nextApptEmptyActions}>
-                      <Pressable
-                        style={styles.retryButton}
-                        onPress={() => {
-                          setSelectedDate(todayKey);
-                          setCreateOpen(true);
-                          setScreen('calendar');
-                        }}
-                      >
-                        <Text style={styles.retryButtonText}>＋ Randevu ekle</Text>
-                      </Pressable>
-                      <Pressable onPress={() => setScreen('requests')}>
-                        <Text style={styles.quickSectionLink}>Taleplere bak</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.statGrid}>
-                  <View style={styles.statRow}>
-                    <MetricTile
-                      icon="calendar"
-                      value={dashboardStats?.bugun_randevu ?? activeCount}
-                      label="Bugün aktif"
-                      hint={`${todayConfirmed} onaylı · ${dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamam`}
-                      onPress={() => setScreen('calendar')}
-                    />
-                    <MetricTile
-                      icon="requests"
-                      value={dashboardStats?.bekleyen_talep ?? pendingCount}
-                      label="Bekleyen talep"
-                      hint="Onay için dokunun"
-                      onPress={() => setScreen('requests')}
-                      accent
-                    />
-                  </View>
-                  <View style={styles.statRow}>
-                    <MetricTile
-                      icon="people"
-                      value={dashboardStats?.kayitli_hasta ?? '—'}
-                      label="Kayıtlı hasta"
-                      hint="Hasta listesi"
-                      onPress={() => setScreen('patients')}
-                    />
-                    <MetricTile
-                      icon="waitlist"
-                      value={dashboardStats?.bekleme_listesi ?? '—'}
-                      label="Bekleme listesi"
-                      hint="Boş slot doldur"
-                      onPress={() => setScreen('waitlist')}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.todayBreakdownCard}>
-                  <Text style={styles.todayBreakdownTitle}>Bugünün durumu</Text>
-                  <View style={styles.todayBreakdownRow}>
-                    {[
-                      { label: 'Bekliyor', value: pendingCount, color: APPOINTMENT_STATUS_COLOR.beklemede },
-                      { label: 'Onaylı', value: todayConfirmed, color: APPOINTMENT_STATUS_COLOR.onaylandi },
-                      {
-                        label: 'Tamam',
-                        value: dashboardStats?.bugun_tamamlanan ?? todayCompleted,
-                        color: APPOINTMENT_STATUS_COLOR.tamamlandi,
-                      },
-                      {
-                        label: 'İptal',
-                        value: dashboardStats?.bugun_iptal ?? todayCancelled,
-                        color: APPOINTMENT_STATUS_COLOR.iptal,
-                      },
-                    ].map((item) => (
-                      <View key={item.label} style={styles.todayBreakdownItem}>
-                        <Text style={[styles.todayBreakdownValue, { color: item.color }]}>{item.value}</Text>
-                        <Text style={styles.todayBreakdownLabel}>{item.label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.weekActivityCard}>
-                  <View style={styles.weekActivityHeader}>
-                    <View>
-                      <Text style={styles.weekActivityTitle}>Haftalık yoğunluk</Text>
-                      <Text style={styles.weekActivitySubtitle}>
-                        Toplam {dashboardStats?.hafta_randevu ?? weekTotalFromCounts} randevu
-                      </Text>
-                    </View>
-                    <Pressable onPress={() => setScreen('calendar')}>
-                      <Text style={styles.quickSectionLink}>Takvim</Text>
-                    </Pressable>
-                  </View>
-                  <View style={styles.weekActivityBars}>
-                    {weekStripDates.map((dateKey, index) => {
-                      const count = dayCounts[dateKey] ?? 0;
-                      const height = count > 0 ? Math.max(10, Math.round((count / weekMaxCount) * 52)) : 4;
-                      const isToday = dateKey === todayKey;
-                      return (
-                        <Pressable
-                          key={dateKey}
-                          style={styles.weekActivityCol}
-                          onPress={() => {
-                            setSelectedDate(dateKey);
-                            setScreen('calendar');
-                          }}
-                        >
-                          <View
-                            style={[
-                              styles.weekActivityBar,
-                              { height },
-                              isToday && styles.weekActivityBarToday,
-                              count > 0 && styles.weekActivityBarFilled,
-                            ]}
-                          />
-                          <Text style={[styles.weekActivityDay, isToday && styles.weekActivityDayToday]}>
-                            {WEEKDAY_LABELS[index]}
-                          </Text>
-                          <Text style={styles.weekActivityCount}>{count > 0 ? count : '·'}</Text>
-                        </Pressable>
+            {isOverview ? (
+              <DashboardOverview
+                greeting={greeting}
+                todayLabel={todayDateLabel}
+                specialty={specialty}
+                bookingOpen={bookingOpen}
+                paketAd={dashboardStats?.paket?.ad}
+                klinikAd={dashboardStats?.klinik?.ad}
+                klinikRol={dashboardStats?.klinik?.rol}
+                weekTotal={dashboardStats?.hafta_randevu ?? weekTotalFromCounts}
+                todayActive={dashboardStats?.bugun_randevu ?? activeCount}
+                todayPending={pendingCount}
+                todayConfirmed={todayConfirmed}
+                todayCompleted={dashboardStats?.bugun_tamamlanan ?? todayCompleted}
+                todayCancelled={dashboardStats?.bugun_iptal ?? todayCancelled}
+                patientsCount={dashboardStats?.kayitli_hasta ?? '—'}
+                waitlistCount={dashboardStats?.bekleme_listesi ?? '—'}
+                pendingRequests={dashboardStats?.bekleyen_talep ?? pendingCount}
+                reviewsPending={dashboardStats?.yorum_bekleyen ?? 0}
+                pendingInvites={pendingInvites.map((i) => ({ id: i.id, klinik: i.klinik }))}
+                weekDays={weekStripDates.map((dateKey, index) => ({
+                  key: dateKey,
+                  label: WEEKDAY_LABELS[index],
+                  count: dayCounts[dateKey] ?? 0,
+                  isToday: dateKey === todayKey,
+                }))}
+                weekMax={weekMaxCount}
+                nextAppt={
+                  nextAppointment
+                    ? {
+                        time: formatTime(nextAppointment.saat),
+                        endTime: nextAppointment.bitis_saat
+                          ? formatTime(nextAppointment.bitis_saat)
+                          : null,
+                        dateHint:
+                          nextAppointment.tarih && nextAppointment.tarih !== todayKey
+                            ? (nextAppointment.tarih || '').split('-').reverse().join('.')
+                            : 'Bugün',
+                        patient: nextAppointment.hasta_adi || 'Hasta',
+                        service: nextAppointment.hizmet,
+                        statusLabel: APPOINTMENT_STATUS_LABEL[nextAppointment.durum],
+                        statusColor: APPOINTMENT_STATUS_COLOR[nextAppointment.durum],
+                        online:
+                          nextAppointment.gorusme_tipi === 'online' || !!nextAppointment.online_mi,
+                      }
+                    : null
+                }
+                todayList={null}
+                onAcceptInvite={(id) => {
+                  void (async () => {
+                    try {
+                      const token = await tokenStore.get();
+                      const res = await fetch(`${API_URL}/doctor/clinic/invites/${id}/accept`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+                      });
+                      const payload = await res.json();
+                      if (!res.ok || !payload.success) {
+                        setActionMessage(payload.message ?? 'Davet kabul edilemedi.');
+                        return;
+                      }
+                      setActionMessage('Kliniğe katıldınız.');
+                      await refreshAll(false);
+                    } catch {
+                      setActionMessage('Bağlantı hatası.');
+                    }
+                  })();
+                }}
+                onRejectInvite={(id) => {
+                  void (async () => {
+                    try {
+                      const token = await tokenStore.get();
+                      await fetch(`${API_URL}/doctor/clinic/invites/${id}/reject`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+                      });
+                      await loadInvites();
+                    } catch {
+                      //
+                    }
+                  })();
+                }}
+                onOpenNext={() => {
+                  if (!nextAppointment) return;
+                  setSelectedDate(nextAppointment.tarih || todayKey);
+                  setScreen('calendar');
+                  setDetailTarget(nextAppointment);
+                }}
+                onAddAppointment={() => {
+                  setSelectedDate(todayKey);
+                  setCreateOpen(true);
+                  setScreen('calendar');
+                }}
+                onToggleBooking={() => {
+                  void (async () => {
+                    try {
+                      const open = dashboardStats?.randevuya_acik_mi !== false;
+                      const getRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
+                        headers: await authHeaders(),
+                      });
+                      const getPayload = await getRes.json();
+                      if (!getRes.ok || !getPayload.success || !getPayload.data) {
+                        setActionMessage(getPayload.message ?? 'Ayarlar alınamadı.');
+                        return;
+                      }
+                      const current = getPayload.data as Record<string, unknown>;
+                      const putRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
+                        method: 'PUT',
+                        headers: await authHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({ ...current, aktif_mi: !open }),
+                      });
+                      const putPayload = await putRes.json();
+                      if (!putRes.ok || !putPayload.success) {
+                        setActionMessage(putPayload.message ?? 'Güncellenemedi.');
+                        return;
+                      }
+                      setDashboardStats((prev) =>
+                        prev ? { ...prev, randevuya_acik_mi: !open } : prev,
                       );
-                    })}
-                  </View>
-                </View>
-
-                <View style={styles.bookingToggleCard}>
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={styles.statLabel}>Randevu alımı</Text>
-                    <Text style={[styles.statValue, { fontSize: 15, marginTop: 2 }]}>
-                      {bookingOpen ? 'Açık' : 'Kapalı'}
-                    </Text>
-                    {dashboardStats?.paket?.ad ? (
-                      <Text style={[styles.statLabel, { marginTop: 6 }]}>Paket: {dashboardStats.paket.ad}</Text>
-                    ) : null}
-                    {dashboardStats?.klinik?.ad ? (
-                      <Text style={[styles.statLabel, { marginTop: 4 }]}>
-                        Klinik: {dashboardStats.klinik.ad}
-                        {dashboardStats.klinik.rol ? ` · ${dashboardStats.klinik.rol}` : ''}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <View style={{ alignItems: 'flex-end', gap: 10 }}>
-                    <Pressable
-                      style={[styles.retryButton, { minWidth: 88 }]}
-                      onPress={() => {
-                        void (async () => {
-                          try {
-                            const open = dashboardStats?.randevuya_acik_mi !== false;
-                            const getRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
-                              headers: await authHeaders(),
-                            });
-                            const getPayload = await getRes.json();
-                            if (!getRes.ok || !getPayload.success || !getPayload.data) {
-                              setActionMessage(getPayload.message ?? 'Ayarlar alınamadı.');
-                              return;
-                            }
-                            const current = getPayload.data as Record<string, unknown>;
-                            const putRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
-                              method: 'PUT',
-                              headers: await authHeaders({ 'Content-Type': 'application/json' }),
-                              body: JSON.stringify({ ...current, aktif_mi: !open }),
-                            });
-                            const putPayload = await putRes.json();
-                            if (!putRes.ok || !putPayload.success) {
-                              setActionMessage(putPayload.message ?? 'Güncellenemedi.');
-                              return;
-                            }
-                            setDashboardStats((prev) =>
-                              prev ? { ...prev, randevuya_acik_mi: !open } : prev,
-                            );
-                            setActionMessage(!open ? 'Randevu alımı açıldı.' : 'Randevu alımı kapatıldı.');
-                          } catch {
-                            setActionMessage('Bağlantı hatası.');
-                          }
-                        })();
-                      }}
-                    >
-                      <Text style={styles.retryButtonText}>{bookingOpen ? 'Kapat' : 'Aç'}</Text>
-                    </Pressable>
-                    <Pressable onPress={() => setScreen('settings')}>
-                      <Text style={styles.quickSectionLink}>Ayarlar</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                <SectionHeader title="Hızlı işlemler" actionLabel="Tüm menü" onAction={() => setScreen('menu')} />
-                <View style={styles.quickActionGrid}>
-                  <Pressable style={styles.quickAction} onPress={() => setScreen('calendar')}>
-                    <View style={styles.quickActionIconWrap}>
-                      <AppIcon name="calendar" size={20} color="#EE7D31" />
-                    </View>
-                    <Text style={styles.quickActionTitle}>Takvimim</Text>
-                    <Text style={styles.quickActionText}>Randevuları yönet</Text>
-                  </Pressable>
-                  <Pressable style={styles.quickAction} onPress={() => setScreen('requests')}>
-                    <View style={styles.quickActionTop}>
-                      <View style={styles.quickActionIconWrap}>
-                        <AppIcon name="requests" size={20} color="#EE7D31" />
-                      </View>
-                      {(dashboardStats?.bekleyen_talep ?? pendingCount) > 0 ? (
-                        <View style={styles.quickBadge}>
-                          <Text style={styles.quickBadgeText}>
-                            {dashboardStats?.bekleyen_talep ?? pendingCount}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <Text style={styles.quickActionTitle}>Talepler</Text>
-                    <Text style={styles.quickActionText}>Onay bekleyenler</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.quickActionGrid}>
-                  <Pressable
-                    style={styles.quickAction}
-                    onPress={() => {
-                      setSelectedDate(todayKey);
-                      setCreateOpen(true);
-                      setScreen('calendar');
-                    }}
-                  >
-                    <View style={styles.quickActionIconWrap}>
-                      <AppIcon name="plus" size={22} color="#EE7D31" />
-                    </View>
-                    <Text style={styles.quickActionTitle}>Yeni randevu</Text>
-                    <Text style={styles.quickActionText}>Manuel ekle</Text>
-                  </Pressable>
-                  <Pressable style={styles.quickAction} onPress={() => setScreen('patients')}>
-                    <View style={styles.quickActionIconWrap}>
-                      <AppIcon name="people" size={20} color="#EE7D31" />
-                    </View>
-                    <Text style={styles.quickActionTitle}>Hastalar</Text>
-                    <Text style={styles.quickActionText}>
-                      {dashboardStats?.kayitli_hasta != null
-                        ? `${dashboardStats.kayitli_hasta} kayıt`
-                        : 'Kayıtlar'}
-                    </Text>
-                  </Pressable>
-                </View>
-                <View style={styles.quickActionGrid}>
-                  <Pressable style={styles.quickAction} onPress={() => setScreen('waitlist')}>
-                    <View style={styles.quickActionTop}>
-                      <View style={styles.quickActionIconWrap}>
-                        <AppIcon name="waitlist" size={20} color="#EE7D31" />
-                      </View>
-                      {(dashboardStats?.bekleme_listesi ?? 0) > 0 ? (
-                        <View style={styles.quickBadge}>
-                          <Text style={styles.quickBadgeText}>{dashboardStats?.bekleme_listesi}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <Text style={styles.quickActionTitle}>Bekleme</Text>
-                    <Text style={styles.quickActionText}>Listeyi yönet</Text>
-                  </Pressable>
-                  <Pressable style={styles.quickAction} onPress={() => setScreen('finance')}>
-                    <View style={styles.quickActionIconWrap}>
-                      <AppIcon name="finance" size={20} color="#EE7D31" />
-                    </View>
-                    <Text style={styles.quickActionTitle}>Finans</Text>
-                    <Text style={styles.quickActionText}>Gelir / gider</Text>
-                  </Pressable>
-                </View>
-                {(dashboardStats?.yorum_bekleyen ?? 0) > 0 ? (
-                  <Pressable style={styles.insightBanner} onPress={() => setScreen('reviews')}>
-                    <AppIcon name="star" size={16} color="#C96A2B" />
-                    <Text style={styles.insightBannerText}>
-                      {dashboardStats?.yorum_bekleyen} yorum onay bekliyor
-                    </Text>
-                    <AppIcon name="chevronRight" size={16} color="#C96A2B" />
-                  </Pressable>
-                ) : null}
-
-                <SectionHeader
-                  title="Bugünün programı"
-                  actionLabel="Takvim"
-                  onAction={() => setScreen('calendar')}
-                />
-                <Text style={styles.sectionSubtitle}>
-                  {activeCount
-                    ? `${activeCount} aktif · ${dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamamlandı`
-                    : 'Programınız şu an müsait'}
-                </Text>
-              </>
-            )}
+                      setActionMessage(!open ? 'Randevu alımı açıldı.' : 'Randevu alımı kapatıldı.');
+                    } catch {
+                      setActionMessage('Bağlantı hatası.');
+                    }
+                  })();
+                }}
+                onNavigate={(screen) => setScreen(screen as ScreenId)}
+              />
+            ) : null}
 
             {isCalendar && (
               <>
+                <View style={styles.dashboardHero}>
+                  <Text style={styles.dashboardEyebrow}>Plan</Text>
+                  <Text style={styles.dashboardTitle}>Randevu takvimi</Text>
+                  <Text style={styles.dashboardSpecialty}>Gün ve hafta görünümü</Text>
+                </View>
                 {/* Premium calendar chrome */}
                 <View style={styles.calHero}>
                   <View style={styles.calHeroTop}>
