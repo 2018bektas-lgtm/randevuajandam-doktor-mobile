@@ -298,18 +298,22 @@ export function TabGlyph({
   name,
   active,
   danger,
+  forceColor,
 }: {
   name: 'home' | 'calendar' | 'block' | 'menu' | 'profile';
   active?: boolean;
   danger?: boolean;
+  forceColor?: string;
 }) {
-  const color = danger
-    ? active
-      ? colors.status.error
-      : '#A0AEC0'
-    : active
-      ? colors.brand.orange
-      : '#8E99A8';
+  const color =
+    forceColor ??
+    (danger
+      ? active
+        ? colors.status.error
+        : '#A0AEC0'
+      : active
+        ? colors.brand.orange
+        : '#8E99A8');
   return <AppIcon name={name} size={22} color={color} />;
 }
 

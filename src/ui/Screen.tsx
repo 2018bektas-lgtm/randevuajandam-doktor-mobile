@@ -10,6 +10,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon } from '../components/AppIcon';
 import { useLayout } from '../layout';
 import { colors } from '../theme';
@@ -18,7 +19,6 @@ type ScreenShellProps = {
   title: string;
   subtitle?: string;
   onBack?: () => void;
-  /** @deprecated Prefer chevron back — label ignored for native look */
   backLabel?: string;
   rightAction?: ReactNode;
   children: ReactNode;
@@ -27,13 +27,11 @@ type ScreenShellProps = {
   onRefresh?: () => void;
   scroll?: boolean;
   contentStyle?: ViewStyle;
-  /** Large title under nav (iOS app style) */
   largeTitle?: boolean;
 };
 
 /**
- * Native module shell: compact nav bar + optional large title.
- * Avoids “website page header” look (text “‹ Geri”, oversized subtitles).
+ * Native module shell with bold brand header — clearly not a mobile website.
  */
 export function ScreenShell({
   title,
@@ -46,78 +44,58 @@ export function ScreenShell({
   onRefresh,
   scroll = true,
   contentStyle,
-  largeTitle = true,
 }: ScreenShellProps) {
   const L = useLayout();
 
-  const navBar = (
-    <View
-      style={[
-        styles.navBar,
-        {
-          paddingTop: L.safeTop,
-          paddingHorizontal: 8,
-        },
-      ]}
+  const header = (
+    <LinearGradient
+      colors={['#0F172A', '#1E293B']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.header, { paddingTop: L.safeTop }]}
     >
       <View style={styles.navRow}>
         {onBack ? (
           <Pressable
-            style={({ pressed }) => [styles.navSide, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
             onPress={onBack}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel="Geri"
           >
-            <AppIcon name="chevronLeft" size={22} color={colors.brand.orange} />
-            <Text style={styles.backHint}>Geri</Text>
+            <AppIcon name="chevronLeft" size={20} color="#FFFFFF" />
+            <Text style={styles.backText}>Geri</Text>
           </Pressable>
         ) : (
-          <View style={styles.navSide} />
+          <View style={styles.backBtn} />
         )}
-
-        {!largeTitle ? (
-          <Text style={styles.navTitle} numberOfLines={1}>
-            {title}
-          </Text>
-        ) : (
-          <View style={styles.navTitleSpacer} />
-        )}
-
-        <View style={[styles.navSide, styles.navSideRight]}>{rightAction}</View>
+        <View style={styles.rightSlot}>{rightAction}</View>
       </View>
-    </View>
-  );
-
-  const bodyTop = largeTitle ? (
-    <View style={styles.largeTitleBlock}>
-      <Text style={styles.largeTitle} numberOfLines={2}>
+      <Text style={styles.title} numberOfLines={2}>
         {title}
       </Text>
       {subtitle ? (
-        <Text style={styles.largeSubtitle} numberOfLines={3}>
+        <Text style={styles.subtitle} numberOfLines={3}>
           {subtitle}
         </Text>
       ) : null}
-    </View>
-  ) : subtitle ? (
-    <Text style={styles.inlineSubtitle} numberOfLines={2}>
-      {subtitle}
-    </Text>
-  ) : null;
+      <View style={styles.brandStrip} />
+    </LinearGradient>
+  );
 
-  const bottomPad = L.scrollBottom + 8;
+  const bottomPad = L.scrollBottom + 16;
 
   return (
     <View style={styles.safe}>
-      <StatusBar style="dark" />
-      {navBar}
+      <StatusBar style="light" />
+      {header}
       {scroll ? (
         <ScrollView
           style={styles.flex}
           contentContainerStyle={[
             {
               paddingHorizontal: L.padX,
+              paddingTop: 14,
               paddingBottom: bottomPad,
               flexGrow: 1,
             },
@@ -137,17 +115,15 @@ export function ScreenShell({
             ) : undefined
           }
         >
-          {bodyTop}
           {loading ? (
-            <ActivityIndicator color={colors.brand.orange} style={{ marginTop: 28 }} />
+            <ActivityIndicator color={colors.brand.orange} style={{ marginTop: 32 }} />
           ) : (
             children
           )}
         </ScrollView>
       ) : (
-        <View style={[styles.flex, { paddingHorizontal: L.padX, paddingBottom: bottomPad }, contentStyle]}>
-          {bodyTop}
-          {loading ? <ActivityIndicator color={colors.brand.orange} style={{ marginTop: 28 }} /> : children}
+        <View style={[styles.flex, { paddingHorizontal: L.padX, paddingTop: 14, paddingBottom: bottomPad }, contentStyle]}>
+          {loading ? <ActivityIndicator color={colors.brand.orange} style={{ marginTop: 32 }} /> : children}
         </View>
       )}
     </View>
@@ -157,71 +133,57 @@ export function ScreenShell({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#EEF2F7',
   },
   flex: { flex: 1, minHeight: 0 },
-  navBar: {
-    backgroundColor: colors.background.primary,
-    borderBottomWidth: 0,
-    zIndex: 20,
+  header: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
   },
   navRow: {
-    minHeight: 44,
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  navSide: {
-    minWidth: 72,
-    maxWidth: 110,
+  backBtn: {
+    minWidth: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 0,
+    gap: 2,
     paddingVertical: 6,
-    paddingHorizontal: 4,
   },
-  navSideRight: {
-    justifyContent: 'flex-end',
+  backText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  backHint: {
-    color: colors.brand.orange,
-    fontSize: 17,
-    fontWeight: '400',
-    marginLeft: -2,
-    letterSpacing: -0.2,
+  rightSlot: {
+    minWidth: 76,
+    alignItems: 'flex-end',
   },
-  navTitle: {
-    flex: 1,
-    textAlign: 'center',
-    color: colors.text.heading,
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-  },
-  navTitleSpacer: { flex: 1 },
-  pressed: { opacity: 0.55 },
-  largeTitleBlock: {
-    paddingTop: 4,
-    paddingBottom: 10,
-  },
-  largeTitle: {
-    color: colors.text.heading,
-    fontSize: 28,
-    lineHeight: 34,
+  title: {
+    marginTop: 6,
+    color: '#FFFFFF',
+    fontSize: 26,
+    lineHeight: 32,
     fontWeight: '700',
-    letterSpacing: -0.7,
+    letterSpacing: -0.6,
   },
-  largeSubtitle: {
+  subtitle: {
     marginTop: 4,
-    color: colors.text.muted,
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '400',
   },
-  inlineSubtitle: {
-    color: colors.text.muted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 8,
+  brandStrip: {
+    marginTop: 14,
+    height: 3,
+    width: 42,
+    borderRadius: 2,
+    backgroundColor: colors.brand.orange,
   },
 });

@@ -473,8 +473,34 @@ export default function App() {
         : 'Tüm adımlar uygulama içinde tamamlanır; site sayfası açılmaz.';
 
   return (
-    <View style={[styles.safeArea, { paddingTop: L.safeTop }]}>
-      <StatusBar style="dark" />
+    <View style={styles.safeArea}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={['#0F172A', '#1E293B', '#EE7D31']}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.authHeroBg, { paddingTop: L.safeTop + 8 }]}
+      >
+        <View style={styles.uiVersionPill}>
+          <Text style={styles.uiVersionText}>UI 1.1 · Native</Text>
+        </View>
+        <View style={styles.brandRow}>
+          <View style={styles.logoShell}>
+            <Image
+              source={require('./assets/logo.png')}
+              style={styles.logoImage}
+              accessibilityLabel="Randevu Ajandam"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brandName}>Randevu Ajandam</Text>
+            <Text style={styles.brandSubtitle}>Hekim mobil uygulaması</Text>
+          </View>
+        </View>
+        <Text style={styles.welcome}>{heroTitle}</Text>
+        <Text style={styles.heroDescription}>{heroDesc}</Text>
+      </LinearGradient>
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.flex}
@@ -482,28 +508,12 @@ export default function App() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: L.footerPad + 28 },
+            { paddingBottom: L.footerPad + 28, marginTop: -28 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.authTop}>
-            <View style={styles.brandRow}>
-              <View style={styles.logoShell}>
-                <Image
-                  source={require('./assets/logo.png')}
-                  style={styles.logoImage}
-                  accessibilityLabel="Randevu Ajandam"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.brandName}>Randevu Ajandam</Text>
-                <Text style={styles.brandSubtitle}>HEKİM PANELİ</Text>
-              </View>
-            </View>
-            <Text style={styles.welcome}>{heroTitle}</Text>
-            <Text style={styles.heroDescription}>{heroDesc}</Text>
-          </View>
+          <View style={styles.authTop} />
 
           {authMode !== 'login' && !twoFactorToken && loginRole === 'doctor' ? (
             <AuthFlows mode={authMode} onChangeMode={setAuthMode} onRegistered={handleRegistered} />
@@ -1472,7 +1482,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
 
   return (
     <View style={styles.dashboard}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       {isOffline ? (
         <Pressable
           style={styles.offlineBanner}
@@ -1487,13 +1497,16 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           </Text>
         </Pressable>
       ) : null}
-      <View
+      <LinearGradient
+        colors={['#0F172A', '#1E293B']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={[
           styles.dashboardHeader,
           {
-            paddingTop: Math.max(L.safeTop - 2, L.safeTop * 0.85),
+            paddingTop: L.safeTop + 4,
             paddingHorizontal: L.padX,
-            paddingBottom: 6,
+            paddingBottom: 14,
           },
         ]}
       >
@@ -1506,6 +1519,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
             />
           </View>
           <View style={{ flexShrink: 1, justifyContent: 'center' }}>
+            <Text style={styles.uiVersionMini}>UI 1.1 · Native</Text>
             <Text style={styles.dashboardIdentityTitle} numberOfLines={1}>
               {isOverview ? 'Bugün' : isCalendar ? 'Takvim' : 'Panel'}
             </Text>
@@ -1520,7 +1534,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           accessibilityLabel="Bildirimler"
           hitSlop={10}
         >
-          <AppIcon name="bell" size={20} color="#0F172A" />
+          <AppIcon name="bell" size={20} color="#FFFFFF" />
           {unreadNotifications > 0 ? (
             <View
               style={[
@@ -1534,7 +1548,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
             </View>
           ) : null}
         </Pressable>
-      </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.dashboardContent}
@@ -3379,9 +3393,29 @@ function RescheduleAppointmentModal({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { flex: 1, backgroundColor: '#F4F6F9' },
-  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F6F9' },
-  introScreen: { flex: 1, overflow: 'hidden', backgroundColor: '#F4F6F9' },
+  safeArea: { flex: 1, backgroundColor: '#EEF2F7' },
+  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A' },
+  introScreen: { flex: 1, overflow: 'hidden', backgroundColor: '#0F172A' },
+  authHeroBg: {
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  uiVersionPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(238,125,49,0.95)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginBottom: 14,
+  },
+  uiVersionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
   introScene: { flex: 1, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   introGlowTop: { position: 'absolute', top: -190, right: -130, width: 420, height: 420, borderRadius: 210, backgroundColor: colors.brand.orangeGlow, opacity: 0.16 },
   introGlowBottom: { position: 'absolute', bottom: -170, left: -125, width: 380, height: 380, borderRadius: 190, borderWidth: 60, borderColor: colors.navy[600], opacity: 0.35 },
@@ -3455,52 +3489,58 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.brand.orangeGlow,
   },
-  scrollContent: { flexGrow: 1, backgroundColor: '#F4F6F9' },
+  scrollContent: { flexGrow: 1, backgroundColor: '#EEF2F7' },
   authTop: {
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 0,
+    paddingBottom: 0,
+    height: 0,
   },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logoShell: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
-    shadowColor: '#102133',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  logoImage: { width: 28, height: 28, resizeMode: 'contain' },
-  brandName: { color: '#102133', fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
-  brandSubtitle: { color: '#C96A2B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
+  logoImage: { width: 30, height: 30, resizeMode: 'contain' },
+  brandName: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  brandSubtitle: { color: 'rgba(255,255,255,0.72)', fontSize: 12, fontWeight: '600', letterSpacing: 0, marginTop: 3 },
   welcome: {
-    color: '#102133',
-    fontSize: 20,
-    lineHeight: 26,
+    color: '#FFFFFF',
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: '800',
-    letterSpacing: -0.4,
-    marginTop: 14,
+    letterSpacing: -0.6,
+    marginTop: 18,
   },
   heroDescription: {
-    color: '#6D7D8E',
-    fontSize: 14,
-    lineHeight: 20,
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 15,
+    lineHeight: 21,
     marginTop: 8,
-    maxWidth: 320,
+    maxWidth: 340,
   },
   formCard: {
-    marginHorizontal: 18,
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: '#E1E6ED',
+    marginHorizontal: 16,
+    marginTop: 0,
+    borderWidth: 0,
+    borderRadius: 20,
+    paddingTop: 8,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
   authBadge: {
     alignSelf: 'flex-start',
@@ -3559,24 +3599,26 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     lineHeight: 17,
   },
-  dashboard: { flex: 1, backgroundColor: '#F2F4F7' },
+  dashboard: { flex: 1, backgroundColor: '#EEF2F7' },
   moduleBody: { flex: 1 },
   offlineBanner: {
-    backgroundColor: 'rgba(238,125,49,0.14)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(238,125,49,0.35)',
+    backgroundColor: 'rgba(238,125,49,0.95)',
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
-  offlineBannerText: { color: '#C96A2B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  offlineBannerText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   dashboardHeader: {
     zIndex: 20,
     borderBottomWidth: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F2F4F7',
-    minHeight: 44,
+    backgroundColor: '#0F172A',
+    minHeight: 56,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
   },
   dashboardIdentity: {
     flexDirection: 'row',
@@ -3587,30 +3629,32 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   dashboardLogoShell: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 0,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
-  dashboardLogo: { width: 24, height: 24, resizeMode: 'contain' },
+  dashboardLogo: { width: 26, height: 26, resizeMode: 'contain' },
+  uiVersionMini: {
+    color: '#FDBA74',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
   dashboardIdentityTitle: {
-    color: '#0F172A',
-    fontSize: 17,
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: -0.35,
-    lineHeight: 21,
+    lineHeight: 22,
   },
   dashboardIdentitySubtitle: {
-    color: '#64748B',
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
     letterSpacing: -0.1,
     fontWeight: '500',
@@ -3629,20 +3673,15 @@ const styles = StyleSheet.create({
   },
   dashboardAvatarText: { color: '#F8B789', fontSize: 12, fontWeight: '700' },
   headerNotifyBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 0,
     borderColor: 'transparent',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
   headerNotifyIcon: {
     fontSize: 15,

@@ -294,9 +294,15 @@ export const moduleStyles = StyleSheet.create({
     fontWeight: '700',
   },
   modalClose: {
-    color: colors.brand.orangeSoft,
-    fontSize: 13,
+    color: colors.brand.orange,
+    fontSize: 15,
     fontWeight: '700',
+  },
+  // When rightAction sits on dark ScreenShell header
+  headerActionOnDark: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
   modalBody: {
     paddingHorizontal: 16,

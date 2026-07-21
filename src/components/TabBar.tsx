@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLayout } from '../layout';
 import { colors } from '../theme';
 import { TabGlyph } from './AppIcon';
@@ -10,7 +10,12 @@ type Props = {
   onChange: (tab: TabId) => void;
 };
 
-const TABS: { id: TabId; label: string; icon: 'home' | 'calendar' | 'block' | 'menu' | 'profile'; danger?: boolean }[] = [
+const TABS: {
+  id: TabId;
+  label: string;
+  icon: 'home' | 'calendar' | 'block' | 'menu' | 'profile';
+  danger?: boolean;
+}[] = [
   { id: 'overview', label: 'Özet', icon: 'home' },
   { id: 'calendar', label: 'Takvim', icon: 'calendar' },
   { id: 'quickClose', label: 'Kapat', icon: 'block', danger: true },
@@ -19,16 +24,14 @@ const TABS: { id: TabId; label: string; icon: 'home' | 'calendar' | 'block' | 'm
 ];
 
 /**
- * Edge-to-edge native tab bar (iOS/Android app shell).
- * Not a floating web card — full width, hairline top, safe-area bottom.
+ * High-contrast floating dock tab bar — unmistakably native, not web.
  */
 export function TabBar({ active, onChange }: Props) {
   const L = useLayout();
 
   return (
-    <View style={[styles.wrap, { paddingBottom: L.footerPad }]}>
-      <View style={styles.hairline} />
-      <View style={styles.row}>
+    <View style={[styles.outer, { paddingBottom: Math.max(L.footerPad - 4, 8) }]}>
+      <View style={styles.dock}>
         {TABS.map((tab) => {
           const isActive = active === tab.id;
           return (
@@ -37,22 +40,24 @@ export function TabBar({ active, onChange }: Props) {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
               onPress={() => onChange(tab.id)}
-              style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+              style={({ pressed }) => [
+                styles.item,
+                isActive && (tab.danger ? styles.itemActiveDanger : styles.itemActive),
+                pressed && styles.itemPressed,
+              ]}
             >
-              <View style={[styles.iconWrap, isActive && !tab.danger && styles.iconWrapActive, isActive && tab.danger && styles.iconWrapDanger]}>
-                <TabGlyph name={tab.icon} active={isActive} danger={tab.danger} />
-              </View>
+              <TabGlyph
+                name={tab.icon}
+                active={isActive}
+                danger={tab.danger}
+                forceColor={isActive ? '#FFFFFF' : tab.danger ? '#FCA5A5' : 'rgba(255,255,255,0.55)'}
+              />
               <Text
-                style={[
-                  styles.label,
-                  isActive && styles.labelActive,
-                  isActive && tab.danger && styles.labelDanger,
-                ]}
+                style={[styles.label, isActive && styles.labelActive, !isActive && tab.danger && styles.labelDangerIdle]}
                 numberOfLines={1}
               >
                 {tab.label}
               </Text>
-              {isActive ? <View style={[styles.dot, tab.danger && styles.dotDanger]} /> : <View style={styles.dotSpacer} />}
             </Pressable>
           );
         })}
@@ -62,77 +67,60 @@ export function TabBar({ active, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderTopWidth: 0,
-    // Lift slightly over content without looking like a web widget
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 14,
+  outer: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    backgroundColor: 'transparent',
   },
-  hairline: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(15,23,42,0.1)',
-  },
-  row: {
+  dock: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: 6,
-    paddingHorizontal: 4,
-    minHeight: 52,
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    minHeight: 64,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOpacity: 0.28,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 8 },
+      },
+      android: { elevation: 16 },
+      default: {},
+    }),
   },
   item: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 2,
-    minHeight: 48,
-    minWidth: 0,
+    justifyContent: 'center',
+    gap: 3,
+    minHeight: 52,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  itemActive: {
+    backgroundColor: colors.brand.orange,
+  },
+  itemActiveDanger: {
+    backgroundColor: '#DC2626',
   },
   itemPressed: {
-    opacity: 0.72,
-  },
-  iconWrap: {
-    width: 40,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrapActive: {
-    backgroundColor: 'rgba(238,125,49,0.14)',
-  },
-  iconWrapDanger: {
-    backgroundColor: 'rgba(193,60,44,0.12)',
+    opacity: 0.88,
   },
   label: {
-    marginTop: 2,
     fontSize: 10,
     fontWeight: '600',
-    color: '#8E99A8',
+    color: 'rgba(255,255,255,0.5)',
     letterSpacing: -0.1,
   },
   labelActive: {
-    color: colors.text.heading,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
-  labelDanger: {
-    color: colors.status.error,
-  },
-  dot: {
-    marginTop: 3,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.brand.orange,
-  },
-  dotDanger: {
-    backgroundColor: colors.status.error,
-  },
-  dotSpacer: {
-    marginTop: 3,
-    height: 4,
+  labelDangerIdle: {
+    color: 'rgba(252,165,165,0.85)',
   },
 });
