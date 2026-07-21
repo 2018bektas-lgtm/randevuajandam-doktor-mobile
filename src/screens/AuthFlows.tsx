@@ -5,12 +5,14 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
 } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { TextField } from '../components/TextField';
 import { SelectField } from '../components/SelectField';
 import { API_URL } from '../api/client';
+import { colors, spacing } from '../theme';
 
 export type AuthMode = 'login' | 'forgot' | 'register' | 'reset';
 
@@ -24,7 +26,6 @@ type Props = {
   mode: AuthMode;
   onChangeMode: (m: AuthMode) => void;
   onRegistered: (token: string, doktor: any) => void;
-  /** Pre-fill reset from deep link */
   resetToken?: string | null;
   resetEmail?: string | null;
 };
@@ -34,16 +35,13 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
   const [ok, setOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Forgot
   const [forgotEmail, setForgotEmail] = useState('');
 
-  // Reset
   const [rEmail, setREmail] = useState(resetEmail ?? '');
   const [rToken, setRToken] = useState(resetToken ?? '');
   const [rPass, setRPass] = useState('');
   const [rPass2, setRPass2] = useState('');
 
-  // Register
   const [meta, setMeta] = useState<Meta | null>(null);
   const [ilceler, setIlceler] = useState<{ id: number; ad: string }[]>([]);
   const [adSoyad, setAdSoyad] = useState('');
@@ -126,12 +124,12 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
   const submitReset = useCallback(async () => {
     setError(null);
     setOk(null);
-    if (!rEmail.trim() || !rToken.trim() || !rPass) {
-      setError('E-posta, kod/token ve yeni şifre gerekli.');
+    if (!rEmail.trim() || !rToken.trim() || rPass.length < 6) {
+      setError('E-posta, kod ve en az 6 karakter şifre gerekli.');
       return;
     }
     if (rPass !== rPass2) {
-      setError('Şifreler uyuşmuyor.');
+      setError('Şifreler eşleşmiyor.');
       return;
     }
     setBusy(true);
@@ -148,10 +146,10 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.message ?? 'Şifre sıfırlanamadı.');
+        setError(json.message ?? 'Şifre güncellenemedi.');
         return;
       }
-      setOk(json.message ?? 'Şifre güncellendi.');
+      setOk(json.message ?? 'Şifre güncellendi. Giriş yapabilirsiniz.');
       setTimeout(() => onChangeMode('login'), 1200);
     } catch {
       setError('Sunucuya ulaşılamadı.');
@@ -162,13 +160,16 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
 
   const submitRegister = useCallback(async () => {
     setError(null);
-    setOk(null);
-    if (!adSoyad.trim() || !email.trim() || !telefon.trim() || !unvan || !ilId || !ilceId || branslar.length < 1) {
-      setError('Zorunlu alanları doldurun (branş dahil).');
+    if (!adSoyad.trim() || !email.trim() || !telefon.trim() || !unvan || !ilId || !ilceId) {
+      setError('Zorunlu alanları doldurun.');
       return;
     }
-    if (sifre.length < 8 || sifre !== sifre2) {
-      setError('Şifre en az 8 karakter olmalı ve tekrarı ile uyuşmalı.');
+    if (branslar.length < 1) {
+      setError('En az bir branş seçin.');
+      return;
+    }
+    if (sifre.length < 6 || sifre !== sifre2) {
+      setError('Şifre en az 6 karakter olmalı ve eşleşmeli.');
       return;
     }
     setBusy(true);
@@ -204,9 +205,12 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
 
   if (mode === 'forgot') {
     return (
-      <Card style={styles.card}>
+      <Card style={styles.card} elevated>
+        <View style={styles.badge}>
+          <Text style={styles.badgeTxt}>ŞİFRE</Text>
+        </View>
         <Text style={styles.title}>Şifremi unuttum</Text>
-        <Text style={styles.desc}>Kayıtlı e-posta adresinize sıfırlama bağlantısı gönderilir.</Text>
+        <Text style={styles.desc}>Kayıtlı e-postanıza sıfırlama kodu gönderilir. Tüm adımlar uygulama içinde.</Text>
         <TextField
           label="E-posta"
           value={forgotEmail}
@@ -217,12 +221,18 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
         />
         {error ? <Text style={styles.err}>{error}</Text> : null}
         {ok ? <Text style={styles.ok}>{ok}</Text> : null}
-        <Button label="Sıfırlama maili gönder" loading={busy} disabled={busy} onPress={() => void submitForgot()} style={styles.btn} />
-        <Pressable onPress={() => onChangeMode('login')}>
+        <Button
+          label="Sıfırlama maili gönder"
+          loading={busy}
+          disabled={busy}
+          onPress={() => void submitForgot()}
+          style={styles.btn}
+        />
+        <Pressable onPress={() => onChangeMode('login')} hitSlop={8}>
           <Text style={styles.link}>Girişe dön</Text>
         </Pressable>
-        <Pressable onPress={() => onChangeMode('reset')}>
-          <Text style={[styles.link, { marginTop: 10 }]}>E-postadaki kod ile şifre belirle</Text>
+        <Pressable onPress={() => onChangeMode('reset')} hitSlop={8}>
+          <Text style={[styles.linkSoft, { marginTop: 12 }]}>E-postadaki kod ile şifre belirle</Text>
         </Pressable>
       </Card>
     );
@@ -230,19 +240,37 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
 
   if (mode === 'reset') {
     return (
-      <Card style={styles.card}>
-        <Text style={styles.title}>Yeni şifre</Text>
-        <Text style={styles.desc}>
-          E-postadaki sıfırlama kodunu (token) ve e-posta adresinizi girin. Linke tıklamanız gerekmez; işlem tamamen uygulama içinde yapılır.
-        </Text>
-        <TextField label="E-posta" value={rEmail} onChangeText={setREmail} autoCapitalize="none" keyboardType="email-address" />
-        <TextField label="E-postadaki kod" value={rToken} onChangeText={setRToken} autoCapitalize="none" />
+      <Card style={styles.card} elevated>
+        <View style={styles.badge}>
+          <Text style={styles.badgeTxt}>YENİ ŞİFRE</Text>
+        </View>
+        <Text style={styles.title}>Yeni şifre belirle</Text>
+        <Text style={styles.desc}>E-postadaki kodu girin. Siteye gitmenize gerek yok.</Text>
+        <TextField
+          label="E-posta"
+          value={rEmail}
+          onChangeText={setREmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+        <TextField
+          label="E-postadaki kod"
+          value={rToken}
+          onChangeText={setRToken}
+          autoCapitalize="none"
+        />
         <TextField label="Yeni şifre" value={rPass} onChangeText={setRPass} secureTextEntry />
         <TextField label="Şifre tekrar" value={rPass2} onChangeText={setRPass2} secureTextEntry />
         {error ? <Text style={styles.err}>{error}</Text> : null}
         {ok ? <Text style={styles.ok}>{ok}</Text> : null}
-        <Button label="Şifreyi güncelle" loading={busy} disabled={busy} onPress={() => void submitReset()} style={styles.btn} />
-        <Pressable onPress={() => onChangeMode('login')}>
+        <Button
+          label="Şifreyi güncelle"
+          loading={busy}
+          disabled={busy}
+          onPress={() => void submitReset()}
+          style={styles.btn}
+        />
+        <Pressable onPress={() => onChangeMode('login')} hitSlop={8}>
           <Text style={styles.link}>Girişe dön</Text>
         </Pressable>
       </Card>
@@ -251,16 +279,31 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
 
   if (mode === 'register') {
     return (
-      <Card style={styles.card}>
-        <Text style={styles.title}>Hekim kayıt</Text>
-        <Text style={styles.desc}>Hesabınızı oluşturun; ardından paket seçebilirsiniz.</Text>
+      <Card style={styles.card} elevated>
+        <View style={styles.badge}>
+          <Text style={styles.badgeTxt}>KAYIT</Text>
+        </View>
+        <Text style={styles.title}>Hekim hesabı oluştur</Text>
+        <Text style={styles.desc}>Kayıt sonrası paket seçebilir, paneli kullanmaya başlayabilirsiniz.</Text>
         {!meta ? (
-          <ActivityIndicator color="#F58A45" style={{ marginVertical: 20 }} />
+          <ActivityIndicator color={colors.brand.orange} style={{ marginVertical: 24 }} />
         ) : (
           <>
             <TextField label="Ad soyad" value={adSoyad} onChangeText={setAdSoyad} />
-            <TextField label="E-posta" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-            <TextField label="Telefon" value={telefon} onChangeText={setTelefon} keyboardType="phone-pad" placeholder="05xx xxx xx xx" />
+            <TextField
+              label="E-posta"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <TextField
+              label="Telefon"
+              value={telefon}
+              onChangeText={setTelefon}
+              keyboardType="phone-pad"
+              placeholder="05xx xxx xx xx"
+            />
             <SelectField
               label="Unvan"
               placeholder="Seçin…"
@@ -300,8 +343,14 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
           </>
         )}
         {error ? <Text style={styles.err}>{error}</Text> : null}
-        <Button label="Kayıt ol" loading={busy} disabled={busy || !meta} onPress={() => void submitRegister()} style={styles.btn} />
-        <Pressable onPress={() => onChangeMode('login')}>
+        <Button
+          label="Kayıt ol"
+          loading={busy}
+          disabled={busy || !meta}
+          onPress={() => void submitRegister()}
+          style={styles.btn}
+        />
+        <Pressable onPress={() => onChangeMode('login')} hitSlop={8}>
           <Text style={styles.link}>Zaten hesabım var — giriş</Text>
         </Pressable>
       </Card>
@@ -312,11 +361,57 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: -36, marginHorizontal: 20, padding: 22 },
-  title: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 6 },
-  desc: { color: '#94A7B9', fontSize: 13, lineHeight: 19, marginBottom: 12 },
-  err: { color: '#F09AA8', marginTop: 10, fontSize: 13 },
-  ok: { color: '#7ED2AB', marginTop: 10, fontSize: 13 },
-  btn: { marginTop: 16 },
-  link: { color: '#F3A26B', fontWeight: '700', textAlign: 'center', marginTop: 18, fontSize: 14 },
+  card: {
+    marginHorizontal: 18,
+    marginTop: 4,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border.input,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  badgeTxt: {
+    color: colors.brand.orangeSoft,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  title: {
+    color: colors.text.heading,
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 6,
+  },
+  desc: {
+    color: colors.text.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 14,
+    fontWeight: '500',
+  },
+  err: { color: colors.status.error, marginTop: 10, fontSize: 13, fontWeight: '600' },
+  ok: { color: colors.status.success, marginTop: 10, fontSize: 13, fontWeight: '600' },
+  btn: { marginTop: 12 },
+  link: {
+    color: colors.brand.orangeSoft,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 6,
+    fontSize: 14,
+  },
+  linkSoft: {
+    color: colors.text.muted,
+    fontWeight: '700',
+    textAlign: 'center',
+    fontSize: 13,
+  },
 });

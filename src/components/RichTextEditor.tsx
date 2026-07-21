@@ -21,11 +21,8 @@ type Props = {
 type Tool = {
   key: string;
   label: string;
-  /** Wrap selected text, or insert if empty */
   wrap?: [string, string];
-  /** Line-prefix insert */
   linePrefix?: string;
-  /** Block insert */
   block?: string;
 };
 
@@ -44,7 +41,6 @@ const TOOLS: Tool[] = [
   { key: 'p', label: '¶', block: '\n\n' },
 ];
 
-/** Lightweight markdown preview (no HTML). */
 function previewLines(md: string): { type: string; text: string }[] {
   const lines = (md || '').split('\n');
   return lines.map((line) => {
@@ -69,14 +65,15 @@ function applyInlineMarks(text: string): string {
 }
 
 /**
- * Richer markdown editor: wrap helpers, line tools, live preview toggle.
+ * Kompakt markdown editör — kalın / liste / başlık araç çubuğu + önizleme.
+ * Hizmet, blog ve eğitim açıklamalarında kullanılır.
  */
 export function RichTextEditor({
   label,
   value,
   onChange,
   placeholder = 'Metin yazın…',
-  minHeight = 140,
+  minHeight = 120,
   style,
 }: Props) {
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
@@ -97,22 +94,20 @@ export function RichTextEditor({
       return;
     }
     if (tool.linePrefix) {
-      // Insert at line start of caret
       const lineStart = before.lastIndexOf('\n') + 1;
-      const newVal = value.slice(0, lineStart) + tool.linePrefix + value.slice(lineStart);
-      onChange(newVal);
+      onChange(value.slice(0, lineStart) + tool.linePrefix + value.slice(lineStart));
       return;
     }
     if (tool.wrap) {
       const [a, b] = tool.wrap;
-      const inner = selected || (tool.key === 'link' ? 'metin' : tool.key === 'b' ? 'kalın' : 'metin');
+      const inner =
+        selected || (tool.key === 'link' ? 'metin' : tool.key === 'b' ? 'kalın' : 'metin');
       onChange(before + a + inner + b + after);
-      return;
     }
   }
 
   return (
-    <View style={style}>
+    <View style={[styles.wrap, style]}>
       <View style={styles.headerRow}>
         {label ? <Text style={styles.label}>{label}</Text> : <View />}
         <View style={styles.modeRow}>
@@ -132,17 +127,26 @@ export function RichTextEditor({
       </View>
 
       {mode === 'edit' ? (
-        <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolsScroll}>
-            <View style={styles.tools}>
-              {TOOLS.map((t) => (
-                <Pressable key={t.key} style={styles.tool} onPress={() => applyTool(t)}>
-                  <Text style={[styles.toolText, t.key === 'b' && { fontWeight: '900' }, t.key === 'i' && { fontStyle: 'italic' }]}>
-                    {t.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+        <View style={styles.editorShell}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.toolsScroll}
+            contentContainerStyle={styles.tools}
+          >
+            {TOOLS.map((t) => (
+              <Pressable key={t.key} style={styles.tool} onPress={() => applyTool(t)}>
+                <Text
+                  style={[
+                    styles.toolText,
+                    t.key === 'b' && { fontWeight: '900' },
+                    t.key === 'i' && { fontStyle: 'italic' },
+                  ]}
+                >
+                  {t.label}
+                </Text>
+              </Pressable>
+            ))}
           </ScrollView>
           <TextInput
             style={[styles.input, { minHeight }]}
@@ -150,12 +154,12 @@ export function RichTextEditor({
             onChangeText={onChange}
             onSelectionChange={(e) => setSel(e.nativeEvent.selection)}
             placeholder={placeholder}
-            placeholderTextColor="#6B7F93"
+            placeholderTextColor="#95A2B5"
             multiline
             textAlignVertical="top"
           />
-          <Text style={styles.hint}>Markdown: **kalın** _italik_ ## başlık - liste [link](url)</Text>
-        </>
+          <Text style={styles.hint}>**kalın**  _italik_  ## başlık  - liste  [link](url)</Text>
+        </View>
       ) : (
         <View style={[styles.previewBox, { minHeight }]}>
           {(value || '').trim() === '' ? (
@@ -190,68 +194,94 @@ export function RichTextEditor({
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    marginTop: 10,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  label: { color: '#94A7B9', fontSize: 12, fontWeight: '700' },
-  modeRow: { flexDirection: 'row', gap: 6 },
+  label: { color: '#6D7D8E', fontSize: 11, fontWeight: '600' },
+  modeRow: { flexDirection: 'row', gap: 4 },
   modeBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: 'rgba(148,167,185,0.12)',
+    backgroundColor: '#EEF2F7',
   },
-  modeBtnOn: { backgroundColor: 'rgba(245,138,69,0.2)' },
-  modeText: { color: '#94A7B9', fontSize: 11, fontWeight: '700' },
-  modeTextOn: { color: '#F3A26B' },
-  toolsScroll: { marginBottom: 8 },
-  tools: { flexDirection: 'row', gap: 6, paddingVertical: 2 },
-  tool: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
-    backgroundColor: 'rgba(245,138,69,0.14)',
+  modeBtnOn: { backgroundColor: 'rgba(238,125,49,0.14)' },
+  modeText: { color: '#6D7D8E', fontSize: 11, fontWeight: '600' },
+  modeTextOn: { color: '#C96A2B' },
+  editorShell: {
     borderWidth: 1,
-    borderColor: 'rgba(245,138,69,0.28)',
-  },
-  toolText: { color: '#F3A26B', fontSize: 12, fontWeight: '800' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2133',
+    borderColor: '#E1E6ED',
     borderRadius: 12,
-    padding: 12,
-    color: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  toolsScroll: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E8EDF3',
+    backgroundColor: '#F8FAFC',
+  },
+  tools: {
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  tool: {
+    minWidth: 30,
+    height: 28,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E1E6ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolText: { color: '#102133', fontSize: 12, fontWeight: '700' },
+  input: {
+    color: '#102133',
     fontSize: 14,
     lineHeight: 20,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
-  hint: { color: '#6B7F93', fontSize: 11, marginTop: 6 },
+  hint: {
+    color: '#95A2B5',
+    fontSize: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
   previewBox: {
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2133',
+    borderColor: '#E1E6ED',
     borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  previewEmpty: { color: '#6B7F93', fontSize: 13 },
-  previewP: { color: '#B7C4D3', fontSize: 14, lineHeight: 21, marginBottom: 4 },
-  previewH1: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 6, marginBottom: 8 },
-  previewH2: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginTop: 6, marginBottom: 6 },
-  previewH3: { color: '#E8EEF5', fontSize: 15, fontWeight: '800', marginTop: 4, marginBottom: 4 },
+  previewEmpty: { color: '#95A2B5', fontSize: 13 },
+  previewP: { color: '#39495B', fontSize: 13, lineHeight: 19, marginBottom: 4 },
+  previewH1: { color: '#102133', fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  previewH2: { color: '#102133', fontSize: 16, fontWeight: '700', marginBottom: 5 },
+  previewH3: { color: '#102133', fontSize: 14, fontWeight: '700', marginBottom: 4 },
   previewQuote: {
-    color: '#94A7B9',
+    color: '#6D7D8E',
     fontStyle: 'italic',
-    borderLeftWidth: 3,
-    borderLeftColor: '#F58A45',
-    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: '#EE7D31',
+    paddingLeft: 8,
   },
-  previewLi: { color: '#B7C4D3', paddingLeft: 4 },
+  previewLi: { color: '#39495B', marginLeft: 4 },
   hr: {
     height: 1,
-    backgroundColor: '#2B4055',
-    marginVertical: 10,
+    backgroundColor: '#E1E6ED',
+    marginVertical: 8,
   },
 });

@@ -9,17 +9,19 @@ type Props = {
   elevated?: boolean;
 };
 
-/** Beyaz zemin üzerine oturan, yumuşak gölgeli standart kart yüzeyi. */
+/** Beyaz kart — ince kenarlık, hafif gölge, sıkı padding. */
 export function Card({ children, style, padded = true, elevated = true }: Props) {
   return (
     <View
       style={[
         {
           backgroundColor: colors.background.card,
-          borderRadius: radius['2xl'],
-          padding: padded ? spacing['2xl'] : 0,
+          borderRadius: radius.lg,
+          padding: padded ? spacing.lg : 0,
+          borderWidth: 1,
+          borderColor: colors.border.input,
         },
-        elevated && shadow.card,
+        elevated && shadow.soft,
         style,
       ]}
     >

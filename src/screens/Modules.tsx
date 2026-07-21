@@ -1,13 +1,11 @@
-import { ComponentType, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { ComponentType, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
-  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +13,8 @@ import {
   Text,
   TextInput,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { apiDelete, apiGet, apiPost, apiPut, apiUpload, SITE_URL } from '../api/client';
@@ -54,7 +54,31 @@ function DnsStepsCard({ steps }: { steps?: { adim: number; baslik: string; acikl
 }
 
 function alertError(e: unknown, fallback?: string) {
-  Alert.alert('Hata', errMessage(e, fallback));
+  const msg = errMessage(e, fallback);
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.alert(msg);
+    return;
+  }
+  Alert.alert('Hata', msg);
+}
+
+/** Web'de Alert.alert butonları güvenilir değil — confirm kullan. */
+function confirmDestructive(
+  title: string,
+  message: string,
+  confirmLabel: string,
+  onConfirm: () => void,
+): void {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (window.confirm(`${title}\n\n${message}`)) {
+      onConfirm();
+    }
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: 'Vazgeç', style: 'cancel' },
+    { text: confirmLabel, style: 'destructive', onPress: onConfirm },
+  ]);
 }
 
 function openPhone(phone: string | null | undefined) {
@@ -212,7 +236,7 @@ function FormModal({
                   disabled={submitting}
                 >
                   {submitting ? (
-                    <ActivityIndicator color="#1A2B3C" />
+                    <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={s.primaryButtonText}>{submitLabel}</Text>
                   )}
@@ -874,7 +898,7 @@ export function ServicesScreen({ onBack }: ModuleProps) {
   function openEdit(item: ServiceItem) {
     setEditId(item.id);
     setAd(item.ad);
-    setAciklama(item.aciklama ?? '');
+    setAciklama((item.aciklama ?? '').replace(/<[^>]+>/g, ''));
     setSure(String(item.sure ?? 30));
     setFiyat(item.fiyat != null ? String(item.fiyat) : '');
     setAktif(!!item.aktif_mi);
@@ -1014,13 +1038,12 @@ export function ServicesScreen({ onBack }: ModuleProps) {
       >
         <Text style={s.label}>Hizmet adı</Text>
         <TextInput style={s.input} value={ad} onChangeText={setAd} placeholderTextColor="#6B7F93" />
-        <Text style={s.label}>Açıklama</Text>
-        <TextInput
-          style={[s.input, s.textArea]}
+        <RichTextEditor
+          label="Açıklama"
           value={aciklama}
-          onChangeText={setAciklama}
-          multiline
-          placeholderTextColor="#6B7F93"
+          onChange={setAciklama}
+          minHeight={110}
+          placeholder="Hizmet açıklaması — kalın, liste, başlık ekleyebilirsiniz"
         />
         <Text style={s.label}>Süre (dakika)</Text>
         <TextInput style={s.input} value={sure} onChangeText={setSure} keyboardType="number-pad" placeholderTextColor="#6B7F93" />
@@ -1050,8 +1073,8 @@ export function ServicesScreen({ onBack }: ModuleProps) {
           <Switch
             value={aktif}
             onValueChange={setAktif}
-            trackColor={{ false: '#2B4055', true: 'rgba(245,138,69,0.55)' }}
-            thumbColor={aktif ? '#F58A45' : '#94A7B9'}
+            trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+            thumbColor={aktif ? '#F58A45' : '#7A8B9C'}
           />
         </View>
       </FormModal>
@@ -1154,8 +1177,8 @@ export function WorkingHoursScreen({ onBack }: ModuleProps) {
             <Switch
               value={!!h.aktif_mi}
               onValueChange={(v) => updateHour(h.id, { aktif_mi: v })}
-              trackColor={{ false: '#2B4055', true: 'rgba(245,138,69,0.55)' }}
-              thumbColor={h.aktif_mi ? '#F58A45' : '#94A7B9'}
+              trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+              thumbColor={h.aktif_mi ? '#F58A45' : '#7A8B9C'}
             />
           </View>
           {h.aktif_mi ? (
@@ -1175,8 +1198,8 @@ export function WorkingHoursScreen({ onBack }: ModuleProps) {
                 <Switch
                   value={!!h.ogle_arasi_aktif_mi}
                   onValueChange={(v) => updateHour(h.id, { ogle_arasi_aktif_mi: v })}
-                  trackColor={{ false: '#2B4055', true: 'rgba(245,138,69,0.55)' }}
-                  thumbColor={h.ogle_arasi_aktif_mi ? '#F58A45' : '#94A7B9'}
+                  trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+                  thumbColor={h.ogle_arasi_aktif_mi ? '#F58A45' : '#7A8B9C'}
                 />
               </View>
               {h.ogle_arasi_aktif_mi ? (
@@ -1207,7 +1230,7 @@ export function WorkingHoursScreen({ onBack }: ModuleProps) {
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color="#1A2B3C" />
+          <ActivityIndicator color="#FFFFFF" />
         ) : (
           <Text style={s.primaryButtonText}>Saatleri kaydet</Text>
         )}
@@ -1295,8 +1318,8 @@ export function SettingsScreen({ onBack }: ModuleProps) {
             <Switch
               value={!!form.aktif_mi}
               onValueChange={(v) => patch('aktif_mi', v)}
-              trackColor={{ false: '#2B4055', true: 'rgba(245,138,69,0.55)' }}
-              thumbColor={form.aktif_mi ? '#F58A45' : '#94A7B9'}
+              trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+              thumbColor={form.aktif_mi ? '#F58A45' : '#7A8B9C'}
             />
           </View>
 
@@ -1347,8 +1370,8 @@ export function SettingsScreen({ onBack }: ModuleProps) {
             <Switch
               value={!!form.randevu_iptal_aktif_mi}
               onValueChange={(v) => patch('randevu_iptal_aktif_mi', v)}
-              trackColor={{ false: '#2B4055', true: 'rgba(245,138,69,0.55)' }}
-              thumbColor={form.randevu_iptal_aktif_mi ? '#F58A45' : '#94A7B9'}
+              trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+              thumbColor={form.randevu_iptal_aktif_mi ? '#F58A45' : '#7A8B9C'}
             />
           </View>
           <Text style={s.label}>İptal saat limiti</Text>
@@ -1365,8 +1388,8 @@ export function SettingsScreen({ onBack }: ModuleProps) {
             <Switch
               value={!!form.email_bildirimleri}
               onValueChange={(v) => patch('email_bildirimleri', v)}
-              trackColor={{ false: '#2B4055', true: 'rgba(245,138,69,0.55)' }}
-              thumbColor={form.email_bildirimleri ? '#F58A45' : '#94A7B9'}
+              trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+              thumbColor={form.email_bildirimleri ? '#F58A45' : '#7A8B9C'}
             />
           </View>
           <View style={s.switchRow}>
@@ -1374,8 +1397,8 @@ export function SettingsScreen({ onBack }: ModuleProps) {
             <Switch
               value={!!form.sms_bildirimleri}
               onValueChange={(v) => patch('sms_bildirimleri', v)}
-              trackColor={{ false: '#2B4055', true: 'rgba(245,138,69,0.55)' }}
-              thumbColor={form.sms_bildirimleri ? '#F58A45' : '#94A7B9'}
+              trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+              thumbColor={form.sms_bildirimleri ? '#F58A45' : '#7A8B9C'}
             />
           </View>
 
@@ -1386,7 +1409,7 @@ export function SettingsScreen({ onBack }: ModuleProps) {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color="#1A2B3C" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={s.primaryButtonText}>Ayarları kaydet</Text>
             )}
@@ -1791,8 +1814,8 @@ export function BlogsScreen({ onBack }: ModuleProps) {
           label="İçerik"
           value={icerik}
           onChange={setIcerik}
-          minHeight={140}
-          placeholder="Blog içeriği (markdown)"
+          minHeight={150}
+          placeholder="Blog yazısı — kalın, başlık, liste ve link ekleyebilirsiniz"
         />
         <Text style={s.label}>SEO başlık</Text>
         <TextInput style={s.input} value={metaBaslik} onChangeText={setMetaBaslik} placeholderTextColor="#6B7F93" />
@@ -1930,7 +1953,7 @@ export function ReviewsScreen({ onBack }: ModuleProps) {
             {item.hizmet ? <Text style={s.cardMeta}>{item.hizmet}</Text> : null}
             <Text style={s.cardBody}>{item.yorum}</Text>
             {item.doktor_yaniti ? (
-              <Text style={[s.cardBody, { color: '#7ED2AB' }]}>Yanıtınız: {item.doktor_yaniti}</Text>
+              <Text style={[s.cardBody, { color: '#2E9E5B' }]}>Yanıtınız: {item.doktor_yaniti}</Text>
             ) : null}
             <View style={s.actions}>
               {item.onay_durumu !== 'onaylandi' ? (
@@ -2101,7 +2124,7 @@ export function GalleryScreen({ onBack }: ModuleProps) {
         disabled={uploading}
         onPress={() => void pickAndUpload()}
       >
-        {uploading ? <ActivityIndicator color="#1A2B3C" /> : <Text style={s.primaryButtonText}>Fotoğraf ekle (galeri/kamera)</Text>}
+        {uploading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.primaryButtonText}>Fotoğraf ekle (galeri/kamera)</Text>}
       </Pressable>
       {items.length === 0 ? (
         <EmptyState title="Galeri boş" text="Henüz fotoğraf eklenmemiş." />
@@ -2962,7 +2985,7 @@ export function FinanceBalancesScreen({ onBack, onNavigate }: ModuleProps) {
           >
             <View style={s.cardHeader}>
               <Text style={s.cardTitle}>{item.hasta_adi}</Text>
-              <Text style={[s.cardTitle, { flex: 0, color: '#F3A26B' }]}>{money(item.bakiye)}</Text>
+              <Text style={[s.cardTitle, { flex: 0, color: '#C96A2B' }]}>{money(item.bakiye)}</Text>
             </View>
             <Text style={s.cardMeta}>
               {item.telefon || 'Telefon yok'} · {item.kayit_sayisi} kayıt · Hesabı aç ›
@@ -3140,7 +3163,7 @@ export function FinancePatientAccountScreen({ onBack }: ModuleProps) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.hint}>Kalan</Text>
-              <Text style={[s.cardTitle, { color: '#F3A26B' }]}>{money(ozet?.kalan_bakiye ?? 0)}</Text>
+              <Text style={[s.cardTitle, { color: '#C96A2B' }]}>{money(ozet?.kalan_bakiye ?? 0)}</Text>
             </View>
           </View>
 
@@ -3679,14 +3702,19 @@ export function EducationScreen({ onBack, onNavigate }: ModuleProps) {
       >
         <Text style={s.label}>Başlık</Text>
         <TextInput style={s.input} value={baslik} onChangeText={setBaslik} placeholderTextColor="#6B7F93" />
-        <Text style={s.label}>Özet</Text>
-        <TextInput style={[s.input, s.textArea]} value={ozet} onChangeText={setOzet} multiline placeholderTextColor="#6B7F93" />
+        <RichTextEditor
+          label="Özet"
+          value={ozet}
+          onChange={setOzet}
+          minHeight={90}
+          placeholder="Kısa özet — liste ve vurgu ekleyebilirsiniz"
+        />
         <RichTextEditor
           label="Detay içerik"
           value={icerik}
           onChange={setIcerik}
-          minHeight={120}
-          placeholder="Eğitim detayı (markdown destekli)"
+          minHeight={140}
+          placeholder="Eğitim detayı (markdown: kalın, başlık, liste…)"
         />
         <SelectField
           label="Tip"
@@ -4395,7 +4423,7 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color="#1A2B3C" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={s.primaryButtonText}>Profili kaydet</Text>
             )}
@@ -4505,7 +4533,7 @@ export function PasswordScreen({ onBack }: ModuleProps) {
         disabled={submitting}
       >
         {submitting ? (
-          <ActivityIndicator color="#1A2B3C" />
+          <ActivityIndicator color="#FFFFFF" />
         ) : (
           <Text style={s.primaryButtonText}>Şifreyi güncelle</Text>
         )}
@@ -4693,7 +4721,7 @@ export function AboutScreen({ onBack }: ModuleProps) {
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color="#1A2B3C" />
+          <ActivityIndicator color="#FFFFFF" />
         ) : (
           <Text style={s.primaryButtonText}>Kaydet</Text>
         )}
@@ -4828,7 +4856,7 @@ export function WebsiteScreen({ onBack }: ModuleProps) {
               <Text style={s.label}>Alan adı</Text>
               <TextInput style={s.input} value={domain} onChangeText={setDomain} autoCapitalize="none" placeholder="klinigim.com" placeholderTextColor="#6B7F93" />
               <Pressable style={[s.primaryButton, { marginTop: 14 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void setupDomain()}>
-                {busy ? <ActivityIndicator color="#1A2B3C" /> : <Text style={s.primaryButtonText}>Kurulumu tamamla</Text>}
+                {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.primaryButtonText}>Kurulumu tamamla</Text>}
               </Pressable>
             </View>
           ) : (
@@ -5034,7 +5062,7 @@ export function TwoFactorScreen({ onBack }: ModuleProps) {
           <Text style={s.label}>6 haneli kod</Text>
           <TextInput style={s.input} value={code} onChangeText={setCode} keyboardType="number-pad" maxLength={12} placeholder="123456" placeholderTextColor="#6B7F93" />
           <Pressable style={[s.primaryButton, { marginTop: 14 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void confirmSetup()}>
-            {busy ? <ActivityIndicator color="#1A2B3C" /> : <Text style={s.primaryButtonText}>Doğrula ve aç</Text>}
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.primaryButtonText}>Doğrula ve aç</Text>}
           </Pressable>
         </View>
       ) : null}
@@ -6345,6 +6373,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { icon: '◷', title: 'Randevu Talepleri', description: 'Onay bekleyen başvurular', screen: 'requests', feature: 'randevu_talepleri' },
       { icon: '☺', title: 'Hasta Kayıtları', description: 'Hastalar ve geçmişleri', screen: 'patients' },
       { icon: '◷', title: 'Bekleme Listesi', description: 'Boşalan randevuları doldurun', screen: 'waitlist' },
+      { icon: '⛔', title: 'Hızlı Kapat', description: 'Saat dilimlerini kapat / aç', screen: 'quickClose' },
       { icon: '✈', title: 'İzin / Tatil', description: 'Müsait olmadığınız aralıklar', screen: 'leaves' },
       { icon: '◷', title: 'Çalışma Saatleri', description: 'Haftalık çalışma planı', screen: 'workingHours' },
       { icon: '⚙', title: 'Randevu Ayarları', description: 'Periyot, onay ve bildirimler', screen: 'settings' },
@@ -6471,7 +6500,60 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
   );
 }
 
-// â”€â”€ Packages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Packages (premium · site paket_sec etiketleri) ─────────────────────────
+
+function moneyTry(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(Number(n))) return '—';
+  return Number(n).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+}
+
+type PackageRibbon = {
+  label: string;
+  tone: 'popular' | 'web' | 'free' | 'active' | 'trial';
+};
+
+/** Site paket_sec ile aynı statik etiket mantığı (API etiket yoksa yedek) */
+function resolvePackageRibbon(p: any, allItems: any[]): PackageRibbon | null {
+  if (p.aktif_paket_mi) return { label: 'Aktif', tone: 'active' };
+  if (p.etiket) {
+    const t = String(p.etiket);
+    if (t === 'Popüler' || t === 'Önerilen') return { label: t, tone: 'popular' };
+    if (t.toLowerCase().includes('web')) return { label: t, tone: 'web' };
+    if (t === 'Ücretsiz') return { label: t, tone: 'free' };
+    if (t.includes('deneme')) return { label: t, tone: 'trial' };
+    if (t === 'Aktif') return { label: t, tone: 'active' };
+  }
+  if (p.populer_mi) {
+    return {
+      label: (p.tur ?? '') === 'klinik' ? 'Önerilen' : 'Popüler',
+      tone: 'popular',
+    };
+  }
+  const isFree = !!p.ucretsiz_mi;
+  const isWeb =
+    !!p.web_sitesi_mi ||
+    (Array.isArray(p.features) &&
+      (p.features.includes('web_sitesi') || p.features.includes('klinik_web_sitesi'))) ||
+    String(p.ad ?? '').toLowerCase().includes('web sitesi');
+  if (isWeb) return { label: 'Web sitesi', tone: 'web' };
+  if (isFree) return { label: 'Ücretsiz', tone: 'free' };
+
+  // 2. ücretli non-web = Popüler
+  let paid = 0;
+  for (const x of allItems) {
+    if (x.ucretsiz_mi) continue;
+    const xWeb =
+      !!x.web_sitesi_mi ||
+      (Array.isArray(x.features) && x.features.includes('web_sitesi')) ||
+      String(x.ad ?? '').toLowerCase().includes('web sitesi');
+    if (xWeb) continue;
+    paid += 1;
+    if (Number(x.id) === Number(p.id) && paid === 2) {
+      return { label: 'Popüler', tone: 'popular' };
+    }
+  }
+  return null;
+}
 
 export function PackagesScreen({ onBack }: ModuleProps) {
   const [mevcut, setMevcut] = useState<{ id?: number; ad?: string | null } | null>(null);
@@ -6488,6 +6570,7 @@ export function PackagesScreen({ onBack }: ModuleProps) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [globalPeriod, setGlobalPeriod] = useState<'aylik' | 'yillik'>('aylik');
   const [periodById, setPeriodById] = useState<Record<number, 'aylik' | 'yillik'>>({});
   const [havaleById, setHavaleById] = useState<Record<number, string>>({});
   const [pendingBanner, setPendingBanner] = useState<{
@@ -6497,6 +6580,7 @@ export function PackagesScreen({ onBack }: ModuleProps) {
     isKlinik?: boolean;
   } | null>(null);
   const [highlightId, setHighlightId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -6564,7 +6648,7 @@ export function PackagesScreen({ onBack }: ModuleProps) {
   }, [load]);
 
   async function subscribe(paket: any) {
-    const period = periodById[paket.id] ?? 'aylik';
+    const period = periodById[paket.id] ?? globalPeriod;
     const isFree = !!paket.ucretsiz_mi;
     const ref = (havaleById[paket.id] ?? '').trim();
     const isKlinik = (paket.tur ?? '') === 'klinik' || String(paket.ad ?? '').toLowerCase().includes('klinik');
@@ -6619,7 +6703,7 @@ export function PackagesScreen({ onBack }: ModuleProps) {
   }
 
   async function buyWithStore(paket: any) {
-    const period = periodById[paket.id] ?? 'aylik';
+    const period = periodById[paket.id] ?? globalPeriod;
     const isFree = !!paket.ucretsiz_mi;
     if (isFree) {
       void subscribe(paket);
@@ -6681,27 +6765,30 @@ export function PackagesScreen({ onBack }: ModuleProps) {
 
   return (
     <ScreenShell
-      title="Paket & Abonelik"
-      subtitle={mevcut?.ad ? `Mevcut: ${mevcut.ad}` : 'Paket seçimi ve abonelik uygulama içinde yapılır.'}
+      title="Paketler"
+      subtitle={mevcut?.ad ? `Aktif: ${mevcut.ad}` : 'Profesyonel hekimlik için doğru planı seçin.'}
       onBack={onBack}
       loading={loading}
     >
+      {/* Hero */}
+      <View style={pkgStyles.hero}>
+        <Text style={pkgStyles.heroEyebrow}>RANDEVU AJANDAM</Text>
+        <Text style={pkgStyles.heroTitle}>Premium hekim paketleri</Text>
+        <Text style={pkgStyles.heroSub}>
+          Fiyatlara KDV dahildir. Web sitesi paketinde 1 yıl domain (.com / .net) dahil.
+        </Text>
+      </View>
+
       {pendingBanner ? (
-        <View style={[s.card, { borderColor: 'rgba(245,138,69,0.55)', marginBottom: 8 }]}>
-          <Text style={s.cardTitle}>Onboarding seçiminiz</Text>
-          <Text style={s.cardBody}>
+        <View style={pkgStyles.banner}>
+          <Text style={pkgStyles.bannerTitle}>Onboarding seçiminiz</Text>
+          <Text style={pkgStyles.bannerBody}>
             {pendingBanner.name}
-            {pendingBanner.period ? ` · ${pendingBanner.period === 'yillik' ? 'Yıllık' : 'Aylık'}` : ''}
+            {pendingBanner.period
+              ? ` · ${pendingBanner.period === 'yillik' ? 'Yıllık' : 'Aylık'}`
+              : ''}
           </Text>
-          {pendingBanner.isKlinik ? (
-            <Text style={s.hint}>
-              Klinik paket — mobil abonelik yok. Web panelinden klinik kaydı ve paket bağlama gerekir.
-            </Text>
-          ) : (
-            <Text style={s.hint}>Aşağıdan bu paketi aktifleştirin veya havale referansı girin.</Text>
-          )}
           <Pressable
-            style={{ marginTop: 8 }}
             onPress={() => {
               void (async () => {
                 const { clearPendingIap } = await import('../services/iap');
@@ -6711,53 +6798,60 @@ export function PackagesScreen({ onBack }: ModuleProps) {
               })();
             }}
           >
-            <Text style={[s.hint, { color: '#F58A45' }]}>Seçimi temizle</Text>
+            <Text style={pkgStyles.bannerLink}>Seçimi temizle</Text>
           </Pressable>
         </View>
       ) : null}
 
       {uyelik ? (
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>Üyelik detayı</Text>
-            <View style={[s.pill, uyelik.demo_mu ? s.pillMuted : s.pillSuccess]}>
-              <Text style={[s.pillText, uyelik.demo_mu ? s.pillMutedText : s.pillSuccessText]}>
-                {uyelik.demo_mu ? 'Demo / sınırsız' : uyelik.uyelik_aktif_mi ? 'Aktif' : 'Süresi dolmuş'}
+        <View style={pkgStyles.memberCard}>
+          <View style={pkgStyles.memberRow}>
+            <Text style={pkgStyles.memberTitle}>Üyeliğiniz</Text>
+            <View
+              style={[
+                pkgStyles.memberPill,
+                uyelik.uyelik_aktif_mi ? pkgStyles.memberPillOk : pkgStyles.memberPillMute,
+              ]}
+            >
+              <Text
+                style={[
+                  pkgStyles.memberPillTxt,
+                  uyelik.uyelik_aktif_mi ? pkgStyles.memberPillTxtOk : null,
+                ]}
+              >
+                {uyelik.demo_mu ? 'Demo' : uyelik.uyelik_aktif_mi ? 'Aktif' : 'Süresi dolmuş'}
               </Text>
             </View>
           </View>
-          <Text style={s.cardMeta}>Kaynak: {uyelik.kaynak === 'klinik' ? 'Klinik aboneliği' : 'Bireysel hekim'}</Text>
-          <Text style={s.cardBody}>
-            Başlangıç: {uyelik.uyelik_baslangic || '—'}
-            {'\n'}
-            Bitiş: {uyelik.uyelik_bitis || 'Belirtilmemiş'}
-            {uyelik.kalan_gun != null
-              ? `\nKalan: ${uyelik.kalan_gun >= 0 ? `${uyelik.kalan_gun} gün` : `${Math.abs(uyelik.kalan_gun)} gün önce bitti`}`
+          <Text style={pkgStyles.memberMeta}>
+            {mevcut?.ad || 'Paket'} · Bitiş {uyelik.uyelik_bitis || '—'}
+            {uyelik.kalan_gun != null && uyelik.kalan_gun >= 0
+              ? ` · ${uyelik.kalan_gun} gün kaldı`
               : ''}
           </Text>
-          {Array.isArray(uyelik.features) && uyelik.features.length > 0 ? (
-            <>
-              <Text style={s.sectionTitle}>Özellikler ({uyelik.ozellik_sayisi ?? uyelik.features.length})</Text>
-              <Text style={s.hint}>{uyelik.features.join(' · ')}</Text>
-            </>
-          ) : (
-            <Text style={s.hint}>Özellik kısıtı yok (demo veya özellik tanımsız paket).</Text>
-          )}
         </View>
       ) : null}
 
-      <View style={[s.card, { marginTop: 4 }]}>
-        <Text style={s.cardTitle}>Ödeme bilgilendirmesi</Text>
-        <Text style={s.cardBody}>
-          Ücretsiz paketler anında aktifleşir. Ücretli bireysel paketler: App Store / Google Play (IAP) veya
-          havale/EFT. Kart (iyzico) web panelindedir.
-        </Text>
-        <Text style={[s.hint, { marginTop: 8 }]}>
-          Klinik paketi bu uygulamadan başlatılamaz. Mağaza ürün kimlikleri:
-          com.randevuajandam.doktor.pkg.[paketId].monthly / .yearly
-        </Text>
-        <Pressable style={[s.actionBtn, { marginTop: 12 }]} onPress={() => void restoreStorePurchases()}>
-          <Text style={s.actionBtnText}>Mağaza satın almalarını geri yükle</Text>
+      {/* Aylık / Yıllık toggle — site billingToggle */}
+      <View style={pkgStyles.periodSeg}>
+        <Pressable
+          style={[pkgStyles.periodBtn, globalPeriod === 'aylik' && pkgStyles.periodBtnOn]}
+          onPress={() => setGlobalPeriod('aylik')}
+        >
+          <Text style={[pkgStyles.periodTxt, globalPeriod === 'aylik' && pkgStyles.periodTxtOn]}>
+            Aylık
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[pkgStyles.periodBtn, globalPeriod === 'yillik' && pkgStyles.periodBtnOn]}
+          onPress={() => setGlobalPeriod('yillik')}
+        >
+          <Text style={[pkgStyles.periodTxt, globalPeriod === 'yillik' && pkgStyles.periodTxtOn]}>
+            Yıllık
+          </Text>
+          <View style={pkgStyles.saveBadge}>
+            <Text style={pkgStyles.saveBadgeTxt}>Tasarruf</Text>
+          </View>
         </Pressable>
       </View>
 
@@ -6765,98 +6859,539 @@ export function PackagesScreen({ onBack }: ModuleProps) {
         <EmptyState title="Paket listesi yok" text="Aktif paket bulunamadı." />
       ) : (
         items.map((p) => {
-          const period = periodById[p.id] ?? 'aylik';
+          const period = periodById[p.id] ?? globalPeriod;
           const isFree = !!p.ucretsiz_mi;
+          const ribbon = resolvePackageRibbon(p, items);
+          const popular = ribbon?.tone === 'popular' || !!p.populer_mi;
+          const isWeb = ribbon?.tone === 'web' || !!p.web_sitesi_mi;
           const highlighted = highlightId != null && Number(p.id) === Number(highlightId);
+          const price =
+            period === 'yillik'
+              ? (p.yillik_indirimli_fiyat ?? p.yillik_fiyat)
+              : (p.aylik_indirimli_fiyat ?? p.aylik_fiyat);
+          const priceOld =
+            period === 'yillik'
+              ? p.yillik_indirimli_fiyat != null
+                ? p.yillik_fiyat
+                : null
+              : p.aylik_indirimli_fiyat != null
+                ? p.aylik_fiyat
+                : null;
+          const bullets: string[] =
+            Array.isArray(p.ozellikler) && p.ozellikler.length > 0
+              ? p.ozellikler
+              : Array.isArray(p.features)
+                ? p.features.map((f: string) => String(f).replace(/_/g, ' '))
+                : [];
+          const showAll = expandedId === p.id;
+          const visibleBullets = showAll ? bullets : bullets.slice(0, 5);
+          const saveAmt =
+            priceOld != null && price != null ? Number(priceOld) - Number(price) : 0;
+
           return (
             <View
               key={p.id}
               style={[
-                s.card,
-                (p.aktif_paket_mi || highlighted) && { borderColor: 'rgba(245,138,69,0.55)' },
+                pkgStyles.card,
+                popular && pkgStyles.cardPopular,
+                isWeb && !popular && pkgStyles.cardWeb,
+                (p.aktif_paket_mi || highlighted) && pkgStyles.cardActive,
               ]}
             >
-              <View style={s.cardHeader}>
-                <Text style={s.cardTitle}>{p.ad}</Text>
-                {p.aktif_paket_mi ? (
-                  <View style={[s.pill, s.pillSuccess]}>
-                    <Text style={[s.pillText, s.pillSuccessText]}>Aktif</Text>
-                  </View>
-                ) : isFree ? (
-                  <View style={[s.pill, s.pillMuted]}>
-                    <Text style={[s.pillText, s.pillMutedText]}>Ücretsiz</Text>
-                  </View>
-                ) : null}
-              </View>
-              {p.aciklama ? <Text style={s.cardBody}>{p.aciklama}</Text> : null}
-              <Text style={s.cardMeta}>
-                Aylık: {p.aylik_indirimli_fiyat ?? p.aylik_fiyat ?? '—'} ₺
-                {p.yillik_fiyat != null ? ` · Yıllık: ${p.yillik_indirimli_fiyat ?? p.yillik_fiyat} ₺` : ''}
-              </Text>
-              {Array.isArray(p.features) && p.features.length > 0 ? (
-                <Text style={s.hint}>{p.features.slice(0, 8).join(' · ')}</Text>
+              {ribbon ? (
+                <View
+                  style={[
+                    pkgStyles.ribbon,
+                    ribbon.tone === 'popular' && pkgStyles.ribbonPopular,
+                    ribbon.tone === 'web' && pkgStyles.ribbonWeb,
+                    ribbon.tone === 'free' && pkgStyles.ribbonFree,
+                    ribbon.tone === 'active' && pkgStyles.ribbonActive,
+                    ribbon.tone === 'trial' && pkgStyles.ribbonTrial,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      pkgStyles.ribbonTxt,
+                      (ribbon.tone === 'popular' || ribbon.tone === 'active') &&
+                        pkgStyles.ribbonTxtLight,
+                    ]}
+                  >
+                    {ribbon.label}
+                  </Text>
+                </View>
               ) : null}
 
-              {!p.aktif_paket_mi ? (
-                <>
-                  <SelectField
-                    label="Ödeme periyodu"
-                    options={[
-                      { label: 'Aylık', value: 'aylik' },
-                      { label: 'Yıllık', value: 'yillik' },
-                    ]}
-                    value={period}
-                    onChange={(v) =>
-                      setPeriodById((prev) => ({ ...prev, [p.id]: (v as 'aylik' | 'yillik') || 'aylik' }))
-                    }
-                  />
-                  {!isFree ? (
-                    <>
-                      <Text style={s.label}>Havale / EFT referansı</Text>
-                      <TextInput
-                        style={s.input}
-                        placeholder="Dekont no veya açıklama"
-                        placeholderTextColor="#6B7F93"
-                        value={havaleById[p.id] ?? ''}
-                        onChangeText={(t) => setHavaleById((prev) => ({ ...prev, [p.id]: t }))}
-                      />
-                    </>
-                  ) : null}
-                  {!isFree ? (
-                    <Pressable
-                      style={[s.actionBtn, { marginTop: 10, opacity: busyId === p.id ? 0.6 : 1 }]}
-                      disabled={busyId === p.id}
-                      onPress={() => void buyWithStore(p)}
-                    >
-                      <Text style={s.actionBtnText}>
-                        {busyId === p.id ? 'İşleniyor…' : 'Mağazadan satın al (IAP)'}
+              <Text style={pkgStyles.planName}>{p.ad}</Text>
+              {p.aciklama ? (
+                <Text style={pkgStyles.planDesc} numberOfLines={showAll ? 6 : 3}>
+                  {p.aciklama}
+                </Text>
+              ) : null}
+
+              <View style={pkgStyles.priceBlock}>
+                {isFree ? (
+                  <Text style={pkgStyles.priceFree}>Ücretsiz</Text>
+                ) : (
+                  <>
+                    <View style={pkgStyles.priceRow}>
+                      <Text style={pkgStyles.priceCurrency}>₺</Text>
+                      <Text style={pkgStyles.priceMain}>{moneyTry(price)}</Text>
+                      <Text style={pkgStyles.priceUnit}>
+                        / {period === 'yillik' ? 'yıl' : 'ay'}
+                      </Text>
+                    </View>
+                    {priceOld != null ? (
+                      <View style={pkgStyles.priceMetaRow}>
+                        <Text style={pkgStyles.priceOld}>₺{moneyTry(priceOld)}</Text>
+                        {saveAmt > 0 ? (
+                          <View style={pkgStyles.tasarrufPill}>
+                            <Text style={pkgStyles.tasarrufTxt}>
+                              ₺{moneyTry(saveAmt)} tasarruf
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
+                    <Text style={pkgStyles.kdv}>KDV dahil</Text>
+                  </>
+                )}
+              </View>
+
+              {visibleBullets.length > 0 ? (
+                <View style={pkgStyles.featList}>
+                  {visibleBullets.map((line, i) => (
+                    <View key={`${p.id}-f-${i}`} style={pkgStyles.featRow}>
+                      <View style={[pkgStyles.featCheck, (popular || isWeb) && pkgStyles.featCheckBrand]}>
+                        <Text style={pkgStyles.featCheckMark}>✓</Text>
+                      </View>
+                      <Text style={pkgStyles.featTxt}>{line}</Text>
+                    </View>
+                  ))}
+                  {bullets.length > 5 ? (
+                    <Pressable onPress={() => setExpandedId(showAll ? null : p.id)}>
+                      <Text style={pkgStyles.moreLink}>
+                        {showAll ? 'Daha az göster' : `+${bullets.length - 5} özellik daha`}
                       </Text>
                     </Pressable>
                   ) : null}
-                  <Pressable
-                    style={[s.actionBtn, s.actionBtnSuccess, { marginTop: 10, opacity: busyId === p.id ? 0.6 : 1 }]}
-                    disabled={busyId === p.id}
-                    onPress={() => void subscribe(p)}
-                  >
-                    <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>
-                      {busyId === p.id
-                        ? 'İşleniyor…'
-                        : isFree
-                          ? 'Ücretsiz paketi aktifleştir'
-                          : 'Havale ile talep gönder'}
-                    </Text>
-                  </Pressable>
-                </>
+                </View>
               ) : null}
+
+              {!p.aktif_paket_mi ? (
+                <View style={pkgStyles.ctaBlock}>
+                  {!isFree ? (
+                    <>
+                      <Text style={pkgStyles.refLabel}>Havale / EFT referansı (opsiyonel IAP dışında)</Text>
+                      <TextInput
+                        style={pkgStyles.refInput}
+                        placeholder="Dekont no"
+                        placeholderTextColor="#95A2B5"
+                        value={havaleById[p.id] ?? ''}
+                        onChangeText={(t) => setHavaleById((prev) => ({ ...prev, [p.id]: t }))}
+                      />
+                      <Pressable
+                        style={[pkgStyles.ctaPrimary, busyId === p.id && { opacity: 0.65 }]}
+                        disabled={busyId === p.id}
+                        onPress={() => {
+                          setPeriodById((prev) => ({ ...prev, [p.id]: globalPeriod }));
+                          void buyWithStore({ ...p });
+                        }}
+                      >
+                        <Text style={pkgStyles.ctaPrimaryTxt}>
+                          {busyId === p.id ? 'İşleniyor…' : 'Mağazadan satın al'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={[pkgStyles.ctaGhost, busyId === p.id && { opacity: 0.65 }]}
+                        disabled={busyId === p.id}
+                        onPress={() => {
+                          setPeriodById((prev) => ({ ...prev, [p.id]: globalPeriod }));
+                          void subscribe(p);
+                        }}
+                      >
+                        <Text style={pkgStyles.ctaGhostTxt}>Havale ile talep gönder</Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Pressable
+                      style={[pkgStyles.ctaPrimary, busyId === p.id && { opacity: 0.65 }]}
+                      disabled={busyId === p.id}
+                      onPress={() => {
+                        setPeriodById((prev) => ({ ...prev, [p.id]: globalPeriod }));
+                        void subscribe(p);
+                      }}
+                    >
+                      <Text style={pkgStyles.ctaPrimaryTxt}>
+                        {busyId === p.id ? 'İşleniyor…' : 'Hemen başla'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              ) : (
+                <View style={pkgStyles.activeBar}>
+                  <Text style={pkgStyles.activeBarTxt}>Bu paket hesabınızda aktif</Text>
+                </View>
+              )}
             </View>
           );
         })
       )}
+
+      <View style={pkgStyles.footerNote}>
+        <Text style={pkgStyles.footerNoteTxt}>
+          Kartlı ödeme web panelinden. Klinik paketleri mobilden abone edilemez.
+        </Text>
+        <Pressable onPress={() => void restoreStorePurchases()} style={{ marginTop: 8 }}>
+          <Text style={pkgStyles.restoreLink}>Mağaza satın almalarını geri yükle</Text>
+        </Pressable>
+      </View>
     </ScreenShell>
   );
 }
 
-// â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const pkgStyles = {
+  hero: {
+    marginTop: 2,
+    marginBottom: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  } as ViewStyle,
+  heroEyebrow: {
+    color: '#C96A2B',
+    fontSize: 10,
+    fontWeight: '800' as const,
+    letterSpacing: 1.2,
+  } as TextStyle,
+  heroTitle: {
+    color: '#0F172A',
+    fontSize: 22,
+    fontWeight: '800' as const,
+    letterSpacing: -0.4,
+    marginTop: 4,
+  } as TextStyle,
+  heroSub: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
+  } as TextStyle,
+  banner: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(201,106,43,0.35)',
+    padding: 12,
+    marginBottom: 10,
+  } as ViewStyle,
+  bannerTitle: { color: '#0F172A', fontSize: 14, fontWeight: '700' as const } as TextStyle,
+  bannerBody: { color: '#64748B', fontSize: 12, marginTop: 4 } as TextStyle,
+  bannerLink: { color: '#C96A2B', fontSize: 12, fontWeight: '700' as const, marginTop: 8 } as TextStyle,
+  memberCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    padding: 12,
+    marginBottom: 12,
+  } as ViewStyle,
+  memberRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  } as ViewStyle,
+  memberTitle: { color: '#0F172A', fontSize: 14, fontWeight: '700' as const } as TextStyle,
+  memberPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  } as ViewStyle,
+  memberPillOk: { backgroundColor: '#ECFDF5' } as ViewStyle,
+  memberPillMute: { backgroundColor: '#F1F5F9' } as ViewStyle,
+  memberPillTxt: { fontSize: 10, fontWeight: '700' as const, color: '#64748B' } as TextStyle,
+  memberPillTxtOk: { color: '#047857' } as TextStyle,
+  memberMeta: { color: '#64748B', fontSize: 12, marginTop: 4 } as TextStyle,
+  periodSeg: {
+    flexDirection: 'row' as const,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 14,
+  } as ViewStyle,
+  periodBtn: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+  } as ViewStyle,
+  periodBtnOn: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  } as ViewStyle,
+  periodTxt: { color: '#64748B', fontSize: 13, fontWeight: '600' as const } as TextStyle,
+  periodTxtOn: { color: '#0F172A', fontWeight: '700' as const } as TextStyle,
+  saveBadge: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  } as ViewStyle,
+  saveBadgeTxt: { color: '#047857', fontSize: 9, fontWeight: '800' as const } as TextStyle,
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#E8EDF3',
+    padding: 16,
+    marginBottom: 14,
+    overflow: 'hidden' as const,
+  } as ViewStyle,
+  cardPopular: {
+    borderColor: 'rgba(201,106,43,0.55)',
+    backgroundColor: '#FFFBF7',
+    shadowColor: '#C96A2B',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  } as ViewStyle,
+  cardWeb: {
+    borderColor: 'rgba(201,106,43,0.28)',
+    backgroundColor: '#FFFBF7',
+  } as ViewStyle,
+  cardActive: {
+    borderColor: 'rgba(46,158,91,0.45)',
+  } as ViewStyle,
+  ribbon: {
+    alignSelf: 'flex-start' as const,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginBottom: 10,
+  } as ViewStyle,
+  ribbonPopular: {
+    backgroundColor: '#C96A2B',
+  } as ViewStyle,
+  ribbonWeb: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: 'rgba(231,181,138,0.5)',
+  } as ViewStyle,
+  ribbonFree: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  } as ViewStyle,
+  ribbonActive: {
+    backgroundColor: '#2E9E5B',
+  } as ViewStyle,
+  ribbonTrial: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  } as ViewStyle,
+  ribbonTxt: {
+    fontSize: 10,
+    fontWeight: '800' as const,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase' as const,
+    color: '#C96A2B',
+  } as TextStyle,
+  ribbonTxtLight: { color: '#FFFFFF' } as TextStyle,
+  planName: {
+    color: '#0F172A',
+    fontSize: 17,
+    fontWeight: '800' as const,
+    letterSpacing: -0.2,
+    paddingRight: 8,
+  } as TextStyle,
+  planDesc: {
+    color: '#64748B',
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginTop: 6,
+  } as TextStyle,
+  priceBlock: {
+    marginTop: 14,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  } as ViewStyle,
+  priceRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-end' as const,
+    gap: 4,
+  } as ViewStyle,
+  priceCurrency: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '700' as const,
+    marginBottom: 4,
+  } as TextStyle,
+  priceMain: {
+    color: '#0F172A',
+    fontSize: 34,
+    fontWeight: '800' as const,
+    letterSpacing: -0.8,
+    lineHeight: 38,
+  } as TextStyle,
+  priceUnit: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600' as const,
+    marginBottom: 5,
+  } as TextStyle,
+  priceFree: {
+    color: '#C96A2B',
+    fontSize: 28,
+    fontWeight: '800' as const,
+  } as TextStyle,
+  priceMetaRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginTop: 6,
+    flexWrap: 'wrap' as const,
+  } as ViewStyle,
+  priceOld: {
+    color: '#94A3B8',
+    fontSize: 12,
+    textDecorationLine: 'line-through' as const,
+  } as TextStyle,
+  tasarrufPill: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  } as ViewStyle,
+  tasarrufTxt: { color: '#047857', fontSize: 10, fontWeight: '700' as const } as TextStyle,
+  kdv: { color: '#94A3B8', fontSize: 11, marginTop: 4, fontWeight: '500' as const } as TextStyle,
+  featList: { gap: 8, marginBottom: 4 } as ViewStyle,
+  featRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: 8,
+  } as ViewStyle,
+  featCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginTop: 1,
+  } as ViewStyle,
+  featCheckBrand: { backgroundColor: 'rgba(201,106,43,0.14)' } as ViewStyle,
+  featCheckMark: {
+    color: '#C96A2B',
+    fontSize: 10,
+    fontWeight: '800' as const,
+  } as TextStyle,
+  featTxt: {
+    flex: 1,
+    color: '#334155',
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '500' as const,
+  } as TextStyle,
+  moreLink: {
+    color: '#C96A2B',
+    fontSize: 12,
+    fontWeight: '700' as const,
+    marginTop: 4,
+  } as TextStyle,
+  ctaBlock: { marginTop: 14, gap: 8 } as ViewStyle,
+  refLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  } as TextStyle,
+  refInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#0F172A',
+    fontSize: 14,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 4,
+  } as TextStyle,
+  ctaPrimary: {
+    backgroundColor: '#C96A2B',
+    borderRadius: 12,
+    minHeight: 46,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    shadowColor: '#C96A2B',
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  } as ViewStyle,
+  ctaPrimaryTxt: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800' as const,
+  } as TextStyle,
+  ctaGhost: {
+    borderRadius: 12,
+    minHeight: 42,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderWidth: 1,
+    borderColor: 'rgba(201,106,43,0.35)',
+    backgroundColor: 'rgba(201,106,43,0.06)',
+  } as ViewStyle,
+  ctaGhostTxt: {
+    color: '#C96A2B',
+    fontSize: 13,
+    fontWeight: '700' as const,
+  } as TextStyle,
+  activeBar: {
+    marginTop: 14,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center' as const,
+  } as ViewStyle,
+  activeBarTxt: {
+    color: '#047857',
+    fontSize: 12,
+    fontWeight: '700' as const,
+  } as TextStyle,
+  footerNote: {
+    marginTop: 8,
+    marginBottom: 16,
+    alignItems: 'center' as const,
+    paddingHorizontal: 12,
+  } as ViewStyle,
+  footerNoteTxt: {
+    color: '#94A3B8',
+    fontSize: 11,
+    textAlign: 'center' as const,
+    lineHeight: 15,
+  } as TextStyle,
+  restoreLink: {
+    color: '#C96A2B',
+    fontSize: 12,
+    fontWeight: '700' as const,
+  } as TextStyle,
+};
+
+// ── Notifications ──────────────────────────────────────────────────────────
 
 type NotifItem = {
   id: string;
@@ -6867,210 +7402,180 @@ type NotifItem = {
   data?: any;
 };
 
-const SWIPE_ACTION_W = 88;
-const SWIPE_OPEN = SWIPE_ACTION_W;
-const SWIPE_THRESHOLD = 48;
-
-function SwipeableNotificationRow({
+function NotificationRow({
   item,
+  busy,
   onMarkRead,
   onDelete,
 }: {
   item: NotifItem;
+  busy?: boolean;
   onMarkRead: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const offset = useRef(0);
   const unread = !item.read_at;
-
-  const close = useCallback(() => {
-    offset.current = 0;
-    Animated.spring(translateX, {
-      toValue: 0,
-      useNativeDriver: true,
-      bounciness: 0,
-      speed: 20,
-    }).start();
-  }, [translateX]);
-
-  const openLeft = useCallback(() => {
-    // swipe right → reveal Okundu (left side)
-    offset.current = SWIPE_OPEN;
-    Animated.spring(translateX, {
-      toValue: SWIPE_OPEN,
-      useNativeDriver: true,
-      bounciness: 0,
-      speed: 20,
-    }).start();
-  }, [translateX]);
-
-  const openRight = useCallback(() => {
-    // swipe left → reveal Sil (right side)
-    offset.current = -SWIPE_OPEN;
-    Animated.spring(translateX, {
-      toValue: -SWIPE_OPEN,
-      useNativeDriver: true,
-      bounciness: 0,
-      speed: 20,
-    }).start();
-  }, [translateX]);
-
-  const pan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.2,
-      onPanResponderGrant: () => {
-        translateX.stopAnimation((v) => {
-          offset.current = v;
-        });
-      },
-      onPanResponderMove: (_, g) => {
-        let next = offset.current + g.dx;
-        // Clamp: right open max SWIPE_OPEN, left open max -SWIPE_OPEN
-        // If already read, still allow left delete; right "okundu" still ok
-        next = Math.max(-SWIPE_OPEN - 20, Math.min(SWIPE_OPEN + 20, next));
-        translateX.setValue(next);
-      },
-      onPanResponderRelease: (_, g) => {
-        const current = offset.current + g.dx;
-        if (current > SWIPE_THRESHOLD || (offset.current > 0 && current > SWIPE_THRESHOLD / 2)) {
-          openLeft();
-          return;
-        }
-        if (current < -SWIPE_THRESHOLD || (offset.current < 0 && current < -SWIPE_THRESHOLD / 2)) {
-          openRight();
-          return;
-        }
-        close();
-      },
-      onPanResponderTerminate: () => close(),
-    }),
-  ).current;
-
   return (
-    <View style={swipeStyles.wrap}>
-      {/* Left action: Okundu (revealed when swiping right) */}
-      <View style={[swipeStyles.actionSide, swipeStyles.actionLeft]}>
+    <View style={[notifStyles.row, unread && notifStyles.rowUnread]}>
+      <View style={notifStyles.dotCol}>
+        {unread ? <View style={notifStyles.dot} /> : <View style={notifStyles.dotEmpty} />}
+      </View>
+      <View style={notifStyles.copy}>
+        <Text style={[notifStyles.title, unread && notifStyles.titleUnread]} numberOfLines={1}>
+          {item.title}
+        </Text>
+        {item.body ? (
+          <Text style={notifStyles.body} numberOfLines={2}>
+            {item.body}
+          </Text>
+        ) : null}
+        <Text style={notifStyles.meta}>
+          {item.created_at ? formatDateTime(item.created_at) : ''}
+        </Text>
+      </View>
+      <View style={notifStyles.actions}>
+        {unread ? (
+          <Pressable
+            style={[notifStyles.iconBtn, notifStyles.iconRead]}
+            hitSlop={6}
+            disabled={busy}
+            onPress={() => onMarkRead(item.id)}
+            accessibilityLabel="Okundu işaretle"
+          >
+            <Text style={notifStyles.iconTxt}>✓</Text>
+          </Pressable>
+        ) : null}
         <Pressable
-          style={[swipeStyles.actionBtn, swipeStyles.actionRead]}
-          onPress={() => {
-            close();
-            onMarkRead(item.id);
-          }}
+          style={[notifStyles.iconBtn, notifStyles.iconDelete]}
+          hitSlop={6}
+          disabled={busy}
+          onPress={() => onDelete(item.id)}
+          accessibilityLabel="Bildirimi sil"
         >
-          <Text style={swipeStyles.actionIcon}>✓</Text>
-          <Text style={swipeStyles.actionLabel}>Okundu</Text>
+          <Text style={notifStyles.iconTxt}>×</Text>
         </Pressable>
       </View>
-      {/* Right action: Sil (revealed when swiping left) */}
-      <View style={[swipeStyles.actionSide, swipeStyles.actionRight]}>
-        <Pressable
-          style={[swipeStyles.actionBtn, swipeStyles.actionDelete]}
-          onPress={() => {
-            close();
-            onDelete(item.id);
-          }}
-        >
-          <Text style={swipeStyles.actionIcon}>🗑</Text>
-          <Text style={swipeStyles.actionLabel}>Sil</Text>
-        </Pressable>
-      </View>
-
-      <Animated.View
-        style={[swipeStyles.card, unread && swipeStyles.cardUnread, { transform: [{ translateX }] }]}
-        {...pan.panHandlers}
-      >
-        <View style={swipeStyles.cardInner}>
-          {!item.read_at ? <View style={swipeStyles.unreadDot} /> : <View style={swipeStyles.unreadSpacer} />}
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardTitle}>{item.title}</Text>
-            <Text style={s.cardBody}>{item.body}</Text>
-            <Text style={s.cardMeta}>{item.created_at ? formatDateTime(item.created_at) : ''}</Text>
-            <Text style={swipeStyles.hint}>← Sil · Okundu →</Text>
-          </View>
-        </View>
-      </Animated.View>
     </View>
   );
 }
 
-const swipeStyles = {
-  wrap: {
-    marginTop: 12,
-    position: 'relative' as const,
-    borderRadius: 18,
-    overflow: 'hidden' as const,
+const notifStyles = {
+  row: {
+    marginTop: 6,
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    gap: 8,
   },
-  actionSide: {
-    position: 'absolute' as const,
-    top: 0,
-    bottom: 0,
-    width: SWIPE_ACTION_W,
-    justifyContent: 'center' as const,
+  rowUnread: {
+    borderColor: 'rgba(238,125,49,0.35)',
+    backgroundColor: '#FFFBF7',
   },
-  actionLeft: { left: 0 },
-  actionRight: { right: 0 },
-  actionBtn: {
-    flex: 1,
+  dotCol: { width: 10, paddingTop: 5, alignItems: 'center' as const },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#EE7D31',
+  },
+  dotEmpty: { width: 7, height: 7 },
+  copy: { flex: 1, minWidth: 0 },
+  title: {
+    color: '#39495B',
+    fontSize: 13,
+    fontWeight: '600' as const,
+  },
+  titleUnread: {
+    color: '#102133',
+    fontWeight: '700' as const,
+  },
+  body: {
+    color: '#6D7D8E',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  meta: {
+    color: '#95A2B5',
+    fontSize: 10,
+    marginTop: 3,
+    fontWeight: '500' as const,
+  },
+  actions: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingTop: 0,
+  },
+  iconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    paddingHorizontal: 8,
   },
-  actionRead: { backgroundColor: '#2D8A62' },
-  actionDelete: { backgroundColor: '#C94B5A' },
-  actionIcon: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' as const },
-  actionLabel: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' as const, marginTop: 4 },
-  card: {
-    backgroundColor: '#14283B',
-    borderWidth: 1,
-    borderColor: '#2B4055',
-    borderRadius: 18,
-    padding: 16,
-    minHeight: 88,
+  iconRead: {
+    backgroundColor: 'rgba(46,158,91,0.12)',
   },
-  cardUnread: {
-    borderColor: 'rgba(245,138,69,0.55)',
-    backgroundColor: '#1B2C3D',
+  iconDelete: {
+    backgroundColor: 'rgba(193,60,44,0.1)',
   },
-  cardInner: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 10 },
-  unreadDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#F58A45',
-    marginTop: 6,
+  iconTxt: {
+    color: '#102133',
+    fontSize: 15,
+    fontWeight: '700' as const,
+    lineHeight: 18,
   },
-  unreadSpacer: { width: 9, marginTop: 6 },
-  hint: { color: '#5A7085', fontSize: 10, marginTop: 8, fontWeight: '600' as const },
 };
 
 export function NotificationsScreen({ onBack }: ModuleProps) {
   const [items, setItems] = useState<NotifItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (asRefresh = false) => {
+    if (asRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await apiGet<{ items: any[]; unread: number }>('/doctor/notifications');
-      setItems(res.data?.items ?? []);
+      const raw = res.data?.items ?? [];
+      setItems(
+        raw.map((n: any) => ({
+          id: String(n.id),
+          title: n.title || 'Bildirim',
+          body: n.body || '',
+          read_at: n.read_at ?? null,
+          created_at: n.created_at,
+          data: n.data,
+        })),
+      );
       setUnread(res.data?.unread ?? 0);
     } catch (e) {
       alertError(e, 'Bildirimler yüklenemedi.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(false);
   }, [load]);
 
   async function markAllRead() {
     if (items.length === 0) return;
     if (unread === 0) {
-      Alert.alert('Bildirimler', 'Okunmamış bildirim yok.');
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert('Okunmamış bildirim yok.');
+      } else {
+        Alert.alert('Bildirimler', 'Okunmamış bildirim yok.');
+      }
       return;
     }
     try {
@@ -7084,40 +7589,33 @@ export function NotificationsScreen({ onBack }: ModuleProps) {
 
   function deleteAll() {
     if (items.length === 0) return;
-    Alert.alert(
+    confirmDestructive(
       'Tümünü sil',
-      `${items.length} bildirim kalıcı olarak silinecek. Emin misiniz?`,
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Tümünü sil',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              const prevItems = items;
-              const prevUnread = unread;
-              setItems([]);
-              setUnread(0);
-              try {
-                await apiDelete('/doctor/notifications');
-              } catch (e) {
-                setItems(prevItems);
-                setUnread(prevUnread);
-                alertError(e, 'Toplu silme başarısız.');
-                void load();
-              }
-            })();
-          },
-        },
-      ],
+      `${items.length} bildirim kalıcı olarak silinecek.`,
+      'Tümünü sil',
+      () => {
+        void (async () => {
+          const prevItems = items;
+          const prevUnread = unread;
+          setItems([]);
+          setUnread(0);
+          try {
+            await apiDelete('/doctor/notifications');
+          } catch (e) {
+            setItems(prevItems);
+            setUnread(prevUnread);
+            alertError(e, 'Toplu silme başarısız.');
+            void load();
+          }
+        })();
+      },
     );
   }
 
   async function markOneRead(id: string) {
     const item = items.find((n) => n.id === id);
-    if (!item || item.read_at) {
-      return;
-    }
+    if (!item || item.read_at) return;
+    setBusyId(id);
     setItems((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)),
     );
@@ -7127,32 +7625,30 @@ export function NotificationsScreen({ onBack }: ModuleProps) {
     } catch (e) {
       alertError(e, 'Okundu işaretlenemedi.');
       void load();
+    } finally {
+      setBusyId(null);
     }
   }
 
   function deleteOne(id: string) {
-    Alert.alert('Bildirimi sil', 'Bu bildirim kalıcı olarak silinsin mi?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            const prevItems = items;
-            const wasUnread = !items.find((n) => n.id === id)?.read_at;
-            setItems((list) => list.filter((n) => n.id !== id));
-            if (wasUnread) setUnread((u) => Math.max(0, u - 1));
-            try {
-              await apiDelete(`/doctor/notifications/${id}`);
-            } catch (e) {
-              setItems(prevItems);
-              alertError(e, 'Silinemedi.');
-              void load();
-            }
-          })();
-        },
-      },
-    ]);
+    confirmDestructive('Bildirimi sil', 'Bu bildirim kalıcı olarak silinsin mi?', 'Sil', () => {
+      void (async () => {
+        const prevItems = items;
+        const wasUnread = !items.find((n) => n.id === id)?.read_at;
+        setBusyId(id);
+        setItems((list) => list.filter((n) => n.id !== id));
+        if (wasUnread) setUnread((u) => Math.max(0, u - 1));
+        try {
+          await apiDelete(`/doctor/notifications/${encodeURIComponent(id)}`);
+        } catch (e) {
+          setItems(prevItems);
+          alertError(e, 'Silinemedi.');
+          void load();
+        } finally {
+          setBusyId(null);
+        }
+      })();
+    });
   }
 
   return (
@@ -7160,13 +7656,15 @@ export function NotificationsScreen({ onBack }: ModuleProps) {
       title="Bildirimler"
       subtitle={
         unread > 0
-          ? `${unread} okunmamış · Sola sil · Sağa okundu`
+          ? `${unread} okunmamış`
           : items.length > 0
-            ? 'Sola kaydır: Sil · Sağa kaydır: Okundu'
+            ? `${items.length} bildirim`
             : 'Yeni bildirimler burada görünür'
       }
       onBack={onBack}
       loading={loading}
+      refreshing={refreshing}
+      onRefresh={() => void load(true)}
     >
       {items.length > 0 ? (
         <View style={bulkStyles.row}>
@@ -7175,10 +7673,10 @@ export function NotificationsScreen({ onBack }: ModuleProps) {
             onPress={() => void markAllRead()}
             disabled={unread === 0}
           >
-            <Text style={bulkStyles.btnText}>✓ Tümünü okundu</Text>
+            <Text style={bulkStyles.btnText}>Tümü okundu</Text>
           </Pressable>
           <Pressable style={[bulkStyles.btn, bulkStyles.btnDelete]} onPress={deleteAll}>
-            <Text style={bulkStyles.btnText}>🗑 Tümünü sil</Text>
+            <Text style={[bulkStyles.btnText, bulkStyles.btnDeleteText]}>Tümünü sil</Text>
           </Pressable>
         </View>
       ) : null}
@@ -7187,9 +7685,10 @@ export function NotificationsScreen({ onBack }: ModuleProps) {
         <EmptyState title="Bildirim yok" text="Yeni randevu talepleri ve uyarılar burada listelenir." />
       ) : (
         items.map((n) => (
-          <SwipeableNotificationRow
+          <NotificationRow
             key={n.id}
             item={n}
+            busy={busyId === n.id}
             onMarkRead={(id) => void markOneRead(id)}
             onDelete={deleteOne}
           />
@@ -7202,37 +7701,387 @@ export function NotificationsScreen({ onBack }: ModuleProps) {
 const bulkStyles = {
   row: {
     flexDirection: 'row' as const,
-    gap: 10,
-    marginTop: 8,
-    marginBottom: 4,
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 6,
   },
   btn: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   btnRead: {
-    backgroundColor: 'rgba(45,138,98,0.22)',
+    backgroundColor: 'rgba(46,158,91,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(45,138,98,0.45)',
+    borderColor: 'rgba(46,158,91,0.28)',
   },
   btnDelete: {
-    backgroundColor: 'rgba(201,75,90,0.18)',
+    backgroundColor: 'rgba(193,60,44,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(201,75,90,0.4)',
+    borderColor: 'rgba(193,60,44,0.22)',
   },
-  btnDisabled: { opacity: 0.45 },
+  btnDisabled: { opacity: 0.4 },
   btnText: {
-    color: '#FFFFFF',
+    color: '#102133',
     fontSize: 12,
-    fontWeight: '800' as const,
+    fontWeight: '700' as const,
+  },
+  btnDeleteText: {
+    color: '#C13C2C',
   },
 };
 
-// â”€â”€ Module map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Hızlı Saat Kapat — anında toggle, minimal ─────────────────────────────
+
+type QcSlot = {
+  saat_string: string;
+  saat_baslangic?: string;
+  saat_bitis?: string;
+  ogle_mi?: boolean;
+  kapali_mi?: boolean;
+  dolu_mu?: boolean;
+};
+
+function nextDays(count: number): string[] {
+  const out: string[] = [];
+  const base = new Date();
+  base.setHours(12, 0, 0, 0);
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    out.push(todayKeyFromDate(d));
+  }
+  return out;
+}
+
+function todayKeyFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Toggle = anında API; kaydet butonu yok */
+export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
+  const dayKeys = useMemo(() => nextDays(14), []);
+  const [qcDate, setQcDate] = useState(dayKeys[0] ?? todayKey());
+  const [qcSlots, setQcSlots] = useState<QcSlot[]>([]);
+  const [qcSelected, setQcSelected] = useState<string[]>([]);
+  const [qcLoading, setQcLoading] = useState(false);
+  const [busySaat, setBusySaat] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [qcMsg, setQcMsg] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const loadQuickClose = useCallback(async (date: string) => {
+    setQcLoading(true);
+    setQcMsg(null);
+    try {
+      const res = await apiGet<{
+        aktif_mi?: boolean;
+        mesaj?: string;
+        slots?: QcSlot[];
+      }>('/doctor/quick-close/slots', { tarih: date });
+      const slots = res.data?.slots ?? [];
+      setQcSlots(slots);
+      setQcSelected(
+        slots
+          .filter((sl) => sl.kapali_mi && !sl.ogle_mi && !sl.dolu_mu)
+          .map((sl) => sl.saat_string),
+      );
+      if (res.data?.aktif_mi === false) {
+        setQcMsg(res.data?.mesaj || 'Bu günde çalışma saati yok veya gün kapalı.');
+      }
+    } catch (e) {
+      alertError(e, 'Slotlar yüklenemedi.');
+      setQcSlots([]);
+      setQcSelected([]);
+    } finally {
+      setQcLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadQuickClose(qcDate);
+  }, [qcDate, loadQuickClose]);
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 1600);
+    return () => clearTimeout(t);
+  }, [flash]);
+
+  async function persist(nextSelected: string[], date = qcDate) {
+    await apiPost('/doctor/quick-close', { tarih: date, saatler: nextSelected });
+  }
+
+  async function applySelection(
+    nextSelected: string[],
+    opts?: { saat?: string; bulk?: boolean },
+  ) {
+    const prev = qcSelected;
+    setQcSelected(nextSelected);
+    if (opts?.saat) setBusySaat(opts.saat);
+    if (opts?.bulk) setBulkBusy(true);
+    try {
+      await persist(nextSelected);
+      setFlash(
+        nextSelected.length > prev.length
+          ? 'Kapandı'
+          : nextSelected.length < prev.length
+            ? 'Açıldı'
+            : 'Güncellendi',
+      );
+    } catch (e) {
+      setQcSelected(prev);
+      alertError(e, 'Güncellenemedi.');
+    } finally {
+      setBusySaat(null);
+      setBulkBusy(false);
+    }
+  }
+
+  function onToggle(saat: string, wantClosed: boolean) {
+    if (busySaat || bulkBusy || qcLoading) return;
+    const next = wantClosed
+      ? [...new Set([...qcSelected, saat])].sort()
+      : qcSelected.filter((s) => s !== saat);
+    void applySelection(next, { saat });
+  }
+
+  function closeAllAvailable() {
+    if (bulkBusy || qcLoading) return;
+    const all = qcSlots
+      .filter((sl) => !sl.ogle_mi && !sl.dolu_mu)
+      .map((sl) => sl.saat_string)
+      .sort();
+    void applySelection(all, { bulk: true });
+  }
+
+  function openAll() {
+    if (bulkBusy || qcLoading) return;
+    void applySelection([], { bulk: true });
+  }
+
+  const closedCount = qcSelected.length;
+  const freeCount = qcSlots.filter((sl) => !sl.ogle_mi && !sl.dolu_mu).length;
+  const openCount = Math.max(0, freeCount - closedCount);
+
+  return (
+    <ScreenShell
+      title="Hızlı Kapat"
+      subtitle="Anahtar = anında kapat / aç"
+      onBack={onBack}
+    >
+      {/* Gün şeridi */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={qcStyles.stripScroll}
+        contentContainerStyle={qcStyles.strip}
+      >
+        {dayKeys.map((key) => {
+          const d = new Date(key + 'T12:00:00');
+          const on = key === qcDate;
+          const isToday = key === dayKeys[0];
+          return (
+            <Pressable
+              key={key}
+              style={[qcStyles.dayChip, on && qcStyles.dayChipOn]}
+              onPress={() => setQcDate(key)}
+            >
+              <Text style={[qcStyles.dayChipWd, on && qcStyles.dayOnTxt]}>
+                {isToday ? 'Bugün' : d.toLocaleDateString('tr-TR', { weekday: 'short' })}
+              </Text>
+              <Text style={[qcStyles.dayChipNum, on && qcStyles.dayOnTxt]}>{d.getDate()}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* Özet + toplu */}
+      <View style={qcStyles.bar}>
+        <Text style={qcStyles.barMeta}>
+          {qcLoading ? '…' : `${closedCount} kapalı · ${openCount} açık`}
+        </Text>
+        {flash ? <Text style={qcStyles.flash}>{flash}</Text> : null}
+        <View style={qcStyles.barActions}>
+          <Pressable onPress={closeAllAvailable} disabled={qcLoading || bulkBusy} hitSlop={6}>
+            <Text style={qcStyles.barLinkDanger}>Tümü kapat</Text>
+          </Pressable>
+          <Text style={qcStyles.barDot}>·</Text>
+          <Pressable onPress={openAll} disabled={qcLoading || bulkBusy} hitSlop={6}>
+            <Text style={qcStyles.barLink}>Tümü aç</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {qcMsg ? <Text style={qcStyles.warn}>{qcMsg}</Text> : null}
+
+      {qcLoading || bulkBusy ? (
+        <ActivityIndicator color="#EE7D31" style={{ marginTop: 20 }} />
+      ) : qcSlots.length === 0 ? (
+        <EmptyState
+          title="Slot yok"
+          text="Bu günde çalışma saati yok. Çalışma saatlerinden tanımlayın."
+        />
+      ) : (
+        <View style={qcStyles.list}>
+          {qcSlots.map((sl, idx) => {
+            const locked = !!sl.ogle_mi || !!sl.dolu_mu;
+            const closed = qcSelected.includes(sl.saat_string);
+            const busy = busySaat === sl.saat_string;
+            const end = sl.saat_bitis ? `– ${sl.saat_bitis}` : '';
+            return (
+              <View
+                key={sl.saat_string}
+                style={[qcStyles.row, idx === 0 && qcStyles.rowFirst]}
+              >
+                <View style={qcStyles.rowLeft}>
+                  <Text style={[qcStyles.rowTime, locked && qcStyles.muted]}>
+                    {sl.saat_string}
+                    {end ? ` ${end}` : ''}
+                  </Text>
+                  <Text
+                    style={[
+                      qcStyles.rowStatus,
+                      locked && qcStyles.muted,
+                      !locked && closed && qcStyles.statusClosed,
+                      !locked && !closed && qcStyles.statusOpen,
+                    ]}
+                  >
+                    {sl.dolu_mu
+                      ? 'Dolu'
+                      : sl.ogle_mi
+                        ? 'Öğle arası'
+                        : closed
+                          ? 'Kapalı'
+                          : 'Açık'}
+                  </Text>
+                </View>
+                {busy ? (
+                  <ActivityIndicator size="small" color="#EE7D31" />
+                ) : (
+                  <Switch
+                    value={locked ? false : closed}
+                    disabled={locked || bulkBusy}
+                    onValueChange={(v) => onToggle(sl.saat_string, v)}
+                    trackColor={{ false: '#E2E8F0', true: 'rgba(193,60,44,0.45)' }}
+                    thumbColor={
+                      locked ? '#CBD5E1' : closed ? '#C13C2C' : '#FFFFFF'
+                    }
+                    ios_backgroundColor="#E2E8F0"
+                  />
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      <Text style={qcStyles.footHint}>
+        Anahtar kapalı = hasta o saati seçemez. Değişiklik anında kaydedilir.
+      </Text>
+      <Pressable style={qcStyles.linkLeaves} onPress={() => onNavigate('leaves')}>
+        <Text style={qcStyles.linkLeavesTxt}>Uzun izin / tatil →</Text>
+      </Pressable>
+    </ScreenShell>
+  );
+}
+
+/** Plain styles (avoid StyleSheet.create crash in some web bundle paths) */
+const qcStyles: {
+  [key: string]: ViewStyle | TextStyle;
+} = {
+  stripScroll: { marginHorizontal: -2, maxHeight: 64, marginTop: 2 },
+  strip: { paddingVertical: 2, gap: 6, flexDirection: 'row' },
+  dayChip: {
+    minWidth: 48,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    alignItems: 'center',
+  },
+  dayChipOn: {
+    backgroundColor: '#102133',
+    borderColor: '#102133',
+  },
+  dayChipWd: { color: '#95A2B5', fontSize: 10, fontWeight: '600' },
+  dayChipNum: { color: '#102133', fontSize: 15, fontWeight: '700', marginTop: 1 },
+  dayOnTxt: { color: '#FFFFFF' },
+  bar: {
+    marginTop: 12,
+    marginBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  barMeta: { color: '#6D7D8E', fontSize: 12, fontWeight: '600', flex: 1 },
+  flash: {
+    color: '#2E9E5B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  barActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  barLink: { color: '#39495B', fontSize: 12, fontWeight: '600' },
+  barLinkDanger: { color: '#C13C2C', fontSize: 12, fontWeight: '600' },
+  barDot: { color: '#CBD5E1', fontSize: 12 },
+  warn: {
+    color: '#C96A2B',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  list: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderTopWidth: 1,
+    borderTopColor: '#EEF1F5',
+    minHeight: 48,
+  },
+  rowFirst: { borderTopWidth: 0 },
+  rowLeft: { flex: 1, marginRight: 12 },
+  rowTime: {
+    color: '#102133',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  rowStatus: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  statusOpen: { color: '#2E9E5B' },
+  statusClosed: { color: '#C13C2C' },
+  muted: { color: '#95A2B5' },
+  footHint: {
+    color: '#95A2B5',
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  linkLeaves: { marginTop: 10, marginBottom: 6, alignItems: 'center' },
+  linkLeavesTxt: { color: '#C96A2B', fontSize: 12, fontWeight: '700' },
+};
+
+// ── Module map ─────────────────────────────────────────────────────────────
 
 export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>>> = {
   requests: RequestsScreen,
@@ -7242,6 +8091,7 @@ export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>
   workingHours: WorkingHoursScreen,
   settings: SettingsScreen,
   leaves: LeavesScreen,
+  quickClose: QuickCloseScreen,
   blogs: BlogsScreen,
   reviews: ReviewsScreen,
   gallery: GalleryScreen,

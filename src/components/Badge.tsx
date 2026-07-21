@@ -14,7 +14,7 @@ const variantMap: Record<BadgeVariant, { bg: string; dot: string; text: string }
   error: { bg: colors.status.errorBg, dot: colors.status.error, text: colors.status.error },
 };
 
-/** Randevu/durum etiketleri için nokta + metin içeren küçük hap (pill). */
+/** Küçük durum hapı. */
 export function Badge({ label, variant = 'warning' }: Props) {
   const tone = variantMap[variant];
   return (
@@ -29,12 +29,12 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs + 2,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  text: { fontSize: 11, fontWeight: '800' },
+  dot: { width: 5, height: 5, borderRadius: 2.5 },
+  text: { fontSize: 10, fontWeight: '700' },
 });

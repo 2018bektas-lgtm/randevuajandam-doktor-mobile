@@ -27,14 +27,13 @@ type ScreenShellProps = {
 };
 
 /**
- * Module screen shell: header under status bar, body scrolls,
- * bottom padding clears home indicator + floating bottom nav.
+ * Module screen shell — kompakt header, sıkı dikey ritim.
  */
 export function ScreenShell({
   title,
   subtitle,
   onBack,
-  backLabel = '‹  Geri',
+  backLabel = '‹ Geri',
   rightAction,
   children,
   loading = false,
@@ -58,7 +57,7 @@ export function ScreenShell({
     >
       <View style={styles.headerRow}>
         {onBack ? (
-          <Pressable style={styles.backButton} onPress={onBack} hitSlop={12}>
+          <Pressable style={styles.backButton} onPress={onBack} hitSlop={10}>
             <Text style={[styles.backText, { fontSize: L.font.sm }]}>{backLabel}</Text>
           </Pressable>
         ) : (
@@ -70,19 +69,18 @@ export function ScreenShell({
         {title}
       </Text>
       {subtitle ? (
-        <Text style={[styles.subtitle, { fontSize: L.font.sm }]} numberOfLines={3}>
+        <Text style={[styles.subtitle, { fontSize: L.font.sm }]} numberOfLines={2}>
           {subtitle}
         </Text>
       ) : null}
     </View>
   );
 
-  // Clears sticky bottom tabs + Android system navigation
   const bottomPad = L.scrollBottom;
 
   return (
     <View style={styles.safe}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       {header}
       {scroll ? (
         <ScrollView
@@ -102,21 +100,21 @@ export function ScreenShell({
               <RefreshControl
                 refreshing={!!refreshing}
                 onRefresh={onRefresh}
-                tintColor="#F58A45"
-                colors={['#F58A45']}
+                tintColor="#EE7D31"
+                colors={['#EE7D31']}
               />
             ) : undefined
           }
         >
           {loading ? (
-            <ActivityIndicator color="#F58A45" style={{ marginTop: L.space.xl }} />
+            <ActivityIndicator color="#EE7D31" style={{ marginTop: L.space.lg }} />
           ) : (
             children
           )}
         </ScrollView>
       ) : (
         <View style={[styles.flex, { paddingHorizontal: L.padX, paddingBottom: bottomPad }, contentStyle]}>
-          {loading ? <ActivityIndicator color="#F58A45" style={{ marginTop: L.space.xl }} /> : children}
+          {loading ? <ActivityIndicator color="#EE7D31" style={{ marginTop: L.space.lg }} /> : children}
         </View>
       )}
     </View>
@@ -124,38 +122,38 @@ export function ScreenShell({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0D1B2A' },
+  safe: { flex: 1, backgroundColor: '#F4F6F9' },
   flex: { flex: 1, minHeight: 0 },
   headerBlock: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0D1B2A',
+    borderBottomColor: 'rgba(16,33,51,0.07)',
+    backgroundColor: '#FFFFFF',
     zIndex: 20,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 36,
+    minHeight: 28,
   },
   backButton: {
-    paddingVertical: 8,
-    paddingRight: 12,
-    minWidth: 72,
+    paddingVertical: 4,
+    paddingRight: 8,
+    minWidth: 56,
   },
-  backPlaceholder: { minWidth: 72 },
-  backText: { color: '#F3A26B', fontWeight: '700' },
+  backPlaceholder: { minWidth: 56 },
+  backText: { color: '#C96A2B', fontWeight: '600' },
   rightAction: { marginLeft: 'auto' },
   title: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    marginTop: 6,
+    color: '#102133',
+    fontWeight: '700',
+    letterSpacing: -0.25,
+    marginTop: 2,
   },
   subtitle: {
-    color: '#94A7B9',
-    marginTop: 4,
-    lineHeight: 18,
+    color: '#6D7D8E',
+    marginTop: 2,
+    lineHeight: 16,
     fontWeight: '500',
   },
 });

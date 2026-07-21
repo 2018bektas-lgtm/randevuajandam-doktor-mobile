@@ -4,11 +4,13 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { colors, radius, spacing, typography } from '../theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonSize = 'md' | 'sm';
 
 type Props = {
   label: string;
   onPress: () => void;
   variant?: ButtonVariant;
+  size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
   icon?: ReactNode;
@@ -17,11 +19,17 @@ type Props = {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-/**
- * Marka bileşen kütüphanesinin temel aksiyon butonu.
- * Basınca hafif küçülme (spring) animasyonu içerir.
- */
-export function Button({ label, onPress, variant = 'primary', disabled, loading, icon, style }: Props) {
+/** Premium kompakt aksiyon butonu — 44px dokunma alanı. */
+export function Button({
+  label,
+  onPress,
+  variant = 'primary',
+  size = 'md',
+  disabled,
+  loading,
+  icon,
+  style,
+}: Props) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const isDisabled = disabled || loading;
@@ -32,14 +40,15 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
       accessibilityState={{ disabled: isDisabled }}
       disabled={isDisabled}
       onPressIn={() => {
-        scale.value = withSpring(0.97, { damping: 16, stiffness: 220 });
+        scale.value = withSpring(0.98, { damping: 18, stiffness: 260 });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, { damping: 14, stiffness: 200 });
+        scale.value = withSpring(1, { damping: 16, stiffness: 220 });
       }}
       onPress={onPress}
       style={[
         styles.base,
+        size === 'sm' && styles.baseSm,
         variantStyles[variant],
         isDisabled && styles.disabled,
         animatedStyle,
@@ -51,7 +60,9 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
       ) : (
         <>
           {icon}
-          <Text style={[styles.label, textVariantStyles[variant]]}>{label}</Text>
+          <Text style={[styles.label, size === 'sm' && styles.labelSm, textVariantStyles[variant]]}>
+            {label}
+          </Text>
         </>
       )}
     </AnimatedPressable>
@@ -60,30 +71,49 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 54,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     borderRadius: radius.md,
-    paddingHorizontal: spacing['2xl'],
+    paddingHorizontal: spacing.xl,
+  },
+  baseSm: {
+    minHeight: 36,
+    paddingHorizontal: spacing.lg,
   },
   disabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   label: {
     ...typography.preset.button,
+    fontSize: 14,
+  },
+  labelSm: {
+    fontSize: 13,
   },
 });
 
 const variantStyles: Record<ButtonVariant, ViewStyle> = {
-  primary: { backgroundColor: colors.brand.orangeDark },
-  secondary: { backgroundColor: colors.navy[800], borderWidth: 1, borderColor: colors.navy.border },
+  primary: {
+    backgroundColor: colors.brand.orange,
+    shadowColor: colors.brand.orangeDark,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  secondary: {
+    backgroundColor: colors.background.card,
+    borderWidth: 1,
+    borderColor: colors.border.input,
+  },
   ghost: { backgroundColor: 'transparent' },
 };
 
 const textVariantStyles: Record<ButtonVariant, { color: string }> = {
   primary: { color: colors.white },
-  secondary: { color: colors.white },
+  secondary: { color: colors.text.heading },
   ghost: { color: colors.brand.orangeDark },
 };

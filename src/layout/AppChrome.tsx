@@ -26,8 +26,8 @@ export function AppChrome({
   footer,
   bottomNav,
   style,
-  statusBarStyle = 'light',
-  bg = '#0D1B2A',
+  statusBarStyle = 'dark',
+  bg = '#F4F6F9',
 }: Props) {
   const L = useLayout();
 
@@ -80,7 +80,8 @@ const styles = StyleSheet.create({
   header: {
     zIndex: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(16,33,51,0.08)',
+    backgroundColor: '#FFFFFF',
   },
   body: { flex: 1, minHeight: 0 },
   footer: {

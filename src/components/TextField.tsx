@@ -13,10 +13,7 @@ type Props = TextInputProps & {
   secureToggle?: boolean;
 };
 
-/**
- * Etiketli metin girişi. Odaklanınca kenarlık rengi turuncuya doğru
- * yumuşak bir geçişle (timing) animasyonlanır.
- */
+/** Kompakt etiketli metin girişi — 42px yükseklik. */
 export function TextField({ label, secureToggle, secureTextEntry, style, ...inputProps }: Props) {
   const focus = useSharedValue(0);
   const [isSecureVisible, setIsSecureVisible] = useState(false);
@@ -36,11 +33,11 @@ export function TextField({ label, secureToggle, secureTextEntry, style, ...inpu
           secureTextEntry={isSecure}
           style={[styles.input, style]}
           onFocus={(e) => {
-            focus.value = withTiming(1, { duration: 180 });
+            focus.value = withTiming(1, { duration: 160 });
             inputProps.onFocus?.(e);
           }}
           onBlur={(e) => {
-            focus.value = withTiming(0, { duration: 180 });
+            focus.value = withTiming(0, { duration: 160 });
             inputProps.onBlur?.(e);
           }}
           {...inputProps}
@@ -60,27 +57,35 @@ export function TextField({ label, secureToggle, secureTextEntry, style, ...inpu
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: spacing.lg },
-  label: { ...typography.preset.label, marginBottom: spacing.sm },
+  container: { marginBottom: spacing.md },
+  label: {
+    ...typography.preset.label,
+    color: colors.text.muted,
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
   wrap: {
-    height: 54,
+    height: 42,
     borderWidth: 1,
     borderRadius: radius.md,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background.inputSurface,
     paddingHorizontal: spacing.lg,
+    borderColor: colors.border.input,
   },
   input: {
     flex: 1,
     height: '100%',
     color: colors.text.heading,
-    fontSize: 16,
+    fontSize: 14,
+    paddingVertical: 0,
   },
   toggle: {
     color: colors.brand.orangeDeep,
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
     paddingLeft: spacing.sm,
   },
 });

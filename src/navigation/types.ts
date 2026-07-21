@@ -8,6 +8,7 @@ export type ScreenId =
   | 'workingHours'
   | 'settings'
   | 'leaves'
+  | 'quickClose'
   | 'blogs'
   | 'reviews'
   | 'gallery'

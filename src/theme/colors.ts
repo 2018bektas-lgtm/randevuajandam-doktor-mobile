@@ -1,29 +1,36 @@
 /**
- * Randevu Ajandam Doktor — renk paleti.
- * Değerler App.tsx'teki mevcut marka renklerinden (lacivert + turuncu) türetildi.
+ * Randevu Ajandam Doktor — açık (light) tema paleti.
+ * Sayfa: soft gri-mavi · kart: beyaz · vurgu: marka turuncu · metin: lacivert gri.
  */
 export const colors = {
   background: {
-    primary: '#0D1B2A',
-    deep: '#07121F',
+    /** Ana ekran zemin */
+    primary: '#F4F6F9',
+    /** Daha koyu paneller / alt katman */
+    deep: '#EEF1F6',
+    /** İçerik şeridi */
     surface: '#F7F8FC',
+    /** Kart / sheet */
     card: '#FFFFFF',
-    inputSurface: '#FBFCFD',
+    /** Input içi */
+    inputSurface: '#FFFFFF',
   },
   navy: {
-    900: '#0D1B2A',
-    800: '#14283B',
-    700: '#1D3C56',
-    600: '#29445D',
-    500: '#32506A',
-    border: '#2B4055',
+    /** Başlık / güçlü metin */
+    900: '#102133',
+    /** İkincil yüzey (chip, soft panel) */
+    800: '#F1F5F9',
+    700: '#E2E8F0',
+    600: '#CBD5E1',
+    500: '#94A3B8',
+    border: '#E1E6ED',
   },
   brand: {
     orange: '#EE7D31',
     orangeDark: '#E66D25',
     orangeDeep: '#D85F18',
     orangeGlow: '#F0782C',
-    orangeSoft: '#F3A26B',
+    orangeSoft: '#C96A2B',
     orangeLight: '#F59A5F',
   },
   status: {
@@ -37,16 +44,17 @@ export const colors = {
   },
   text: {
     onDark: '#FFFFFF',
-    onDarkMuted: '#B7C4D3',
-    onDarkSubtle: '#7F8C9B',
+    onDarkMuted: '#E2E8F0',
+    onDarkSubtle: '#94A3B8',
     heading: '#102133',
     body: '#39495B',
     muted: '#6D7D8E',
     mutedLight: '#95A2B5',
-    link: '#53667A',
+    link: '#C96A2B',
   },
   border: {
     input: '#E1E6ED',
+    soft: '#E8EDF3',
   },
   white: '#FFFFFF',
   black: '#000000',

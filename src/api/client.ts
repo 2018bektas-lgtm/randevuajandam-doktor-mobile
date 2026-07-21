@@ -337,7 +337,10 @@ export async function apiPut<T = unknown>(
 }
 
 export async function apiDelete<T = unknown>(path: string): Promise<ApiResponse<T>> {
-  return mutateJson<T>('DELETE', path, null);
+  // Bildirim silme gibi anlık işlemlerde offline kuyruk yanıltıcı; doğrudan dene.
+  const immediate =
+    path.includes('/notifications') || path.includes('/auth/') || path.includes('/device');
+  return mutateJson<T>('DELETE', path, null, !immediate);
 }
 
 /** Multipart upload (gallery, etc.) — do not set Content-Type (boundary is set by fetch).

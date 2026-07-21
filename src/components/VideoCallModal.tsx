@@ -154,7 +154,7 @@ export function VideoCallModal({ appointmentId, visible, onClose }: Props) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <View style={styles.root}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerEyebrow}>UYGULAMA İÇİ GÖRÜŞME</Text>
@@ -223,16 +223,16 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#1E2F42',
-    backgroundColor: '#0D1B2A',
+    backgroundColor: '#F4F6F9',
   },
   headerEyebrow: {
-    color: '#F3A26B',
+    color: '#C96A2B',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.1,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: '#102133',
     fontSize: 16,
     fontWeight: '800',
     marginTop: 2,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(245,138,69,0.35)',
   },
-  closeBtnText: { color: '#F3A26B', fontWeight: '800', fontSize: 13 },
+  closeBtnText: { color: '#C96A2B', fontWeight: '800', fontSize: 13 },
   webview: { flex: 1, backgroundColor: '#0A0F1A' },
   webLoading: {
     ...StyleSheet.absoluteFill,
@@ -259,9 +259,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 28,
   },
-  centerText: { color: '#94A7B9', marginTop: 14, fontSize: 14, textAlign: 'center' },
-  errorTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 10 },
-  errorBody: { color: '#AEBECD', fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  centerText: { color: '#7A8B9C', marginTop: 14, fontSize: 14, textAlign: 'center' },
+  errorTitle: { color: '#102133', fontSize: 20, fontWeight: '800', marginBottom: 10 },
+  errorBody: { color: '#8A98A8', fontSize: 14, lineHeight: 21, textAlign: 'center' },
   retryBtn: {
     marginTop: 22,
     backgroundColor: '#F58A45',
@@ -271,5 +271,5 @@ const styles = StyleSheet.create({
   },
   retryBtnText: { color: '#1A2B3C', fontWeight: '800', fontSize: 14 },
   secondaryBtn: { marginTop: 12, padding: 12 },
-  secondaryBtnText: { color: '#F3A26B', fontWeight: '700' },
+  secondaryBtnText: { color: '#C96A2B', fontWeight: '700' },
 });

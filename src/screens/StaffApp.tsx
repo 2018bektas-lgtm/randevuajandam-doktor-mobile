@@ -127,7 +127,7 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
 
   return (
     <View style={st.safe}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <View
         style={[
           st.header,
@@ -163,7 +163,7 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
       </View>
 
       <View style={[st.tabBarWrap, { paddingBottom: L.footerPad, paddingHorizontal: L.padX - 6 }]}>
-        <View style={[st.tabBar, { minHeight: L.btnHeight + 12 }]}>
+        <View style={[st.tabBar, { minHeight: L.btnHeight + 4 }]}>
           {tabs.map((t) => {
             const active = tab === t.id;
             return (
@@ -233,7 +233,7 @@ function ForcePasswordScreen({
 
   return (
     <View style={st.safe}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={{
           padding: L.padX,
@@ -251,7 +251,7 @@ function ForcePasswordScreen({
         <TextInput style={st.input} secureTextEntry value={sifre2} onChangeText={setSifre2} placeholderTextColor="#6B7F93" />
         {err ? <Text style={st.error}>{err}</Text> : null}
         <Pressable style={[st.primaryBtn, busy && { opacity: 0.6 }]} disabled={busy} onPress={() => void submit()}>
-          {busy ? <ActivityIndicator color="#1A2B3C" /> : <Text style={st.primaryBtnText}>Kaydet ve devam et</Text>}
+          {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={st.primaryBtnText}>Kaydet ve devam et</Text>}
         </Pressable>
         <Pressable style={{ marginTop: 18 }} onPress={() => void onSignOut()}>
           <Text style={st.link}>Çıkış yap</Text>
@@ -662,7 +662,7 @@ function CreateAppointmentModal({
             <Text style={st.label}>Not</Text>
             <TextInput style={[st.input, { minHeight: 64 }]} value={not} onChangeText={setNot} multiline placeholderTextColor="#6B7F93" />
             <Pressable style={[st.primaryBtn, { marginVertical: 16 }, busy && { opacity: 0.6 }]} disabled={busy} onPress={() => void submit()}>
-              {busy ? <ActivityIndicator color="#1A2B3C" /> : <Text style={st.primaryBtnText}>Kaydet</Text>}
+              {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={st.primaryBtnText}>Kaydet</Text>}
             </Pressable>
           </ScrollView>
         </View>
@@ -876,7 +876,7 @@ function AddPatientModal({
           <Text style={st.label}>Telefon</Text>
           <TextInput style={st.input} value={tel} onChangeText={setTel} keyboardType="phone-pad" placeholderTextColor="#6B7F93" />
           <Pressable style={[st.primaryBtn, { marginTop: 16 }, busy && { opacity: 0.6 }]} disabled={busy} onPress={() => void submit()}>
-            {busy ? <ActivityIndicator color="#1A2B3C" /> : <Text style={st.primaryBtnText}>Kaydet</Text>}
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={st.primaryBtnText}>Kaydet</Text>}
           </Pressable>
         </View>
       </View>
@@ -1092,7 +1092,7 @@ function AddPaymentModal({
             <Text style={st.label}>Açıklama</Text>
             <TextInput style={st.input} value={aciklama} onChangeText={setAciklama} placeholderTextColor="#6B7F93" />
             <Pressable style={[st.primaryBtn, { marginVertical: 16 }, busy && { opacity: 0.6 }]} disabled={busy} onPress={() => void submit()}>
-              {busy ? <ActivityIndicator color="#1A2B3C" /> : <Text style={st.primaryBtnText}>Kaydet</Text>}
+              {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={st.primaryBtnText}>Kaydet</Text>}
             </Pressable>
           </ScrollView>
         </View>
@@ -1102,18 +1102,18 @@ function AddPaymentModal({
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0D1B2A' },
+  safe: { flex: 1, backgroundColor: '#F4F6F9' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2F42',
-    backgroundColor: '#0D1B2A',
+    borderBottomColor: '#E1E6ED',
+    backgroundColor: '#F4F6F9',
     zIndex: 20,
   },
-  headerEyebrow: { color: '#F3A26B', fontWeight: '800', letterSpacing: 1 },
-  headerTitle: { color: '#FFF', fontWeight: '800', marginTop: 2 },
-  headerSub: { color: '#94A7B9', marginTop: 2 },
+  headerEyebrow: { color: '#C96A2B', fontWeight: '800', letterSpacing: 1 },
+  headerTitle: { color: '#102133', fontWeight: '700', marginTop: 2 },
+  headerSub: { color: '#7A8B9C', marginTop: 2 },
   logoutBtn: {
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1124,10 +1124,10 @@ const st = StyleSheet.create({
     minHeight: 40,
     justifyContent: 'center',
   },
-  logoutText: { color: '#F3A26B', fontWeight: '800', fontSize: 12 },
+  logoutText: { color: '#C96A2B', fontWeight: '800', fontSize: 12 },
   body: { flex: 1, minHeight: 0 },
   tabBarWrap: {
-    backgroundColor: '#0D1B2A',
+    backgroundColor: '#F4F6F9',
     paddingTop: 6,
     zIndex: 30,
     elevation: 12,
@@ -1135,16 +1135,16 @@ const st = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12263A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E1E6ED',
     marginBottom: 4,
-    borderRadius: 22,
+    borderRadius: 14,
     paddingHorizontal: 4,
     paddingTop: 8,
     paddingBottom: 8,
     shadowColor: '#000',
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -2 },
     elevation: 10,
@@ -1168,7 +1168,7 @@ const st = StyleSheet.create({
   tabIconShellOn: {
     backgroundColor: 'rgba(245,138,69,0.16)',
   },
-  tabIcon: { color: '#8093A7', fontSize: 17, lineHeight: 22, textAlign: 'center' },
+  tabIcon: { color: '#8093A7', fontSize: 14, lineHeight: 22, textAlign: 'center' },
   tabIconOn: { color: '#F58A45' },
   tabLabel: {
     color: '#8093A7',
@@ -1176,53 +1176,46 @@ const st = StyleSheet.create({
     textAlign: 'center',
     maxWidth: '100%',
   },
-  tabLabelOn: { color: '#FFFFFF' },
-  scroll: { padding: 16, paddingBottom: 48 },
+  tabLabelOn: { color: '#102133' },
+  scroll: { padding: 12, paddingBottom: 48 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', marginBottom: 10 },
+  sectionTitle: { color: '#102133', fontSize: 13, fontWeight: '800', marginBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCard: {
     width: '47%',
     flexGrow: 1,
-    backgroundColor: '#14283B',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E1E6ED',
     padding: 14,
   },
-  statValue: { color: '#FFF', fontSize: 26, fontWeight: '800' },
-  statLabel: { color: '#94A7B9', fontSize: 12, marginTop: 4 },
+  statValue: { color: '#102133', fontSize: 14, fontWeight: '800' },
+  statLabel: { color: '#7A8B9C', fontSize: 12, marginTop: 4 },
   card: {
     marginTop: 12,
-    backgroundColor: '#14283B',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E1E6ED',
     padding: 14,
   },
-  cardTitle: { color: '#FFF', fontSize: 15, fontWeight: '800' },
-  cardBody: { color: '#B7C4D3', fontSize: 14, marginTop: 6 },
-  meta: { color: '#94A7B9', fontSize: 12, marginTop: 4 },
-  label: { color: '#94A7B9', fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 },
+  cardTitle: { color: '#102133', fontSize: 15, fontWeight: '800' },
+  cardBody: { color: '#6D7D8E', fontSize: 14, marginTop: 6 },
+  meta: { color: '#7A8B9C', fontSize: 12, marginTop: 4 },
+  label: { color: '#7A8B9C', fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2133',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    color: '#FFF',
+    paddingVertical: 10,
+    color: '#102133',
     fontSize: 14,
   },
-  primaryBtn: {
-    backgroundColor: '#F58A45',
-    borderRadius: 14,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  primaryBtnText: { color: '#1A2B3C', fontWeight: '800', fontSize: 14 },
+  primaryBtn: { backgroundColor: '#EE7D31', borderRadius: 12, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  primaryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
   quickRow: {
     marginTop: 8,
     padding: 14,
@@ -1231,10 +1224,10 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(245,138,69,0.28)',
   },
-  quickText: { color: '#F3A26B', fontWeight: '700', fontSize: 14 },
+  quickText: { color: '#C96A2B', fontWeight: '700', fontSize: 14 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   pill: {
-    color: '#F3A26B',
+    color: '#C96A2B',
     fontSize: 11,
     fontWeight: '800',
     backgroundColor: 'rgba(245,138,69,0.14)',
@@ -1250,26 +1243,26 @@ const st = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
   },
-  chipOkText: { color: '#7ED2AB', fontWeight: '800', fontSize: 12 },
+  chipOkText: { color: '#2E9E5B', fontWeight: '800', fontSize: 12 },
   chipDanger: {
     backgroundColor: 'rgba(224,104,122,0.16)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
   },
-  chipDangerText: { color: '#F09AA8', fontWeight: '800', fontSize: 12 },
+  chipDangerText: { color: '#C13C2C', fontWeight: '800', fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   modalSheet: {
     maxHeight: '90%',
-    backgroundColor: '#0D1B2A',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    padding: 18,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E1E6ED',
   },
-  link: { color: '#F3A26B', fontWeight: '700' },
-  error: { color: '#F09AA8', marginTop: 10, fontSize: 13 },
-  forceTitle: { color: '#FFF', fontSize: 24, fontWeight: '800', marginBottom: 8 },
-  forceDesc: { color: '#94A7B9', fontSize: 14, lineHeight: 20, marginBottom: 16 },
+  link: { color: '#C96A2B', fontWeight: '700' },
+  error: { color: '#C13C2C', marginTop: 10, fontSize: 13 },
+  forceTitle: { color: '#102133', fontSize: 16, fontWeight: '700', marginBottom: 6 },
+  forceDesc: { color: '#6D7D8E', fontSize: 13, lineHeight: 18, marginBottom: 6 },
 });

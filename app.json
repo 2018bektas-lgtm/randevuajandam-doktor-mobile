@@ -22,7 +22,7 @@
       "package": "com.randevuajandam.doktor",
       "versionCode": 3,
       "adaptiveIcon": {
-        "backgroundColor": "#0D1B2A",
+        "backgroundColor": "#F4F6F9",
         "foregroundImage": "./assets/logo.png"
       },
       "googleServicesFile": "./google-services.json",

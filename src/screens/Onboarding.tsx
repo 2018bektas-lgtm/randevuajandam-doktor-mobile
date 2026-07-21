@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -13,6 +13,8 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import Animated, {
   Easing,
@@ -33,8 +35,8 @@ import { purchasePackageInApp, type IapPeriod } from '../services/iap';
 import { appVersion, storeReviewUrl } from '../config/store';
 import { LegalLinks } from '../components/LegalLinks';
 
-export const ONBOARDING_KEY = 'randevuajandam.onboarding.done.v9';
-export const ONBOARDING_ANSWERS_KEY = 'randevuajandam.onboarding.answers.v2';
+export const ONBOARDING_KEY = 'randevuajandam.onboarding.done.v13';
+export const ONBOARDING_ANSWERS_KEY = 'randevuajandam.onboarding.answers.v3';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -71,22 +73,29 @@ type Answers = {
 
 type Choice = { id: string; label: string; sub?: string };
 
+/** Onboarding fazı — üstte “Tanıtım / Profil / Paket” rozeti */
+type StagePhase = 'intro' | 'profile' | 'offer';
+
 type Stage =
   | {
       kind: 'story';
       key: string;
       stepLabel: string;
+      phase: StagePhase;
       eyebrow: string;
       title: string;
       body: string;
       accent: string;
       visual: VisualKind;
+      /** Proje tanıtım maddeleri */
+      bullets?: string[];
       cta?: string;
     }
   | {
       kind: 'question';
       key: keyof Answers;
       stepLabel: string;
+      phase: StagePhase;
       eyebrow: string;
       title: string;
       body: string;
@@ -99,6 +108,7 @@ type Stage =
       kind: 'permission';
       key: 'notif';
       stepLabel: string;
+      phase: StagePhase;
       eyebrow: string;
       title: string;
       body: string;
@@ -108,6 +118,7 @@ type Stage =
       kind: 'rate';
       key: 'rate';
       stepLabel: string;
+      phase: StagePhase;
       eyebrow: string;
       title: string;
       body: string;
@@ -117,6 +128,7 @@ type Stage =
       kind: 'package';
       key: 'package';
       stepLabel: string;
+      phase: StagePhase;
       eyebrow: string;
       title: string;
       body: string;
@@ -126,27 +138,105 @@ type Stage =
 type VisualKind = 'brand' | 'calendar' | 'modules' | 'video' | 'team' | 'reviews' | 'ready' | 'security';
 
 const STAGES: Stage[] = [
+  // ── A) PROJE TANITIMI (premium cinematic) ─────────────────
   {
     kind: 'story',
     key: 's1',
     stepLabel: '01',
-    eyebrow: 'Hoş geldiniz',
-    title: 'Kliniğiniz,\ncebinizde',
-    body: 'Birkaç soruyla sizi tanıyalım; ihtiyacınıza en uygun paketi detaylarıyla önereceğiz.',
-    accent: '#F58A45',
+    phase: 'intro',
+    eyebrow: 'HEKİM İÇİN TASARLANDI',
+    title: 'Kliniğinizi cebinizde yönetin',
+    body: 'Randevu Ajandam; muayenehane ve kliniklerin operasyonunu tek mobil panelde toplayan premium hekim platformudur.',
+    accent: '#F59E55',
     visual: 'brand',
-    cta: 'Başla',
+    bullets: [
+      'Takvim · talep · hasta · finans',
+      'Online görüşme ve web sitesi',
+      'Size özel paket önerisi',
+    ],
+    cta: 'Deneyimi başlat',
   },
+  {
+    kind: 'story',
+    key: 's_cal',
+    stepLabel: '02',
+    phase: 'intro',
+    eyebrow: 'RANDEVU OPERASYONU',
+    title: 'Her slot kontrolünüzde',
+    body: 'Defter ve WhatsApp karmaşası biter. Hasta talebi gelir, siz onaylarsınız — sekreter aynı ekrandan çalışır.',
+    accent: '#60A5FA',
+    visual: 'calendar',
+    bullets: [
+      'Gün / hafta takvim + boş slotlar',
+      'Misafir talep & onay',
+      'İzin ve hızlı slot kapatma',
+    ],
+    cta: 'Devam',
+  },
+  {
+    kind: 'story',
+    key: 's_mod',
+    stepLabel: '03',
+    phase: 'intro',
+    eyebrow: 'TAM PANEL',
+    title: 'Sadece takvim değil, tam işletme',
+    body: 'Web paneliyle aynı altyapı. Mobilde hizmet, içerik, yorum ve finans — muayene aralarında bile yönetin.',
+    accent: '#34D399',
+    visual: 'modules',
+    bullets: [
+      'Hasta kartı & randevu geçmişi',
+      'Hizmet / fiyat tanımları',
+      'Gelir–gider · hasta bakiyesi',
+    ],
+    cta: 'Devam',
+  },
+  {
+    kind: 'story',
+    key: 's_online',
+    stepLabel: '04',
+    phase: 'intro',
+    eyebrow: 'ONLINE SEANS',
+    title: 'Görüşme odası tek dokunuş',
+    body: 'Paketinizde online görüşme açıksa onaylı randevuda oda hazır. Zoom linki peşinde koşmayın.',
+    accent: '#A78BFA',
+    visual: 'video',
+    bullets: [
+      'Yüz yüze veya online randevu tipi',
+      'Onay sonrası otomatik oda',
+      'Hasta & hekim aynı platform',
+    ],
+    cta: 'Devam',
+  },
+  {
+    kind: 'story',
+    key: 's_team',
+    stepLabel: '05',
+    phase: 'intro',
+    eyebrow: 'KLİNİK & EKİP',
+    title: 'Büyüyen kliniklere hazır altyapı',
+    body: 'Tek hekimden çok hekimli merkeze. Ortak hasta havuzu, personel yetkileri, hakediş ve klinik web sitesi üst paketlerde.',
+    accent: '#38BDF8',
+    visual: 'team',
+    bullets: [
+      'Hekim davet & ortak takvim',
+      'Sekreter paneli (yetki bazlı)',
+      'Merkezi finans & klinik site',
+    ],
+    cta: 'Profilime geç',
+  },
+
+  // ── B) DETAYLI PROFİL ──────────────────────────────────────
   {
     kind: 'question',
     key: 'practice',
-    stepLabel: '02',
+    stepLabel: '06',
+    phase: 'profile',
     eyebrow: 'Çalışma şekli',
-    title: 'Nerede\nhizmet veriyorsunuz?',
-    body: 'Paket ve özellik önerisini doğrudan etkiler.',
-    accent: '#6BA3F5',
+    title: 'Nerede hizmet veriyorsunuz?',
+    body: 'Bireysel muayenehane, klinik, hastane veya ağırlıklı online — paket yolu buradan seçilir.',
+    accent: '#EE7D31',
     choices: [
-      { id: 'muayenehane', label: 'Muayenehane / bireysel', sub: 'Tek hekim odaklı' },
+      { id: 'muayenehane', label: 'Muayenehane / bireysel', sub: 'Tek hekim odaklı pratik' },
       { id: 'klinik', label: 'Klinik / poliklinik', sub: 'Çok hekimli yapı' },
       { id: 'hastane', label: 'Hastane', sub: 'Kurumsal ortam' },
       { id: 'online', label: 'Ağırlıklı online', sub: 'Uzaktan danışmanlık' },
@@ -155,11 +245,12 @@ const STAGES: Stage[] = [
   {
     kind: 'question',
     key: 'city_scale',
-    stepLabel: '03',
+    stepLabel: '07',
+    phase: 'profile',
     eyebrow: 'Konum',
-    title: 'Hizmet verdiğiniz\nşehir ölçeği?',
-    body: 'Yoğunluk ve görünürlük ihtiyacını anlamak için.',
-    accent: '#6BA3F5',
+    title: 'Hizmet verdiğiniz şehir ölçeği?',
+    body: 'Yoğunluk ve web / görünürlük ihtiyacını anlamak için.',
+    accent: '#EE7D31',
     choices: [
       { id: 'buyuk', label: 'Büyükşehir', sub: 'İstanbul, Ankara, İzmir…' },
       { id: 'orta', label: 'Orta ölçekli şehir' },
@@ -170,11 +261,12 @@ const STAGES: Stage[] = [
   {
     kind: 'question',
     key: 'experience',
-    stepLabel: '04',
+    stepLabel: '08',
+    phase: 'profile',
     eyebrow: 'Deneyim',
-    title: 'Kaç yıldır\nmeslektesiniz?',
+    title: 'Kaç yıldır meslektesiniz?',
     body: 'Başlangıç veya ileri paket ihtiyacını ayırır.',
-    accent: '#7CA6E0',
+    accent: '#EE7D31',
     choices: [
       { id: '0_3', label: '0–3 yıl', sub: 'Yeni / erken dönem' },
       { id: '3_10', label: '3–10 yıl', sub: 'Büyüyen pratik' },
@@ -184,11 +276,12 @@ const STAGES: Stage[] = [
   {
     kind: 'question',
     key: 'branch',
-    stepLabel: '05',
+    stepLabel: '09',
+    phase: 'profile',
     eyebrow: 'Branş',
-    title: 'Branşlarınız\nneler?',
-    body: 'Birden fazla seçebilirsiniz.',
-    accent: '#7CA6E0',
+    title: 'Branşlarınız neler?',
+    body: 'Birden fazla seçebilirsiniz — içerik ve vitrin önerisini etkiler.',
+    accent: '#EE7D31',
     multi: true,
     choices: [
       { id: 'dahili', label: 'Dahili / aile / genel' },
@@ -200,52 +293,44 @@ const STAGES: Stage[] = [
     ],
   },
   {
-    kind: 'story',
-    key: 's6',
-    stepLabel: '06',
-    eyebrow: 'Takvim',
-    title: 'Gününüzü\nnet görün',
-    body: 'Haftalık plan, boş slotlar, hızlı randevu ve erteleme — operasyonunuz akıcı.',
-    accent: '#6BA3F5',
-    visual: 'calendar',
-    cta: 'Devam',
-  },
-  {
     kind: 'question',
     key: 'clinic',
-    stepLabel: '07',
-    eyebrow: 'Klinik',
-    title: 'Kliniğiniz\nvar mı?',
-    body: 'Ekip paneli ve ortak hasta havuzu için kritik.',
-    accent: '#5DD4A0',
+    stepLabel: '10',
+    phase: 'profile',
+    eyebrow: 'Klinik yapısı',
+    title: 'Kliniğiniz var mı?',
+    body: 'Ekip paneli, ortak hasta havuzu ve klinik paket yolu için kritik.',
+    accent: '#EE7D31',
     choices: [
-      { id: 'yes', label: 'Evet, kliniğim var' },
-      { id: 'planning', label: 'Kurmayı planlıyorum' },
+      { id: 'yes', label: 'Evet, kliniğim var', sub: 'Aktif çok hekimli yapı' },
+      { id: 'planning', label: 'Kurmayı planlıyorum', sub: 'Yakın dönemde ekip' },
       { id: 'no', label: 'Hayır, bireysel çalışıyorum' },
     ],
   },
   {
     kind: 'question',
     key: 'hekim_sayisi',
-    stepLabel: '08',
+    stepLabel: '11',
+    phase: 'profile',
     eyebrow: 'Hekim sayısı',
-    title: 'Kaç hekimle\nçalışıyorsunuz?',
-    body: 'Sadece siz misiniz, yoksa ekip mi?',
-    accent: '#5DD4A0',
+    title: 'Kaç hekimle çalışıyorsunuz?',
+    body: 'Klinik paket limitleri (3 / 10 / sınırsız) buradan hizalanır.',
+    accent: '#EE7D31',
     choices: [
-      { id: '1', label: 'Sadece ben' },
-      { id: '2_5', label: '2–5 hekim' },
-      { id: '6_plus', label: '6+ hekim' },
+      { id: '1', label: 'Sadece ben', sub: 'Bireysel paket yolu' },
+      { id: '2_5', label: '2–5 hekim', sub: 'Küçük–orta ekip' },
+      { id: '6_plus', label: '6+ hekim', sub: 'Büyük klinik / merkez' },
     ],
   },
   {
     kind: 'question',
     key: 'staff',
-    stepLabel: '09',
+    stepLabel: '12',
+    phase: 'profile',
     eyebrow: 'Personel',
-    title: 'Personeliniz\nvar mı?',
-    body: 'Sekreter aynı uygulamadan, yetkiye göre giriş yapar.',
-    accent: '#F0B429',
+    title: 'Personeliniz var mı?',
+    body: 'Sekreter aynı uygulamadan, yetkiye göre randevu ve hasta yönetir.',
+    accent: '#EE7D31',
     choices: [
       { id: 'yes', label: 'Evet, personelim var' },
       { id: 'soon', label: 'Yakında olacak' },
@@ -255,11 +340,12 @@ const STAGES: Stage[] = [
   {
     kind: 'question',
     key: 'staff_count',
-    stepLabel: '10',
+    stepLabel: '13',
+    phase: 'profile',
     eyebrow: 'Personel sayısı',
-    title: 'Kaç personel\nkullanacak?',
-    body: 'Yoksa “Yok” seçin.',
-    accent: '#F0B429',
+    title: 'Kaç personel hesabı gerekir?',
+    body: 'Yoksa “Yok” seçin — klinik paket personel limitleri buna göre önerilir.',
+    accent: '#EE7D31',
     choices: [
       { id: '0', label: 'Yok' },
       { id: '1', label: '1 kişi' },
@@ -268,39 +354,30 @@ const STAGES: Stage[] = [
     ],
   },
   {
-    kind: 'story',
-    key: 's11',
-    stepLabel: '11',
-    eyebrow: 'Yönetim',
-    title: 'İşletmeniz\nkontrolünüzde',
-    body: 'Hasta, hizmet, finans ve klinik — menüden tüm modüller.',
-    accent: '#5DD4A0',
-    visual: 'modules',
-    cta: 'Devam',
-  },
-  {
     kind: 'question',
     key: 'patient_volume',
-    stepLabel: '12',
+    stepLabel: '14',
+    phase: 'profile',
     eyebrow: 'Hasta hacmi',
-    title: 'Aylık yaklaşık\nhasta sayınız?',
-    body: 'Limitli demo mu, sınırsız paket mi netleşir.',
-    accent: '#7CA6E0',
+    title: 'Aylık yaklaşık hasta sayınız?',
+    body: 'Demo limitleri (10 hasta / 20 randevu) ile sınırsız paket ayrımı.',
+    accent: '#EE7D31',
     choices: [
-      { id: '0_20', label: '0–20 hasta / ay' },
+      { id: '0_20', label: '0–20 hasta / ay', sub: 'Düşük hacim · deneme uygun' },
       { id: '20_100', label: '20–100 hasta / ay' },
       { id: '100_300', label: '100–300 hasta / ay' },
-      { id: '300_plus', label: '300+ hasta / ay' },
+      { id: '300_plus', label: '300+ hasta / ay', sub: 'Yoğun pratik' },
     ],
   },
   {
     kind: 'question',
     key: 'appt_volume',
-    stepLabel: '13',
+    stepLabel: '15',
+    phase: 'profile',
     eyebrow: 'Randevu hacmi',
-    title: 'Haftalık yaklaşık\nrandevu sayınız?',
-    body: 'Takvim ve otomasyon ihtiyacını ölçer.',
-    accent: '#7CA6E0',
+    title: 'Haftalık yaklaşık randevu sayınız?',
+    body: 'Takvim, otomasyon ve online seans ihtiyacını ölçer.',
+    accent: '#EE7D31',
     choices: [
       { id: '0_15', label: '0–15 randevu / hafta' },
       { id: '15_40', label: '15–40 randevu / hafta' },
@@ -311,132 +388,117 @@ const STAGES: Stage[] = [
   {
     kind: 'question',
     key: 'goal',
-    stepLabel: '14',
+    stepLabel: '16',
+    phase: 'profile',
     eyebrow: 'Hedefler',
-    title: 'Amaçlarınız\nneler?',
-    body: 'Birden fazla seçin — paket önerisini birlikte etkiler.',
-    accent: '#B794F6',
+    title: 'Öncelikli amaçlarınız neler?',
+    body: 'Birden fazla seçin — paket skoru hedeflerinize göre yükselir.',
+    accent: '#EE7D31',
     multi: true,
     choices: [
-      { id: 'randevu', label: 'Randevuları düzenlemek', sub: 'Takvim & hatırlatma' },
-      { id: 'buyume', label: 'Daha fazla hasta', sub: 'Görünürlük & talep' },
-      { id: 'online', label: 'Online görüşme', sub: 'Uzaktan seans' },
-      { id: 'marka', label: 'Kendi web sitem', sub: 'Marka & SEO' },
-      { id: 'klinik', label: 'Klinik / ekip yönetimi', sub: 'Personel & havuz' },
-      { id: 'finans', label: 'Gelir–gider takibi', sub: 'Finans modülü' },
+      { id: 'randevu', label: 'Randevu ve takvim düzeni' },
+      { id: 'online', label: 'Online / görüntülü seans' },
+      { id: 'marka', label: 'Marka ve web sitesi' },
+      { id: 'finans', label: 'Gelir–gider takibi' },
+      { id: 'klinik', label: 'Klinik ekip yönetimi' },
+      { id: 'buyume', label: 'Hasta / talep artışı' },
     ],
   },
   {
     kind: 'question',
     key: 'needs',
-    stepLabel: '15',
-    eyebrow: 'Modüller',
-    title: 'Hangi özellikler\nşart?',
-    body: 'İhtiyacınız olanları seçin (çoklu).',
-    accent: '#A78BFA',
+    stepLabel: '17',
+    phase: 'profile',
+    eyebrow: 'Modül ihtiyaçları',
+    title: 'Hangi özellikler sizin için şart?',
+    body: 'Birden fazla seçin — önerilen paketin özellik listesi buraya hizalanır.',
+    accent: '#EE7D31',
     multi: true,
     choices: [
-      { id: 'takvim', label: 'Takvim & randevu' },
-      { id: 'talep', label: 'Randevu talepleri' },
-      { id: 'galeri', label: 'Fotoğraf galerisi' },
-      { id: 'finans', label: 'Finans / muhasebe' },
+      { id: 'takvim', label: 'Takvim & randevu talepleri' },
+      { id: 'online', label: 'Online görüşme odası' },
+      { id: 'web', label: 'Hekim / klinik web sitesi' },
+      { id: 'finans', label: 'Finans ve hasta bakiyesi' },
+      { id: 'personel', label: 'Personel paneli' },
       { id: 'blog', label: 'Blog / makale' },
       { id: 'yorum', label: 'Hasta yorumları' },
-      { id: 'egitim', label: 'Eğitim / kurs' },
-      { id: 'online', label: 'Online görüşme' },
-      { id: 'web', label: 'Kişisel web sitesi' },
-      { id: 'personel', label: 'Personel paneli' },
+      { id: 'egitim', label: 'Eğitim / kurs satışı' },
+      { id: 'galeri', label: 'Galeri / vitrin' },
+      { id: 'talep', label: 'Bekleme listesi / talep' },
     ],
-  },
-  {
-    kind: 'story',
-    key: 's16',
-    stepLabel: '16',
-    eyebrow: 'Hekimlerden',
-    title: 'Güvenilir\ntercih',
-    body: 'Randevu yoğunluğu azaldı; sekreter aynı uygulamadan yönetiyor.',
-    accent: '#F3A26B',
-    visual: 'reviews',
-    cta: 'Devam',
   },
   {
     kind: 'question',
     key: 'online',
-    stepLabel: '17',
+    stepLabel: '18',
+    phase: 'profile',
     eyebrow: 'Online görüşme',
-    title: 'Görüntülü seans\nkullanacak mısınız?',
-    body: 'VIP ve üzeri paketlerde platform içi oda vardır.',
-    accent: '#B794F6',
+    title: 'Görüntülü seans kullanacak mısınız?',
+    body: 'VIP ve üst bireysel / klinik paketlerde online özellik açılır.',
+    accent: '#EE7D31',
     choices: [
-      { id: 'yes', label: 'Evet, aktif kullanacağım' },
-      { id: 'maybe', label: 'Belki ileride' },
-      { id: 'no', label: 'Hayır, yüz yüze yeter' },
+      { id: 'yes', label: 'Evet, düzenli kullanacağım' },
+      { id: 'maybe', label: 'Belki sonra' },
+      { id: 'no', label: 'Hayır' },
     ],
   },
   {
     kind: 'question',
     key: 'online_share',
-    stepLabel: '18',
-    eyebrow: 'Online oranı',
-    title: 'Randevuların kaçı\nonline olur?',
-    body: 'Online ihtiyaç seviyesini netleştirir.',
-    accent: '#B794F6',
-    choices: [
-      { id: '0', label: 'Neredeyse hiç' },
-      { id: 'low', label: 'Az (1/4’ten az)' },
-      { id: 'mid', label: 'Yarı yarıya' },
-      { id: 'high', label: 'Çoğu online' },
-    ],
-  },
-  {
-    kind: 'story',
-    key: 's19',
     stepLabel: '19',
-    eyebrow: 'Görüşme',
-    title: 'Seanslar\nuygulama içinde',
-    body: 'Harici Zoom hesabı yok. Onaylı online randevuda kamera ile katılın.',
-    accent: '#B794F6',
-    visual: 'video',
-    cta: 'Devam',
+    phase: 'profile',
+    eyebrow: 'Online pay',
+    title: 'Randevuların kaçı online olur?',
+    body: 'Online yoğunluğu VIP paket skorunu güçlendirir.',
+    accent: '#EE7D31',
+    choices: [
+      { id: 'none', label: 'Neredeyse hiç', sub: '%0–10' },
+      { id: 'low', label: 'Az', sub: '%10–30' },
+      { id: 'mid', label: 'Orta', sub: '%30–60' },
+      { id: 'high', label: 'Çoğu online', sub: '%60+' },
+    ],
   },
   {
     kind: 'question',
     key: 'website',
     stepLabel: '20',
+    phase: 'profile',
     eyebrow: 'Web sitesi',
-    title: 'Kişisel hekim\nsitesi ister misiniz?',
-    body: 'Kendi domain, SEO ve siteden randevu — özel web paketi.',
-    accent: '#7CA6E0',
+    title: 'Özel web sitesi ister misiniz?',
+    body: 'Bireysel: hekim sitesi paketi. Klinik: kurumsal klinik vitrin (üst paket).',
+    accent: '#EE7D31',
     choices: [
-      { id: 'yes', label: 'Evet, web sitem olsun' },
-      { id: 'maybe', label: 'İleride bakarım' },
-      { id: 'no', label: 'Hayır, platform yeter' },
+      { id: 'yes', label: 'Evet, istiyorum', sub: 'Domain + CMS + randevu' },
+      { id: 'maybe', label: 'Belki / sonra bakarım' },
+      { id: 'no', label: 'Gerek yok' },
     ],
   },
   {
     kind: 'question',
     key: 'finans',
     stepLabel: '21',
+    phase: 'profile',
     eyebrow: 'Finans',
-    title: 'Gelir–gider\ntakibi ister misiniz?',
-    body: 'VIP paketinde finansal raporlar yer alır.',
-    accent: '#F3A26B',
+    title: 'Gelir–gider takibi ne kadar önemli?',
+    body: 'Hasta bakiyesi, tahsilat ve raporlar — bireysel VIP veya klinik profesyonel.',
+    accent: '#EE7D31',
     choices: [
-      { id: 'yes', label: 'Evet, aktif kullanırım' },
-      { id: 'maybe', label: 'Belki' },
-      { id: 'no', label: 'Şimdilik gerekmez' },
+      { id: 'yes', label: 'Çok önemli', sub: 'Detaylı finans istiyorum' },
+      { id: 'maybe', label: 'Temel yeterli' },
+      { id: 'no', label: 'Şimdilik gerek yok' },
     ],
   },
   {
     kind: 'question',
     key: 'content',
     stepLabel: '22',
+    phase: 'profile',
     eyebrow: 'İçerik',
-    title: 'Blog / makale\nyayınlar mısınız?',
-    body: 'VIP ve web paketlerinde blog paneli vardır.',
-    accent: '#7CA6E0',
+    title: 'Blog veya makale yayınlar mısınız?',
+    body: 'Marka ve SEO için web / içerik paketlerini öne çıkarır.',
+    accent: '#EE7D31',
     choices: [
-      { id: 'yes', label: 'Evet, düzenli yazarım' },
+      { id: 'yes', label: 'Evet, düzenli' },
       { id: 'maybe', label: 'Ara sıra' },
       { id: 'no', label: 'Hayır' },
     ],
@@ -445,10 +507,11 @@ const STAGES: Stage[] = [
     kind: 'question',
     key: 'egitim',
     stepLabel: '23',
+    phase: 'profile',
     eyebrow: 'Eğitim',
-    title: 'Kurs / webinar\nsatar mısınız?',
-    body: 'Eğitim ve başvuru formu VIP+ paketlerde.',
-    accent: '#B794F6',
+    title: 'Kurs / webinar satar mısınız?',
+    body: 'Eğitim modülü ve başvuru yönetimi için paket skoru artar.',
+    accent: '#EE7D31',
     choices: [
       { id: 'yes', label: 'Evet' },
       { id: 'maybe', label: 'Planlıyorum' },
@@ -456,56 +519,48 @@ const STAGES: Stage[] = [
     ],
   },
   {
-    kind: 'story',
-    key: 's24',
-    stepLabel: '24',
-    eyebrow: 'Personel paneli',
-    title: 'Ekibiniz de\naynı uygulamada',
-    body: 'Girişte Hekim veya Personel. Sekreter randevu, talep ve ödemeyi yetkisine göre yönetir.',
-    accent: '#F0B429',
-    visual: 'team',
-    cta: 'Devam',
-  },
-  {
     kind: 'question',
     key: 'current_tool',
-    stepLabel: '25',
-    eyebrow: 'Mevcut düzen',
-    title: 'Şu an randevuyu\nnasıl yönetiyorsunuz?',
-    body: 'Birden fazla yöntem kullanıyorsanız hepsini seçin.',
-    accent: '#6BA3F5',
+    stepLabel: '24',
+    phase: 'profile',
+    eyebrow: 'Mevcut durum',
+    title: 'Randevuyu şu an nasıl yönetiyorsunuz?',
+    body: 'Birden fazla seçebilirsiniz — geçiş ihtiyacını anlarız.',
+    accent: '#EE7D31',
     multi: true,
     choices: [
-      { id: 'yok', label: 'Düzenli sistem yok' },
       { id: 'defter', label: 'Defter / Excel' },
-      { id: 'baska', label: 'Başka bir yazılım' },
-      { id: 'asistan', label: 'Asistan / sekreter telefonla' },
-      { id: 'whatsapp', label: 'WhatsApp / sosyal medya' },
+      { id: 'whatsapp', label: 'WhatsApp / telefon' },
+      { id: 'baska', label: 'Başka yazılım' },
+      { id: 'sekreter', label: 'Sekreter notu' },
+      { id: 'yok', label: 'Sistemim yok' },
     ],
   },
   {
     kind: 'question',
     key: 'start_when',
-    stepLabel: '26',
+    stepLabel: '25',
+    phase: 'profile',
     eyebrow: 'Zamanlama',
-    title: 'Ne zaman\nbaşlamak istersiniz?',
-    body: 'Demo veya ücretli paket önerisini etkiler.',
-    accent: '#5DD4A0',
+    title: 'Ne zaman başlamak istersiniz?',
+    body: 'Ücretsiz deneme veya ücretli paket önerisini etkiler.',
+    accent: '#EE7D31',
     choices: [
-      { id: 'hemen', label: 'Hemen' },
+      { id: 'hemen', label: 'Hemen', sub: 'Bugün / bu hafta' },
       { id: '1ay', label: '1 ay içinde' },
-      { id: 'deneme', label: 'Önce denemek istiyorum' },
+      { id: 'deneme', label: 'Önce ücretsiz deneme' },
       { id: 'kesfet', label: 'Sadece inceliyorum' },
     ],
   },
   {
     kind: 'question',
     key: 'source',
-    stepLabel: '27',
+    stepLabel: '26',
+    phase: 'profile',
     eyebrow: 'Keşif',
-    title: 'Bizi nasıl\nduydunuz?',
-    body: 'Birden fazla kanal seçebilirsiniz.',
-    accent: '#6BA3F5',
+    title: 'Bizi nasıl duydunuz?',
+    body: 'Birden fazla kanal seçebilirsiniz (analiz için).',
+    accent: '#EE7D31',
     multi: true,
     choices: [
       { id: 'google', label: 'Google / arama' },
@@ -519,40 +574,24 @@ const STAGES: Stage[] = [
   {
     kind: 'permission',
     key: 'notif',
-    stepLabel: '28',
+    stepLabel: '27',
+    phase: 'profile',
     eyebrow: 'Bildirimler',
-    title: 'Anında\nhaberiniz olsun',
-    body: 'Telefonunuzun izin penceresi açılır. Talep, iptal ve hatırlatmalar için önerilir.',
-    accent: '#F58A45',
+    title: 'Randevu bildirimleri',
+    body: 'Yeni talep, iptal ve hatırlatmalar için önerilir. İzni şimdi vermezseniz ayarlardan sonra açabilirsiniz.',
+    accent: '#EE7D31',
   },
-  {
-    kind: 'story',
-    key: 's29',
-    stepLabel: '29',
-    eyebrow: 'Güvenlik',
-    title: 'Veriniz\ngüvende',
-    body: 'Token cihazınızda; 2FA desteklenir. Abonelik uygulama içi satın alma ile yönetilir.',
-    accent: '#5DD4A0',
-    visual: 'security',
-    cta: 'Devam',
-  },
-  {
-    kind: 'rate',
-    key: 'rate',
-    stepLabel: '30',
-    eyebrow: 'Değerlendirme',
-    title: 'Deneyiminizi\npuanlayın',
-    body: '5 yıldız → mağaza. 1 yıldız → sebebinizi bize yazın (mağaza yok).',
-    accent: '#F0B429',
-  },
+
+  // ── C) PAKET ÖNERİSİ ───────────────────────────────────────
   {
     kind: 'package',
     key: 'package',
-    stepLabel: '31',
+    stepLabel: '28',
+    phase: 'offer',
     eyebrow: 'Size özel öneri',
-    title: 'Uygun paketiniz\nve detayları',
-    body: 'Cevaplarınıza göre seçildi. Özellik listesi, fiyat ve neden bu paket aşağıda.',
-    accent: '#F58A45',
+    title: 'Profilinize uygun paketler',
+    body: 'Cevaplarınız skorlandı. Önerilen paket öne çıkarıldı; tüm seçenekleri fiyat, limit ve özellikleriyle karşılaştırın.',
+    accent: '#EE7D31',
   },
 ];
 
@@ -1128,19 +1167,51 @@ function labelOf(key: string, id: string): string {
       diger: 'Diğer',
     },
     online: { yes: 'Evet', maybe: 'Belki', no: 'Hayır' },
-    website: { yes: 'İstiyor', maybe: 'Belki', no: 'İstemiyor' },
+    website: { yes: 'İstiyor', maybe: 'Belki', later: 'Sonra', no: 'İstemiyor' },
     patient_volume: {
       '0_20': '0–20/ay',
       '20_100': '20–100/ay',
       '100_300': '100–300/ay',
       '300_plus': '300+/ay',
     },
-    finans: { yes: 'İstiyor', maybe: 'Belki', no: 'Gerekmez' },
+    appt_volume: {
+      '0_15': '0–15/hafta',
+      '15_40': '15–40/hafta',
+      '40_80': '40–80/hafta',
+      '80_plus': '80+/hafta',
+    },
+    city_scale: {
+      buyuk: 'Büyükşehir',
+      orta: 'Orta şehir',
+      kucuk: 'Küçük şehir',
+      coklu: 'Çok şehir',
+    },
+    experience: { '0_3': '0–3 yıl', '3_10': '3–10 yıl', '10_plus': '10+ yıl' },
+    online_share: { none: 'Yok', low: 'Az', mid: 'Orta', high: 'Yüksek' },
+    content: { yes: 'Blog var', maybe: 'Ara sıra', no: 'Yok' },
+    egitim: { yes: 'Eğitim satar', maybe: 'Planlıyor', no: 'Yok' },
+    current_tool: {
+      defter: 'Defter/Excel',
+      whatsapp: 'WhatsApp',
+      baska: 'Başka yazılım',
+      sekreter: 'Sekreter',
+      yok: 'Sistem yok',
+    },
+    source: {
+      google: 'Google',
+      social: 'Sosyal',
+      meslek: 'Meslektaş',
+      reklam: 'Reklam',
+      kongre: 'Kongre',
+      diger: 'Diğer',
+    },
+    finans: { yes: 'İstiyor', maybe: 'Temel', basic: 'Temel', no: 'Gerekmez' },
     start_when: {
       hemen: 'Hemen',
       '1ay': '1 ay içinde',
       deneme: 'Önce deneme',
       kesfet: 'İnceleme',
+      sonra: 'Sonra',
     },
   };
   return map[key]?.[id] ?? id;
@@ -1179,6 +1250,293 @@ async function saveAnswers(a: Answers) {
   }
 }
 
+/* ─── Video-like staggered enter (left / right / up) ─────── */
+
+type SlideFrom = 'left' | 'right' | 'up' | 'fade';
+
+/**
+ * Her sayfa geçişinde satır satır soldan/sağdan kayarak gelir.
+ * delay ms — video tanıtımı gibi kademeli okuma hissi.
+ */
+function SlideIn({
+  children,
+  from = 'left',
+  delay = 0,
+  sceneKey,
+  style,
+  distance = 42,
+  duration = 520,
+}: {
+  children: ReactNode;
+  from?: SlideFrom;
+  delay?: number;
+  /** index / stage.key — değişince animasyon yeniden başlar */
+  sceneKey: string | number;
+  style?: StyleProp<ViewStyle>;
+  distance?: number;
+  duration?: number;
+}) {
+  const t = useSharedValue(0);
+
+  useEffect(() => {
+    t.value = 0;
+    t.value = withDelay(
+      delay,
+      withTiming(1, { duration, easing: Easing.out(Easing.cubic) }),
+    );
+  }, [sceneKey, delay, duration, t]);
+
+  const anim = useAnimatedStyle(() => {
+    const p = t.value;
+    const x =
+      from === 'left'
+        ? interpolate(p, [0, 1], [-distance, 0], Extrapolation.CLAMP)
+        : from === 'right'
+          ? interpolate(p, [0, 1], [distance, 0], Extrapolation.CLAMP)
+          : 0;
+    const y =
+      from === 'up' ? interpolate(p, [0, 1], [distance * 0.55, 0], Extrapolation.CLAMP) : 0;
+    return {
+      opacity: p,
+      transform: [{ translateX: x }, { translateY: y }],
+    };
+  });
+
+  return <Animated.View style={[anim, style]}>{children}</Animated.View>;
+}
+
+﻿/**
+ * Premium intro — açık renk, tek ekran (scroll yok), mock + kademeli metin.
+ */
+function PremiumIntroScene({
+  sceneKey,
+  visual,
+  accent,
+  eyebrow,
+  title,
+  body,
+  bullets,
+  isFirst,
+}: {
+  sceneKey: string;
+  visual: VisualKind;
+  accent: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  bullets?: string[];
+  isFirst?: boolean;
+}) {
+  const breath = useSharedValue(0);
+  const ring = useSharedValue(0);
+  const bulletShow = (bullets ?? []).slice(0, 3);
+
+  useEffect(() => {
+    breath.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2800, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2800, easing: Easing.inOut(Easing.sin) }),
+      ),
+      -1,
+      false,
+    );
+    ring.value = withRepeat(
+      withTiming(1, { duration: 2200, easing: Easing.out(Easing.cubic) }),
+      -1,
+      false,
+    );
+  }, [breath, ring, sceneKey]);
+
+  const mockFloat = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(breath.value, [0, 1], [0, -5]) }],
+  }));
+  const pulseRing = useAnimatedStyle(() => ({
+    opacity: interpolate(ring.value, [0, 0.7, 1], [0.45, 0.12, 0]),
+    transform: [{ scale: interpolate(ring.value, [0, 1], [0.9, 1.28]) }],
+  }));
+
+  return (
+    <View style={px.wrap}>
+      <SlideIn sceneKey={sceneKey} from="up" delay={40} distance={36} duration={520}>
+        <Animated.View style={[px.mockShell, mockFloat]}>
+          <View style={px.mockTopBar}>
+            <View style={[px.mockDot, { backgroundColor: accent }]} />
+            <Text style={px.mockTopTxt} numberOfLines={1}>
+              {visual === 'calendar'
+                ? 'Takvim'
+                : visual === 'modules'
+                  ? 'Panel'
+                  : visual === 'video'
+                    ? 'Görüşme'
+                    : visual === 'team'
+                      ? 'Klinik'
+                      : 'Randevu Ajandam'}
+            </Text>
+            <View style={[px.mockPill, { backgroundColor: `${accent}18` }]}>
+              <Text style={[px.mockPillTxt, { color: accent }]}>CANLI</Text>
+            </View>
+          </View>
+
+          {(visual === 'brand' || visual === 'ready' || visual === 'security') && (
+            <View style={px.mockBodyCenter}>
+              <LinearGradient colors={['#FFFFFF', '#F8FAFC']} style={px.logoDisc}>
+                <Image source={LOGO} style={px.logoImg} />
+              </LinearGradient>
+              <Text style={px.mockBrand}>Randevu Ajandam</Text>
+              <View style={px.metricRow}>
+                {[
+                  { v: '7/24', l: 'panel' },
+                  { v: '2FA', l: 'güvenlik' },
+                  { v: 'API', l: 'senkron' },
+                ].map((m) => (
+                  <View key={m.l} style={px.metricChip}>
+                    <Text style={[px.metricVal, { color: accent }]}>{m.v}</Text>
+                    <Text style={px.metricLab}>{m.l}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {visual === 'calendar' && (
+            <View style={px.mockPad}>
+              <View style={px.calHead}>
+                <Text style={px.calTitle}>Bu hafta</Text>
+                <Text style={[px.calBadgeTxt, { color: accent }]}>8 randevu</Text>
+              </View>
+              <View style={px.weekRow}>
+                {['P', 'S', 'Ç', 'P', 'C'].map((d, i) => (
+                  <View
+                    key={`${d}${i}`}
+                    style={[px.weekCell, i === 2 && { backgroundColor: accent, borderColor: accent }]}
+                  >
+                    <Text style={[px.weekD, i === 2 && { color: '#FFF' }]}>{d}</Text>
+                    <Text style={[px.weekN, i === 2 && { color: '#FFF' }]}>{12 + i}</Text>
+                  </View>
+                ))}
+              </View>
+              {[
+                { t: '09:30', n: 'Ayşe Yılmaz · Yüz yüze' },
+                { t: '11:00', n: 'Online seans · Onaylı' },
+              ].map((row, i) => (
+                <View
+                  key={row.t}
+                  style={[
+                    px.apptRow,
+                    i === 0 && { borderColor: `${accent}55`, backgroundColor: `${accent}12` },
+                  ]}
+                >
+                  <Text style={[px.apptT, i === 0 && { color: accent }]}>{row.t}</Text>
+                  <Text style={px.apptN} numberOfLines={1}>
+                    {row.n}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {visual === 'modules' && (
+            <View style={px.modGrid}>
+              {[
+                { l: 'Hastalar', c: '#10B981' },
+                { l: 'Hizmet', c: '#3B82F6' },
+                { l: 'Finans', c: '#EE7D31' },
+                { l: 'İçerik', c: '#8B5CF6' },
+              ].map((m) => (
+                <View key={m.l} style={px.modTile}>
+                  <View style={[px.modDot, { backgroundColor: m.c }]} />
+                  <Text style={px.modLabel}>{m.l}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {visual === 'video' && (
+            <View style={px.mockBodyCenter}>
+              <View style={px.avWrap}>
+                <Animated.View style={[px.avRingOuter, { borderColor: `${accent}44` }, pulseRing]} />
+                <View style={[px.avRing, { borderColor: `${accent}66` }]}>
+                  <View style={[px.avInner, { backgroundColor: `${accent}14` }]}>
+                    <Text style={[px.avLetter, { color: accent }]}>H</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={px.liveRow}>
+                <View style={[px.liveDot, { backgroundColor: accent }]} />
+                <Text style={[px.liveTxt, { color: accent }]}>ONLINE GÖRÜŞME</Text>
+              </View>
+            </View>
+          )}
+
+          {visual === 'team' && (
+            <View style={px.mockPad}>
+              {[
+                { n: 'Uzm. Dr. A. Yılmaz', r: 'Sahip' },
+                { n: 'S. Demir', r: 'Sekreter' },
+              ].map((row) => (
+                <View key={row.n} style={px.teamRow}>
+                  <View style={[px.teamAv, { backgroundColor: `${accent}18` }]}>
+                    <Text style={[px.teamAvTxt, { color: accent }]}>{row.r.charAt(0)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={px.teamName} numberOfLines={1}>
+                      {row.n}
+                    </Text>
+                    <Text style={px.teamRole}>{row.r}</Text>
+                  </View>
+                  <Text style={[px.teamOkTxt, { color: accent }]}>✓</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </Animated.View>
+      </SlideIn>
+
+      <View style={px.copyBlock}>
+        <SlideIn sceneKey={sceneKey} from="left" delay={160} distance={36}>
+          <Text style={[px.eyebrowPillTxt, { color: accent }]}>{eyebrow}</Text>
+        </SlideIn>
+        <SlideIn sceneKey={sceneKey} from="right" delay={260} distance={40} duration={500}>
+          <Text style={px.displayTitle} numberOfLines={2}>
+            {title.replace(/\n/g, ' ')}
+          </Text>
+        </SlideIn>
+        <SlideIn sceneKey={sceneKey} from="left" delay={360} distance={32}>
+          <Text style={px.lead} numberOfLines={2}>
+            {body}
+          </Text>
+        </SlideIn>
+        <View style={px.glassList}>
+          {bulletShow.map((b, i) => (
+            <SlideIn
+              key={b}
+              sceneKey={sceneKey}
+              from={i % 2 === 0 ? 'left' : 'right'}
+              delay={460 + i * 100}
+              distance={36}
+            >
+              <View style={px.glassRow}>
+                <View style={[px.glassCheck, { backgroundColor: `${accent}18` }]}>
+                  <Text style={[px.glassCheckTxt, { color: accent }]}>✓</Text>
+                </View>
+                <Text style={px.glassTxt} numberOfLines={1}>
+                  {b}
+                </Text>
+              </View>
+            </SlideIn>
+          ))}
+        </View>
+        {isFirst ? (
+          <SlideIn sceneKey={sceneKey} from="up" delay={780} distance={20}>
+            <Text style={px.proofTxt}>Profil · paket skoru · anında öneri</Text>
+          </SlideIn>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+
 /* ─── Premium button ─────────────────────────────────────── */
 
 function GlowButton({
@@ -1189,6 +1547,7 @@ function GlowButton({
   muted,
   disabled,
   height,
+  onDark,
 }: {
   label: string;
   onPress: () => void;
@@ -1198,6 +1557,8 @@ function GlowButton({
   disabled?: boolean;
   /** Responsive button height from useLayout().btnHeight */
   height?: number;
+  /** Koyu intro footer üzerinde ghost buton */
+  onDark?: boolean;
 }) {
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -1211,12 +1572,13 @@ function GlowButton({
         onPress={onPress}
         style={[
           s.btnGhost,
+          onDark && s.btnGhostDark,
           { minHeight: Math.max(minH - 4, 44) },
           flex && { flex: 1 },
           disabled && { opacity: 0.5 },
         ]}
       >
-        <Text style={s.btnGhostTxt}>{label}</Text>
+        <Text style={[s.btnGhostTxt, onDark && s.btnGhostTxtDark]}>{label}</Text>
       </Pressable>
     );
   }
@@ -1255,7 +1617,7 @@ function GlowButton({
 function SceneArt({
   kind,
   accent,
-  artH = 210,
+  artH = 150,
   compact = false,
 }: {
   kind: VisualKind;
@@ -1293,7 +1655,7 @@ function SceneArt({
     transform: [{ scale: interpolate(breath.value, [0, 1], [0.92, 1.08]) }],
   }));
 
-  const cardH = Math.max(compact ? 140 : 160, Math.min(artH, compact ? 180 : 260));
+  const cardH = Math.max(compact ? 120 : 136, Math.min(artH, compact ? 150 : 168));
 
   return (
     <View style={[s.artStage, { marginBottom: compact ? 4 : 8, paddingHorizontal: compact ? 16 : 20 }]}>
@@ -1358,8 +1720,8 @@ function SceneArt({
             <View style={s.weekRow}>
               {['P', 'S', 'Ç', 'P', 'C'].map((d, i) => (
                 <View key={`${d}${i}`} style={[s.weekCell, i === 2 && { backgroundColor: accent }]}>
-                  <Text style={[s.weekD, i === 2 && { color: '#1A1208' }]}>{d}</Text>
-                  <Text style={[s.weekN, i === 2 && { color: '#1A1208' }]}>{12 + i}</Text>
+                  <Text style={[s.weekD, i === 2 && { color: '#FFF7ED' }]}>{d}</Text>
+                  <Text style={[s.weekN, i === 2 && { color: '#FFF7ED' }]}>{12 + i}</Text>
                 </View>
               ))}
             </View>
@@ -1387,7 +1749,7 @@ function SceneArt({
             {[
               { l: 'Hastalar', c: '#5DD4A0' },
               { l: 'Hizmet', c: '#6BA3F5' },
-              { l: 'Finans', c: '#F3A26B' },
+              { l: 'Finans', c: '#C96A2B' },
               { l: 'Klinik', c: '#B794F6' },
             ].map((m) => (
               <View key={m.l} style={s.modTile}>
@@ -1467,6 +1829,8 @@ export function OnboardingScreen({ onFinish }: Props) {
   const [showReasonBox, setShowReasonBox] = useState(false);
   const [notifAsked, setNotifAsked] = useState(false);
   const [selectedPkgKey, setSelectedPkgKey] = useState<string | null>(null);
+  /** Alt CTA, animasyon bitene kadar tıklanmaz */
+  const [footerReady, setFooterReady] = useState(false);
 
   const stage = STAGES[index] ?? STAGES[0];
   const progress = (index + 1) / TOTAL;
@@ -1488,29 +1852,51 @@ export function OnboardingScreen({ onFinish }: Props) {
   }, [stage.kind, notifAsked]);
 
   const progressSV = useSharedValue(progress);
-  const contentOp = useSharedValue(1);
-  const contentY = useSharedValue(0);
-  const contentScale = useSharedValue(1);
+  const footerReveal = useSharedValue(0);
+
+  /** İçerik satır sayısı kadar gecikme — Devam butonu en sonda belirir */
+  const footerDelayMs = useMemo(() => {
+    if (stage.kind === 'story') {
+      const n = Math.min(stage.bullets?.length ?? 0, 3);
+      // mock + title + 3 bullets — then CTA (no scroll page)
+      return 520 + n * 100 + 320;
+    }
+    if (stage.kind === 'question') {
+      const n = Math.min(stage.choices.length, 8);
+      return 320 + 140 + n * 85 + 220;
+    }
+    if (stage.kind === 'permission') return 700;
+    if (stage.kind === 'package') return 480;
+    return 500;
+  }, [stage]);
+
+  const isIntro = stage.phase === 'intro';
 
   useEffect(() => {
-    progressSV.value = withTiming(progress, { duration: 480, easing: Easing.out(Easing.cubic) });
+    progressSV.value = withTiming(progress, { duration: 320, easing: Easing.out(Easing.cubic) });
   }, [progress, progressSV]);
 
   useEffect(() => {
-    contentOp.value = 0;
-    contentY.value = 22;
-    contentScale.value = 0.97;
-    contentOp.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
-    contentY.value = withSpring(0, { damping: 18, stiffness: 140 });
-    contentScale.value = withSpring(1, { damping: 16, stiffness: 120 });
-  }, [index, contentOp, contentY, contentScale]);
+    setFooterReady(false);
+    footerReveal.value = 0;
+    footerReveal.value = withDelay(
+      footerDelayMs,
+      withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }),
+    );
+    const t = setTimeout(() => setFooterReady(true), footerDelayMs + 80);
+    return () => clearTimeout(t);
+  }, [index, footerDelayMs, footerReveal]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: interpolate(progressSV.value, [0, 1], [0, progressMax], Extrapolation.CLAMP),
   }));
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOp.value,
-    transform: [{ translateY: contentY.value }, { scale: contentScale.value }],
+  const footerStyle = useAnimatedStyle(() => ({
+    opacity: footerReveal.value,
+    transform: [
+      {
+        translateY: interpolate(footerReveal.value, [0, 1], [28, 0], Extrapolation.CLAMP),
+      },
+    ],
   }));
 
   const persistAndFinish = useCallback(
@@ -1550,7 +1936,7 @@ export function OnboardingScreen({ onFinish }: Props) {
       void saveAnswers(next);
       return next;
     });
-    setTimeout(() => setIndex((i) => Math.min(i + 1, TOTAL - 1)), 220);
+    setTimeout(() => setIndex((i) => Math.min(i + 1, TOTAL - 1)), 140);
   }, []);
 
   const multiSelectedCount = useMemo(() => {
@@ -1682,50 +2068,45 @@ export function OnboardingScreen({ onFinish }: Props) {
   };
 
   const accent = stage.accent;
+  const phaseLabel =
+    stage.phase === 'intro' ? 'Tanıtım' : stage.phase === 'profile' ? 'Profil' : 'Paket';
+  const phaseIndex = STAGES.filter((x) => x.phase === stage.phase).findIndex(
+    (x) => x.key === stage.key,
+  );
+  const phaseTotal = STAGES.filter((x) => x.phase === stage.phase).length;
 
   return (
     <View style={s.root}>
-      <StatusBar style="light" />
-      {/* Layered cinematic background */}
-      <LinearGradient
-        colors={['#03080F', '#0A1624', '#0F2438']}
-        locations={[0, 0.45, 1]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={[`${accent}18`, 'transparent']}
-        style={[s.ambientTop, { height: L.ambientH }]}
-        pointerEvents="none"
-      />
-      {!L.compact ? (
-        <>
-          <View style={[s.orb, s.orbTR, { backgroundColor: accent }]} pointerEvents="none" />
-          <View style={[s.orb, s.orbBL]} pointerEvents="none" />
-        </>
-      ) : null}
+      <StatusBar style="dark" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F4F6F9' }]} pointerEvents="none" />
 
       {/* Header */}
       <View
         style={[
           s.header,
           {
-            paddingTop: L.safeTop,
+            paddingTop: L.safeTop + 4,
             paddingHorizontal: L.padX,
-            paddingBottom: L.space.xs,
+            paddingBottom: 8,
           },
         ]}
       >
         <View style={s.headerLeft}>
-          <View style={s.headerLogo}>
-            <Image source={LOGO} style={s.headerLogoImg} />
-          </View>
+          {index > 0 ? (
+            <Pressable onPress={goBack} hitSlop={12} style={s.headerBackBtn}>
+              <Text style={s.headerBackTxt}>‹</Text>
+            </Pressable>
+          ) : (
+            <View style={s.headerLogo}>
+              <Image source={LOGO} style={s.headerLogoImg} />
+            </View>
+          )}
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[s.headerBrand, { fontSize: L.font.sm }]} numberOfLines={1}>
+            <Text style={[s.headerBrand, { fontSize: 15 }]} numberOfLines={1}>
               Randevu Ajandam
             </Text>
-            <Text style={[s.headerMeta, { fontSize: L.font.xs }]}>
-              {stage.stepLabel}  ·  {String(TOTAL).padStart(2, '0')}
+            <Text style={[s.headerMeta, { fontSize: 11 }]} numberOfLines={1}>
+              {phaseLabel} · {phaseIndex + 1}/{phaseTotal}
             </Text>
           </View>
         </View>
@@ -1738,167 +2119,142 @@ export function OnboardingScreen({ onFinish }: Props) {
 
       {/* Progress */}
       <View style={[s.progressTrack, { marginHorizontal: L.padX }]}>
-        <Animated.View style={[s.progressFill, progressStyle]}>
-          <LinearGradient
-            colors={['#FFC49A', accent, '#E06A20']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-        </Animated.View>
+        <Animated.View style={[s.progressFill, progressStyle, { backgroundColor: accent }]} />
       </View>
 
       {/* Content */}
-      <Animated.View style={[s.stage, contentStyle]} key={stage.key}>
+      <View style={[s.stage, isIntro && s.stageIntro]} key={stage.key}>
+        {isIntro && stage.kind === 'story' ? (
+          <View style={s.introFixed} pointerEvents="box-none">
+            <PremiumIntroScene
+              sceneKey={stage.key}
+              visual={stage.visual}
+              accent={accent}
+              eyebrow={stage.eyebrow}
+              title={stage.title}
+              body={stage.body}
+              bullets={stage.bullets}
+              isFirst={index === 0}
+            />
+          </View>
+        ) : (
         <ScrollView
           contentContainerStyle={{
-            paddingTop: L.contentTop,
-            // Room so last options aren't hidden under sticky footer + system nav
-            paddingBottom: L.space.xl + L.btnHeight * 2 + L.footerPad,
+            paddingTop: 12,
+            paddingBottom: L.space.lg + L.btnHeight * 2 + L.footerPad,
             flexGrow: 1,
           }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          scrollEnabled={!isIntro}
         >
-          {stage.kind === 'story' && (
-            <>
-              <SceneArt
-                kind={stage.visual}
-                accent={accent}
-                artH={L.artH}
-                compact={L.compact}
-              />
-              <Text style={[s.eyebrow, { color: accent, marginHorizontal: L.padX }]}>
-                {stage.eyebrow}
-              </Text>
-              <Text
-                style={[
-                  s.title,
-                  {
-                    fontSize: L.font.hero,
-                    lineHeight: L.heroLineHeight,
-                    marginHorizontal: L.padX,
-                    marginTop: L.space.sm,
-                  },
-                ]}
-              >
-                {stage.title}
-              </Text>
-              <Text
-                style={[
-                  s.body,
-                  {
-                    fontSize: L.font.md,
-                    lineHeight: L.bodyLineHeight,
-                    marginHorizontal: L.padX,
-                    marginTop: L.space.sm,
-                  },
-                ]}
-              >
-                {stage.body}
-              </Text>
-            </>
-          )}
-
           {stage.kind === 'question' && (
             <>
-              <Text
-                style={[
-                  s.eyebrow,
-                  { color: accent, marginHorizontal: L.padX, marginTop: L.space.xs },
-                ]}
-              >
-                {stage.eyebrow}
-                {stage.multi ? '  ·  çoklu seçim' : ''}
-              </Text>
-              <Text
-                style={[
-                  s.title,
-                  {
-                    fontSize: L.font.hero,
-                    lineHeight: L.heroLineHeight,
-                    marginHorizontal: L.padX,
-                    marginTop: L.space.sm,
-                  },
-                ]}
-              >
-                {stage.title}
-              </Text>
-              <Text
-                style={[
-                  s.body,
-                  {
-                    fontSize: L.font.md,
-                    lineHeight: L.bodyLineHeight,
-                    marginHorizontal: L.padX,
-                    marginTop: L.space.sm,
-                  },
-                ]}
-              >
-                {stage.body}
-              </Text>
+              <SlideIn sceneKey={stage.key} from="left" delay={30}>
+                <Text
+                  style={[
+                    s.eyebrow,
+                    { color: accent, marginHorizontal: L.padX, marginTop: 4 },
+                  ]}
+                >
+                  {stage.eyebrow}
+                  {stage.multi ? '  ·  çoklu' : ''}
+                </Text>
+              </SlideIn>
+              <SlideIn sceneKey={stage.key} from="right" delay={120}>
+                <Text
+                  style={[
+                    s.title,
+                    {
+                      fontSize: 16,
+                      lineHeight: 26,
+                      marginHorizontal: L.padX,
+                      marginTop: 6,
+                    },
+                  ]}
+                >
+                  {stage.title}
+                </Text>
+              </SlideIn>
+              {stage.body ? (
+                <SlideIn sceneKey={stage.key} from="left" delay={210}>
+                  <Text
+                    style={[
+                      s.body,
+                      {
+                        fontSize: 13,
+                        lineHeight: 18,
+                        marginHorizontal: L.padX,
+                        marginTop: 4,
+                      },
+                    ]}
+                  >
+                    {stage.body}
+                  </Text>
+                </SlideIn>
+              ) : null}
               <View
                 style={[
                   s.choices,
                   {
                     marginHorizontal: L.padX,
-                    marginTop: L.space.md,
-                    gap: L.choiceGap,
+                    marginTop: 14,
+                    gap: 8,
                   },
                 ]}
               >
-                {stage.choices.map((c) => {
+                {stage.choices.map((c, i) => {
                   const selected = stage.multi
                     ? asList(answers[stage.key]).includes(c.id)
                     : answers[stage.key] === c.id;
                   return (
-                    <Pressable
+                    <SlideIn
                       key={c.id}
-                      onPress={() => pick(stage.key, c.id, stage.multi)}
-                      style={[
-                        s.choice,
-                        {
-                          minHeight: L.choiceMinH,
-                          paddingVertical: L.compact ? 10 : 14,
-                        },
-                        selected && {
-                          borderColor: `${accent}88`,
-                          backgroundColor: `${accent}14`,
-                        },
-                      ]}
+                      sceneKey={stage.key}
+                      from={i % 2 === 0 ? 'left' : 'right'}
+                      delay={300 + i * 85}
+                      distance={48}
                     >
-                      <View style={{ flex: 1 }}>
-                        <Text style={[s.choiceLabel, { fontSize: L.font.md }]}>{c.label}</Text>
-                        {c.sub && !L.compact ? (
-                          <Text style={[s.choiceSub, { fontSize: L.font.xs }]}>{c.sub}</Text>
-                        ) : c.sub && L.compact ? (
-                          <Text style={[s.choiceSub, { fontSize: L.font.xs }]} numberOfLines={1}>
-                            {c.sub}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {stage.multi ? (
-                        <View
-                          style={[
-                            s.checkbox,
-                            selected && { borderColor: accent, backgroundColor: accent },
-                          ]}
-                        >
-                          {selected ? <Text style={s.checkboxTick}>✓</Text> : null}
+                      <Pressable
+                        onPress={() => pick(stage.key, c.id, stage.multi)}
+                        style={[
+                          s.choice,
+                          selected && {
+                            borderColor: accent,
+                            backgroundColor: `${accent}12`,
+                          },
+                        ]}
+                      >
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={s.choiceLabel}>{c.label}</Text>
+                          {c.sub ? (
+                            <Text style={s.choiceSub} numberOfLines={1}>
+                              {c.sub}
+                            </Text>
+                          ) : null}
                         </View>
-                      ) : (
-                        <View
-                          style={[
-                            s.radio,
-                            selected && { borderColor: accent, backgroundColor: accent },
-                          ]}
-                        >
-                          {selected ? <View style={s.radioInner} /> : null}
-                        </View>
-                      )}
-                    </Pressable>
+                        {stage.multi ? (
+                          <View
+                            style={[
+                              s.checkbox,
+                              selected && { borderColor: accent, backgroundColor: accent },
+                            ]}
+                          >
+                            {selected ? <Text style={s.checkboxTick}>✓</Text> : null}
+                          </View>
+                        ) : (
+                          <View
+                            style={[
+                              s.radio,
+                              selected && { borderColor: accent, backgroundColor: accent },
+                            ]}
+                          >
+                            {selected ? <View style={s.radioInner} /> : null}
+                          </View>
+                        )}
+                      </Pressable>
+                    </SlideIn>
                   );
                 })}
               </View>
@@ -1907,54 +2263,64 @@ export function OnboardingScreen({ onFinish }: Props) {
 
           {stage.kind === 'permission' && (
             <>
-              <View style={s.iconHero}>
-                <LinearGradient colors={[`${accent}33`, `${accent}0A`]} style={s.iconHeroGrad}>
-                  <Text style={s.iconHeroEmoji}>🔔</Text>
-                </LinearGradient>
-              </View>
-              <Text
-                style={[
-                  s.eyebrow,
-                  { color: accent, marginHorizontal: L.padX, textAlign: 'center' },
-                ]}
-              >
-                {stage.eyebrow}
-              </Text>
-              <Text
-                style={[
-                  s.title,
-                  {
-                    fontSize: L.font.hero,
-                    lineHeight: L.heroLineHeight,
-                    marginHorizontal: L.padX,
-                    textAlign: 'center',
-                  },
-                ]}
-              >
-                {stage.title}
-              </Text>
-              <Text
-                style={[
-                  s.body,
-                  {
-                    fontSize: L.font.md,
-                    lineHeight: L.bodyLineHeight,
-                    marginHorizontal: L.padX,
-                    textAlign: 'center',
-                  },
-                ]}
-              >
-                {stage.body}
-              </Text>
-              <Text style={s.nativeHint}>
-                {answers.notif === 'granted'
-                  ? '✓ İzin verildi'
-                  : answers.notif === 'denied'
-                    ? 'İzin reddedildi — ayarlardan açabilirsiniz'
-                    : answers.notif === 'skipped'
-                      ? 'Geliştirme ortamında sınırlı olabilir · APK’da tam çalışır'
-                      : 'Sistem izin penceresi…'}
-              </Text>
+              <SlideIn sceneKey={stage.key} from="up" delay={40}>
+                <View style={s.iconHero}>
+                  <View style={[s.iconHeroGrad, { backgroundColor: `${accent}14` }]}>
+                    <Text style={s.iconHeroEmoji}>🔔</Text>
+                  </View>
+                </View>
+              </SlideIn>
+              <SlideIn sceneKey={stage.key} from="left" delay={160}>
+                <Text
+                  style={[
+                    s.eyebrow,
+                    { color: accent, marginHorizontal: L.padX, textAlign: 'center' },
+                  ]}
+                >
+                  {stage.eyebrow}
+                </Text>
+              </SlideIn>
+              <SlideIn sceneKey={stage.key} from="right" delay={260}>
+                <Text
+                  style={[
+                    s.title,
+                    {
+                      fontSize: 16,
+                      lineHeight: 26,
+                      marginHorizontal: L.padX,
+                      textAlign: 'center',
+                    },
+                  ]}
+                >
+                  {stage.title}
+                </Text>
+              </SlideIn>
+              <SlideIn sceneKey={stage.key} from="left" delay={360}>
+                <Text
+                  style={[
+                    s.body,
+                    {
+                      fontSize: 13,
+                      lineHeight: 18,
+                      marginHorizontal: L.padX,
+                      textAlign: 'center',
+                    },
+                  ]}
+                >
+                  {stage.body}
+                </Text>
+              </SlideIn>
+              <SlideIn sceneKey={stage.key} from="up" delay={480}>
+                <Text style={s.nativeHint}>
+                  {answers.notif === 'granted'
+                    ? '✓ İzin verildi'
+                    : answers.notif === 'denied'
+                      ? 'İzin reddedildi — ayarlardan açabilirsiniz'
+                      : answers.notif === 'skipped'
+                        ? 'Geliştirme ortamında sınırlı olabilir · APK’da tam çalışır'
+                        : 'Sistem izin penceresi…'}
+                </Text>
+              </SlideIn>
             </>
           )}
 
@@ -1972,8 +2338,8 @@ export function OnboardingScreen({ onFinish }: Props) {
                 style={[
                   s.title,
                   {
-                    fontSize: L.font.hero,
-                    lineHeight: L.heroLineHeight,
+                    fontSize: 16,
+                    lineHeight: 26,
                     marginHorizontal: L.padX,
                     textAlign: 'center',
                   },
@@ -1985,8 +2351,8 @@ export function OnboardingScreen({ onFinish }: Props) {
                 style={[
                   s.body,
                   {
-                    fontSize: L.font.md,
-                    lineHeight: L.bodyLineHeight,
+                    fontSize: 13,
+                    lineHeight: 18,
                     marginHorizontal: L.padX,
                     textAlign: 'center',
                   },
@@ -1997,7 +2363,7 @@ export function OnboardingScreen({ onFinish }: Props) {
 
               <View style={s.starCard}>
                 <LinearGradient
-                  colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)']}
+                  colors={['rgba(16,33,51,0.08)', 'rgba(255,255,255,0.02)']}
                   style={StyleSheet.absoluteFill}
                 />
                 <View style={s.starRow}>
@@ -2043,33 +2409,39 @@ export function OnboardingScreen({ onFinish }: Props) {
 
           {stage.kind === 'package' && (
             <>
-              <Text style={[s.eyebrow, { color: accent, marginHorizontal: L.padX }]}>
-                {stage.eyebrow}
-              </Text>
-              <Text
-                style={[
-                  s.title,
-                  {
-                    fontSize: L.font.hero,
-                    lineHeight: L.heroLineHeight,
-                    marginHorizontal: L.padX,
-                  },
-                ]}
-              >
-                {stage.title}
-              </Text>
-              <Text
-                style={[
-                  s.body,
-                  {
-                    fontSize: L.font.md,
-                    lineHeight: L.bodyLineHeight,
-                    marginHorizontal: L.padX,
-                  },
-                ]}
-              >
-                {stage.body}
-              </Text>
+              <SlideIn sceneKey={stage.key} from="left" delay={40}>
+                <Text style={[s.eyebrow, { color: accent, marginHorizontal: L.padX }]}>
+                  {stage.eyebrow}
+                </Text>
+              </SlideIn>
+              <SlideIn sceneKey={stage.key} from="right" delay={120}>
+                <Text
+                  style={[
+                    s.title,
+                    {
+                      fontSize: 16,
+                      lineHeight: 26,
+                      marginHorizontal: L.padX,
+                    },
+                  ]}
+                >
+                  {stage.title}
+                </Text>
+              </SlideIn>
+              <SlideIn sceneKey={stage.key} from="left" delay={200}>
+                <Text
+                  style={[
+                    s.body,
+                    {
+                      fontSize: 13,
+                      lineHeight: 18,
+                      marginHorizontal: L.padX,
+                    },
+                  ]}
+                >
+                  {stage.body}
+                </Text>
+              </SlideIn>
 
               <View style={[s.periodRow, { marginHorizontal: L.padX }]}>
                 <Pressable
@@ -2112,18 +2484,17 @@ export function OnboardingScreen({ onFinish }: Props) {
                 </View>
               </View>
 
-              <View style={[s.pkgHero, { marginHorizontal: L.padX, borderColor: `${accent}44` }]}>
-                <LinearGradient
-                  colors={
-                    recommended.tur === 'klinik'
-                      ? ['rgba(93,212,160,0.18)', 'rgba(15,30,48,0.95)']
-                      : ['rgba(245,138,69,0.2)', 'rgba(15,30,48,0.95)']
-                  }
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                />
-                <Text style={s.pkgBadge}>
-                  ÖNERİLEN · {recommended.tur === 'klinik' ? 'KLİNİK' : 'BİREYSEL'}
+              <View
+                style={[
+                  s.pkgHero,
+                  {
+                    marginHorizontal: L.padX,
+                    borderColor: recommended.tur === 'klinik' ? '#86EFAC' : `${accent}55`,
+                  },
+                ]}
+              >
+                <Text style={[s.pkgBadge, { color: accent }]}>
+                  ÖNERİLEN · {recommended.tur === 'klinik' ? 'KLİNİK' : 'BİREYSEL'} · #{1} sıra
                 </Text>
                 <Text style={s.pkgName}>{recommended.ad}</Text>
                 <Text style={s.pkgTag}>{recommended.tagline}</Text>
@@ -2150,7 +2521,7 @@ export function OnboardingScreen({ onFinish }: Props) {
                       {price(recommended).old!.toLocaleString('tr-TR')} ₺
                     </Text>
                   ) : null}
-                  <Text style={s.priceMain}>
+                  <Text style={s.pkgPriceMain}>
                     {price(recommended).main === 0
                       ? 'Ücretsiz'
                       : `${price(recommended).main.toLocaleString('tr-TR')} ₺`}
@@ -2164,10 +2535,10 @@ export function OnboardingScreen({ onFinish }: Props) {
                   </Text>
                 ) : null}
 
-                <Text style={s.featTitle}>Paket özellikleri</Text>
+                <Text style={s.featTitle}>Tüm özellikler</Text>
                 {recommended.features.map((f) => (
                   <View key={f} style={s.featLine}>
-                    <Text style={s.featCheck}>✓</Text>
+                    <Text style={[s.featCheck, { color: accent }]}>✓</Text>
                     <Text style={s.featLineTxt}>{f}</Text>
                   </View>
                 ))}
@@ -2181,18 +2552,18 @@ export function OnboardingScreen({ onFinish }: Props) {
                           ? 'Ücretsiz paketi seç'
                           : recommended.tur === 'klinik'
                             ? 'Bu klinik paketini seç'
-                            : 'Uygulama içi satın al'
+                            : 'Bu paketi seç'
                     }
                     arrow
                     onPress={() => void buyPackage(recommended)}
                     disabled={busy}
-                    height={L.btnHeight}
+                    height={48}
                   />
                 </View>
               </View>
 
               <Text style={[s.otherTitle, { marginHorizontal: L.padX }]}>
-                Uyum sırasına göre diğer paketler
+                Diğer paketler (uyum sırası)
               </Text>
               {otherPackages.map(({ pkg: p, match }) => {
                 const pr = price(p);
@@ -2255,74 +2626,73 @@ export function OnboardingScreen({ onFinish }: Props) {
             </>
           )}
         </ScrollView>
-      </Animated.View>
+        )}
+      </View>
 
-      {/* Footer */}
-      <View
+      {/* Footer — yazılar bittikten sonra alttan yükselir */}
+      <Animated.View
         style={[
           s.footer,
+          footerStyle,
           {
-            // Clear Android 3-button / gesture system nav
             paddingBottom: L.footerPad,
             paddingHorizontal: L.padX,
             paddingTop: L.space.sm,
           },
         ]}
+        pointerEvents={footerReady ? 'auto' : 'none'}
       >
-        {index > 0 && stage.kind !== 'package' ? (
-          <Pressable onPress={goBack} style={s.backHit} hitSlop={12}>
-            <Text style={s.backTxt}>‹  Geri</Text>
-          </Pressable>
-        ) : (
-          <View style={{ height: 8 }} />
-        )}
-
         {index === 0 && stage.kind === 'story' ? (
-          <View style={[s.ctaStack, { gap: L.space.sm }]}>
-            <GlowButton label="Başla" arrow onPress={goNext} height={L.btnHeight} />
+          <View style={[s.ctaStack, { gap: 8 }]} pointerEvents="auto">
+            <GlowButton label="Deneyimi başlat" arrow onPress={goNext} height={52} />
             <GlowButton
-              label="Zaten hesabım var"
+              label="Zaten hesabım var — giriş"
               muted
               onPress={() => void persistAndFinish('login')}
-              height={L.btnHeight}
+              height={46}
             />
+            <LegalLinks tone="light" style={{ marginTop: 4 }} />
           </View>
         ) : null}
 
         {index > 0 && stage.kind === 'story' ? (
-          <GlowButton
-            label={stage.cta ?? 'Devam'}
-            arrow
-            onPress={goNext}
-            height={L.btnHeight}
-          />
+          <View pointerEvents="auto">
+            <GlowButton
+              label={stage.cta ?? 'Devam'}
+              arrow
+              onPress={goNext}
+              height={52}
+            />
+          </View>
         ) : null}
 
         {stage.kind === 'question' && stage.multi ? (
-          <View style={[s.ctaStack, { gap: L.space.sm }]}>
-            {multiSelectedCount > 0 ? (
-              <Text style={s.footerHint}>
-                {multiSelectedCount} seçildi · istediğinizi ekleyin/çıkarın
-              </Text>
-            ) : (
-              <Text style={s.footerHint}>En az bir seçenek işaretleyin</Text>
-            )}
+          <View style={[s.ctaStack, { gap: 6 }]} pointerEvents="auto">
+            <Text style={s.footerHint}>
+              {multiSelectedCount > 0
+                ? `${multiSelectedCount} seçildi`
+                : 'En az bir seçenek işaretleyin'}
+            </Text>
             <GlowButton
               label="Devam"
               arrow
               onPress={goNext}
               disabled={multiSelectedCount < 1}
-              height={L.btnHeight}
+              height={48}
             />
           </View>
         ) : null}
 
         {stage.kind === 'question' && !stage.multi ? (
-          <Text style={s.footerHint}>Seçiminizle otomatik devam edilir</Text>
+          <Text style={s.footerHint} pointerEvents="none">
+            Seçince otomatik devam
+          </Text>
         ) : null}
 
         {stage.kind === 'permission' ? (
-          <GlowButton label="Devam" arrow onPress={goNext} height={L.btnHeight} />
+          <View pointerEvents="auto">
+            <GlowButton label="Devam" arrow onPress={goNext} height={48} />
+          </View>
         ) : null}
 
         {stage.kind === 'rate' && !showReasonBox && stars === 0 ? (
@@ -2330,28 +2700,23 @@ export function OnboardingScreen({ onFinish }: Props) {
         ) : null}
 
         {stage.kind === 'package' ? (
-          <View style={[s.ctaStack, { gap: L.space.sm }]}>
-            <LegalLinks tone="dark" showKvkk style={{ marginBottom: 4 }} />
+          <View style={[s.ctaStack, { gap: 8 }]} pointerEvents="auto">
+            <LegalLinks tone="dark" showKvkk style={{ marginBottom: 2 }} />
             <GlowButton
-              label="Kayıt ol ve devam"
+              label="Kayıt ol"
               arrow
               onPress={() => void persistAndFinish('register')}
-              height={L.btnHeight}
+              height={48}
             />
             <GlowButton
               label="Giriş yap"
               muted
               onPress={() => void persistAndFinish('login')}
-              height={L.btnHeight}
+              height={44}
             />
           </View>
         ) : null}
-
-        {/* Login / story footers: legal always reachable */}
-        {stage.kind === 'story' && index === 0 ? (
-          <LegalLinks tone="dark" style={{ marginTop: 10 }} />
-        ) : null}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -2359,7 +2724,7 @@ export function OnboardingScreen({ onFinish }: Props) {
 /* ─── Styles ─────────────────────────────────────────────── */
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#03080F' },
+  root: { flex: 1, backgroundColor: '#F4F6F9' },
   ambientTop: { position: 'absolute', top: 0, left: 0, right: 0 },
   orb: {
     position: 'absolute',
@@ -2386,88 +2751,117 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     zIndex: 20,
   },
+  headerIntro: {
+    borderBottomWidth: 0,
+  },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
   headerLogo: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#FFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: '#F58A45',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
   },
-  headerLogoImg: { width: 28, height: 28, resizeMode: 'contain' },
-  headerBrand: { color: '#F4F7FA', fontWeight: '700', letterSpacing: -0.2 },
+  headerLogoIntro: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  headerLogoImg: { width: 24, height: 24, resizeMode: 'contain' },
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E1E6ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBackBtnIntro: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  headerBackTxt: { color: '#102133', fontSize: 22, fontWeight: '300', marginTop: -2 },
+  headerBrand: { color: '#102133', fontWeight: '700', letterSpacing: -0.2 },
   headerMeta: {
-    color: '#6B7F93',
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginTop: 2,
+    color: '#6D7D8E',
+    fontWeight: '600',
+    marginTop: 1,
   },
   stepChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#E1E6ED',
   },
-  stepChipTxt: { color: '#A8B8C8', fontSize: 12, fontWeight: '800' },
+  stepChipIntro: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  stepChipTxt: { color: '#39495B', fontSize: 12, fontWeight: '700' },
   progressTrack: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#E1E6ED',
     overflow: 'hidden',
   },
   progressFill: { height: 3, borderRadius: 2, overflow: 'hidden' },
   stage: { flex: 1, minHeight: 0 },
+  stageIntro: { overflow: 'hidden' },
+  introFixed: {
+    flex: 1,
+    overflow: 'hidden',
+    justifyContent: 'flex-start',
+  },
 
   artStage: {
     alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 20,
+    marginBottom: 6,
+    paddingHorizontal: 16,
   },
   artGlow: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    top: 20,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    top: 12,
   },
   artCard: {
     width: '100%',
-    maxWidth: 360,
-    height: 210,
-    borderRadius: 28,
+    maxWidth: 320,
+    height: 150,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
+    shadowColor: '#102133',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   artTopLine: { height: 2, width: '100%' },
-  artCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  artPad: { flex: 1, padding: 18, justifyContent: 'center' },
+  artCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  artPad: { flex: 1, padding: 12, justifyContent: 'center' },
   logoRing: {
-    padding: 3,
-    borderRadius: 26,
+    padding: 2,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
   logoDisc: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoImg: { width: 52, height: 52, resizeMode: 'contain' },
-  artBrand: { color: '#FFF', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  logoImg: { width: 36, height: 36, resizeMode: 'contain' },
+  artBrand: { color: '#FFF', fontSize: 14, fontWeight: '700', letterSpacing: -0.2 },
   artPill: {
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -2502,7 +2896,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(16,33,51,0.08)',
     backgroundColor: 'rgba(255,255,255,0.03)',
     marginBottom: 6,
   },
@@ -2547,7 +2941,7 @@ const s = StyleSheet.create({
   avLetter: { fontSize: 32, fontWeight: '800' },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#5DD4A0' },
-  liveTxt: { color: '#7ED2AB', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  liveTxt: { color: '#2E9E5B', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   cardH: { color: '#FFF', fontSize: 15, fontWeight: '800', marginBottom: 12 },
   teamLine: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   checkMini: {
@@ -2568,7 +2962,7 @@ const s = StyleSheet.create({
   quoteBy: { color: '#7A8B9C', fontSize: 12, marginTop: 6, fontWeight: '600' },
   quoteDiv: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(16,33,51,0.08)',
     marginVertical: 12,
   },
   readyDisc: {
@@ -2583,46 +2977,44 @@ const s = StyleSheet.create({
   readySub: { color: '#8FA0B0', fontSize: 13, fontWeight: '600' },
 
   eyebrow: {
-    marginTop: 18,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.6,
+    marginTop: 8,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   title: {
-    marginTop: 10,
-    color: '#FFFFFF',
-    lineHeight: 38,
+    marginTop: 6,
+    color: '#102133',
     fontWeight: '800',
-    letterSpacing: -1,
+    letterSpacing: -0.3,
   },
   body: {
-    marginTop: 12,
-    color: '#8FA0B0',
-    lineHeight: 23,
+    marginTop: 4,
+    color: '#6D7D8E',
     fontWeight: '500',
   },
-  choices: { marginTop: 20, gap: 10 },
+  choices: { marginTop: 14, gap: 8 },
   choice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 18,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    minHeight: 60,
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
+    minHeight: 48,
   },
-  choiceLabel: { color: '#F4F7FA', fontSize: 15, fontWeight: '700' },
-  choiceSub: { color: '#6B7F93', fontSize: 12, marginTop: 3, fontWeight: '500' },
+  choiceLabel: { color: '#102133', fontSize: 14, fontWeight: '700' },
+  choiceSub: { color: '#6D7D8E', fontSize: 11, marginTop: 2, fontWeight: '500' },
   radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2630,39 +3022,39 @@ const s = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#1A1208',
+    backgroundColor: '#FFFFFF',
   },
   checkbox: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxTick: {
-    color: '#1A1208',
-    fontSize: 13,
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '800',
-    lineHeight: 15,
+    lineHeight: 14,
   },
-  iconHero: { alignItems: 'center', marginTop: 20, marginBottom: 8 },
+  iconHero: { alignItems: 'center', marginTop: 24, marginBottom: 8 },
   iconHeroGrad: {
-    width: 96,
-    height: 96,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#E1E6ED',
   },
-  iconHeroEmoji: { fontSize: 40 },
+  iconHeroEmoji: { fontSize: 18 },
   nativeHint: {
-    marginTop: 20,
+    marginTop: 16,
     textAlign: 'center',
-    color: '#A8B8C8',
-    fontSize: 13,
+    color: '#6D7D8E',
+    fontSize: 12,
     fontWeight: '600',
     paddingHorizontal: 28,
   },
@@ -2671,7 +3063,7 @@ const s = StyleSheet.create({
     marginTop: 28,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(16,33,51,0.1)',
     paddingVertical: 28,
     paddingHorizontal: 16,
     overflow: 'hidden',
@@ -2701,7 +3093,7 @@ const s = StyleSheet.create({
     minHeight: 96,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(16,33,51,0.1)',
     backgroundColor: 'rgba(0,0,0,0.28)',
     color: '#FFF',
     padding: 14,
@@ -2709,22 +3101,23 @@ const s = StyleSheet.create({
   },
   periodRow: {
     flexDirection: 'row',
-    marginTop: 18,
+    marginTop: 14,
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
+    backgroundColor: '#EEF2F7',
+    borderRadius: 12,
     padding: 4,
   },
-  periodBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  periodOn: { backgroundColor: 'rgba(245,138,69,0.28)' },
-  periodTxt: { color: '#8FA0B0', fontWeight: '700', fontSize: 13 },
-  periodTxtOn: { color: '#F3A26B' },
+  periodBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  periodOn: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1E6ED' },
+  periodTxt: { color: '#6D7D8E', fontWeight: '700', fontSize: 13 },
+  periodTxtOn: { color: '#C96A2B' },
   pkgHero: {
-    marginTop: 16,
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 18,
+    marginTop: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 16,
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   trackBadge: {
     alignSelf: 'flex-start',
@@ -2735,43 +3128,43 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   trackKlinik: {
-    backgroundColor: 'rgba(93,212,160,0.15)',
-    borderColor: 'rgba(93,212,160,0.4)',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#86EFAC',
   },
   trackBireysel: {
-    backgroundColor: 'rgba(245,138,69,0.15)',
-    borderColor: 'rgba(245,138,69,0.4)',
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FDBA74',
   },
   trackBadgeTxt: {
-    color: '#F4F7FA',
+    color: '#102133',
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
   matchBox: {
-    marginTop: 14,
+    marginTop: 12,
     padding: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#E1E6ED',
   },
   matchTitle: {
-    color: '#C8D4E0',
-    fontSize: 12,
+    color: '#6D7D8E',
+    fontSize: 11,
     fontWeight: '800',
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   matchLine: {
-    color: '#A8B8C8',
+    color: '#39495B',
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 20,
   },
   pkgTypeTiny: {
-    color: '#7CA6E0',
+    color: '#3B82F6',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -2779,23 +3172,23 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   otherMatch: {
-    color: '#8FA0B0',
+    color: '#6D7D8E',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 6,
     marginBottom: 4,
   },
   summaryCard: {
-    marginTop: 14,
+    marginTop: 12,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
   },
   summaryTitle: {
-    color: '#A8B8C8',
-    fontSize: 12,
+    color: '#6D7D8E',
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
     marginBottom: 10,
@@ -2806,102 +3199,102 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: 'rgba(245,138,69,0.12)',
+    backgroundColor: '#FFF7ED',
     borderWidth: 1,
-    borderColor: 'rgba(245,138,69,0.25)',
+    borderColor: '#FED7AA',
   },
-  summaryChipTxt: { color: '#F3A26B', fontSize: 11, fontWeight: '700' },
+  summaryChipTxt: { color: '#C96A2B', fontSize: 11, fontWeight: '700' },
   pkgBadge: {
-    color: '#F3A26B',
+    color: '#C96A2B',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.3,
+    letterSpacing: 0.8,
     marginBottom: 8,
   },
-  pkgName: { color: '#FFF', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
-  pkgTag: { color: '#A8B8C8', fontSize: 13, marginTop: 4, fontWeight: '600' },
+  pkgName: { color: '#102133', fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
+  pkgTag: { color: '#6D7D8E', fontSize: 13, marginTop: 4, fontWeight: '600' },
   pkgDesc: {
-    color: '#B7C4D3',
+    color: '#39495B',
     fontSize: 13,
-    lineHeight: 20,
-    marginTop: 12,
+    lineHeight: 19,
+    marginTop: 10,
     fontWeight: '500',
   },
   pkgIdeal: {
-    color: '#8FA0B0',
+    color: '#6D7D8E',
     fontSize: 12,
-    marginTop: 10,
+    marginTop: 8,
     fontWeight: '600',
-    fontStyle: 'italic',
   },
   pkgLimit: {
-    color: '#F09AA8',
+    color: '#C13C2C',
     fontSize: 12,
-    marginTop: 6,
+    marginTop: 4,
     fontWeight: '700',
   },
-  priceRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 16 },
+  priceRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 14 },
   priceOld: {
-    color: '#6B7F93',
+    color: '#95A2B5',
     fontSize: 14,
     textDecorationLine: 'line-through',
     marginBottom: 3,
   },
-  priceMain: { color: '#FFF', fontSize: 30, fontWeight: '800', letterSpacing: -0.6 },
-  priceUnit: { color: '#8FA0B0', fontSize: 13, fontWeight: '600', marginBottom: 5 },
-  priceHint: { color: '#6B7F93', fontSize: 12, marginTop: 4, fontWeight: '600' },
+  priceMain: { color: '#102133', fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  pkgPriceMain: { color: '#102133', fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
+  priceUnit: { color: '#6D7D8E', fontSize: 13, fontWeight: '600', marginBottom: 5 },
+  priceHint: { color: '#6D7D8E', fontSize: 12, marginTop: 4, fontWeight: '600' },
   featTitle: {
-    color: '#E8EEF5',
+    color: '#102133',
     fontSize: 13,
     fontWeight: '800',
-    marginTop: 18,
+    marginTop: 16,
     marginBottom: 8,
   },
-  featLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  featCheck: { color: '#5DD4A0', fontWeight: '800', fontSize: 13, marginTop: 1 },
-  featLineTxt: { color: '#C5D0DC', fontSize: 13, lineHeight: 18, flex: 1, fontWeight: '500' },
+  featLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 6 },
+  featCheck: { color: '#2E9E5B', fontWeight: '800', fontSize: 13, marginTop: 1 },
+  featLineTxt: { color: '#39495B', fontSize: 13, lineHeight: 18, flex: 1, fontWeight: '500' },
   otherTitle: {
-    marginTop: 22,
-    color: '#A8B8C8',
-    fontSize: 13,
+    marginTop: 20,
+    color: '#102133',
+    fontSize: 14,
     fontWeight: '800',
   },
   otherDetailCard: {
     marginTop: 10,
-    padding: 16,
-    borderRadius: 18,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
   },
   otherHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  otherName: { color: '#FFF', fontSize: 15, fontWeight: '800' },
-  otherSub: { color: '#7A8B9C', fontSize: 12, marginTop: 2 },
-  otherPrice: { color: '#F3A26B', fontWeight: '800', fontSize: 14 },
-  otherUnit: { color: '#8FA0B0', fontWeight: '600', fontSize: 11 },
+  otherName: { color: '#102133', fontSize: 15, fontWeight: '800' },
+  otherSub: { color: '#6D7D8E', fontSize: 12, marginTop: 2 },
+  otherPrice: { color: '#C96A2B', fontWeight: '800', fontSize: 14 },
+  otherUnit: { color: '#6D7D8E', fontWeight: '600', fontSize: 11 },
   otherDesc: {
-    color: '#94A7B9',
+    color: '#39495B',
     fontSize: 12,
     lineHeight: 18,
     marginTop: 10,
     fontWeight: '500',
   },
-  otherFeat: { color: '#A8B8C8', fontSize: 12, marginTop: 4, fontWeight: '500' },
-  otherFeatMore: { color: '#6B7F93', fontSize: 11, marginTop: 4, fontWeight: '600' },
+  otherFeat: { color: '#39495B', fontSize: 12, marginTop: 4, fontWeight: '500' },
+  otherFeatMore: { color: '#6D7D8E', fontSize: 11, marginTop: 4, fontWeight: '600' },
   otherBuyBtn: {
     marginTop: 12,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 11,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(245,138,69,0.4)',
-    backgroundColor: 'rgba(245,138,69,0.12)',
+    borderColor: '#FDBA74',
+    backgroundColor: '#FFF7ED',
     alignItems: 'center',
   },
-  otherBuyTxt: { color: '#F3A26B', fontWeight: '800', fontSize: 13 },
+  otherBuyTxt: { color: '#C96A2B', fontWeight: '800', fontSize: 13 },
   iapNote: {
     marginTop: 14,
     marginBottom: 6,
-    color: '#5A6B7C',
+    color: '#6D7D8E',
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '500',
@@ -2909,50 +3302,272 @@ const s = StyleSheet.create({
 
   footer: {
     zIndex: 40,
-    elevation: 20,
-    backgroundColor: 'rgba(3,8,15,0.92)',
+    elevation: 12,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: '#E1E6ED',
   },
   backHit: { marginBottom: 8, minHeight: 28, justifyContent: 'center' },
-  backTxt: { color: '#8FA0B0', fontWeight: '700', fontSize: 14 },
+  backTxt: { color: '#6D7D8E', fontWeight: '700', fontSize: 14 },
   footerHint: {
     textAlign: 'center',
-    color: '#5A6B7C',
+    color: '#6D7D8E',
     fontSize: 12,
     fontWeight: '600',
-    paddingVertical: 10,
+    paddingVertical: 4,
   },
-  ctaStack: { gap: 10 },
+  ctaStack: { gap: 8 },
   btnGlowWrap: {
-    borderRadius: 18,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#F58A45',
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowColor: '#EE7D31',
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   btnGlow: {
-    minHeight: 54,
-    borderRadius: 18,
+    minHeight: 48,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
   },
-  btnGlowTxt: { color: '#1A1208', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
-  btnArrow: { color: '#1A1208', fontSize: 18, fontWeight: '700' },
+  btnGlowTxt: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', letterSpacing: -0.1 },
+  btnArrow: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   btnGhost: {
-    minHeight: 50,
-    borderRadius: 18,
+    minHeight: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 14,
   },
-  btnGhostTxt: { color: '#E8EEF5', fontSize: 15, fontWeight: '700' },
+  btnGhostDark: {
+    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  btnGhostTxt: { color: '#102133', fontSize: 14, fontWeight: '700' },
+  btnGhostTxtDark: { color: 'rgba(248,250,252,0.9)' },
 });
+
+/** Premium intro — açık, kompakt, tek ekran (scroll yok) */
+const px = StyleSheet.create({
+  wrap: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    overflow: 'hidden',
+  },
+  mockShell: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    maxHeight: 168,
+    shadowColor: '#102133',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  mockTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E8EDF3',
+    backgroundColor: '#FAFBFC',
+  },
+  mockDot: { width: 7, height: 7, borderRadius: 4 },
+  mockTopTxt: { flex: 1, color: '#102133', fontSize: 12, fontWeight: '700' },
+  mockPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  mockPillTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  mockBodyCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 4,
+  },
+  mockPad: { paddingHorizontal: 10, paddingVertical: 8, gap: 5 },
+  logoDisc: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+  },
+  logoImg: { width: 32, height: 32, resizeMode: 'contain' },
+  mockBrand: { color: '#102133', fontSize: 14, fontWeight: '800', marginTop: 2 },
+  metricRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
+  metricChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F4F6F9',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    alignItems: 'center',
+    minWidth: 58,
+  },
+  metricVal: { fontSize: 11, fontWeight: '800' },
+  metricLab: { color: '#6D7D8E', fontSize: 9, fontWeight: '600', marginTop: 1 },
+  calHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  calTitle: { color: '#102133', fontSize: 13, fontWeight: '800' },
+  calBadgeTxt: { fontSize: 11, fontWeight: '800' },
+  weekRow: { flexDirection: 'row', gap: 4 },
+  weekCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#F4F6F9',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+  },
+  weekD: { color: '#6D7D8E', fontSize: 9, fontWeight: '700' },
+  weekN: { color: '#102133', fontSize: 12, fontWeight: '800', marginTop: 1 },
+  apptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    backgroundColor: '#FAFBFC',
+  },
+  apptT: { width: 40, color: '#6D7D8E', fontSize: 11, fontWeight: '800' },
+  apptN: { flex: 1, color: '#102133', fontSize: 11, fontWeight: '600' },
+  modGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 8, gap: 6 },
+  modTile: {
+    width: '47%',
+    flexGrow: 1,
+    minHeight: 42,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modDot: { width: 7, height: 7, borderRadius: 4 },
+  modLabel: { color: '#102133', fontWeight: '800', fontSize: 12 },
+  avWrap: { alignItems: 'center', justifyContent: 'center', width: 88, height: 88 },
+  avRingOuter: {
+    position: 'absolute',
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 2,
+  },
+  avRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    padding: 3,
+  },
+  avInner: {
+    flex: 1,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avLetter: { fontSize: 15, fontWeight: '800' },
+  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  liveDot: { width: 6, height: 6, borderRadius: 3 },
+  liveTxt: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    marginTop: 4,
+  },
+  teamAv: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teamAvTxt: { fontSize: 12, fontWeight: '800' },
+  teamName: { color: '#102133', fontSize: 12, fontWeight: '700' },
+  teamRole: { color: '#6D7D8E', fontSize: 10, fontWeight: '600' },
+  teamOkTxt: { fontSize: 13, fontWeight: '800' },
+  copyBlock: { marginTop: 10, flexShrink: 1 },
+  eyebrowPillTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  displayTitle: {
+    color: '#102133',
+    fontSize: 15,
+    lineHeight: 25,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  lead: {
+    color: '#6D7D8E',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  glassList: { marginTop: 8, gap: 5 },
+  glassRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
+  },
+  glassCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glassCheckTxt: { fontSize: 11, fontWeight: '800' },
+  glassTxt: {
+    flex: 1,
+    color: '#102133',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  proofTxt: {
+    marginTop: 6,
+    color: '#95A2B5',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
+

@@ -472,7 +472,7 @@ export default function App() {
 
   return (
     <View style={[styles.safeArea, { paddingTop: L.safeTop }]}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.flex}
@@ -480,13 +480,12 @@ export default function App() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: L.footerPad + 32 },
+            { paddingBottom: L.footerPad + 28 },
           ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.hero}>
-            <View style={styles.heroOrbOne} />
-            <View style={styles.heroOrbTwo} />
+          <View style={styles.authTop}>
             <View style={styles.brandRow}>
               <View style={styles.logoShell}>
                 <Image
@@ -495,9 +494,9 @@ export default function App() {
                   accessibilityLabel="Randevu Ajandam"
                 />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.brandName}>Randevu Ajandam</Text>
-                <Text style={styles.brandSubtitle}>DOKTOR UYGULAMASI</Text>
+                <Text style={styles.brandSubtitle}>HEKİM PANELİ</Text>
               </View>
             </View>
             <Text style={styles.welcome}>{heroTitle}</Text>
@@ -507,11 +506,14 @@ export default function App() {
           {authMode !== 'login' && !twoFactorToken && loginRole === 'doctor' ? (
             <AuthFlows mode={authMode} onChangeMode={setAuthMode} onRegistered={handleRegistered} />
           ) : (
-            <Card style={styles.formCard}>
+            <Card style={styles.formCard} elevated>
               {twoFactorToken ? (
                 <>
+                  <View style={styles.authBadge}>
+                    <Text style={styles.authBadgeTxt}>2FA</Text>
+                  </View>
                   <Text style={styles.formTitle}>İki adımlı doğrulama</Text>
-                  <Text style={styles.formDescription}>Hesabınız 2FA ile korunuyor.</Text>
+                  <Text style={styles.formDescription}>Authenticator uygulamanızdaki kodu girin.</Text>
                   <TextField
                     autoCapitalize="none"
                     keyboardType="default"
@@ -550,7 +552,9 @@ export default function App() {
                         setAuthMode('login');
                       }}
                     >
-                      <Text style={[styles.loginRoleText, loginRole === 'doctor' && styles.loginRoleTextOn]}>Hekim</Text>
+                      <Text style={[styles.loginRoleText, loginRole === 'doctor' && styles.loginRoleTextOn]}>
+                        Hekim
+                      </Text>
                     </Pressable>
                     <Pressable
                       style={[styles.loginRoleBtn, loginRole === 'staff' && styles.loginRoleBtnOn]}
@@ -561,24 +565,26 @@ export default function App() {
                         setTwoFactorToken(null);
                       }}
                     >
-                      <Text style={[styles.loginRoleText, loginRole === 'staff' && styles.loginRoleTextOn]}>Personel</Text>
+                      <Text style={[styles.loginRoleText, loginRole === 'staff' && styles.loginRoleTextOn]}>
+                        Personel
+                      </Text>
                     </Pressable>
                   </View>
 
                   <Text style={styles.formTitle}>
-                    {loginRole === 'staff' ? 'Personel girişi' : 'Hesabınıza giriş yapın'}
+                    {loginRole === 'staff' ? 'Personel girişi' : 'Hoş geldiniz'}
                   </Text>
                   <Text style={styles.formDescription}>
                     {loginRole === 'staff'
-                      ? 'Klinik sekreter / resepsiyon / muhasebe hesabınızla giriş yapın.'
-                      : 'Doktor panelinize güvenle erişin.'}
+                      ? 'Klinik sekreter / resepsiyon hesabınızla giriş yapın.'
+                      : 'E-posta ve şifrenizle hekim paneline güvenle erişin.'}
                   </Text>
 
                   <TextField
                     autoCapitalize="none"
                     autoComplete="email"
                     keyboardType="email-address"
-                    label="E-posta adresi"
+                    label="E-posta"
                     onChangeText={setEmail}
                     placeholder="ornek@klinigim.com"
                     textContentType="username"
@@ -607,16 +613,17 @@ export default function App() {
                   />
 
                   {loginRole === 'doctor' ? (
-                    <>
-                      <Pressable onPress={() => setAuthMode('forgot')}>
+                    <View style={styles.authLinks}>
+                      <Pressable onPress={() => setAuthMode('forgot')} hitSlop={8}>
                         <Text style={styles.forgotPassword}>Şifremi unuttum</Text>
                       </Pressable>
-                      <Pressable onPress={() => setAuthMode('register')}>
-                        <Text style={[styles.forgotPassword, { marginTop: 10 }]}>Hekim olarak kayıt ol</Text>
+                      <View style={styles.authDivider} />
+                      <Pressable onPress={() => setAuthMode('register')} hitSlop={8}>
+                        <Text style={styles.registerLink}>Hekim olarak kayıt ol</Text>
                       </Pressable>
-                    </>
+                    </View>
                   ) : (
-                    <Text style={[styles.forgotPassword, { marginTop: 18 }]}>
+                    <Text style={[styles.forgotPassword, { marginTop: 16 }]}>
                       Personel hesabı klinik yöneticiniz tarafından oluşturulur.
                     </Text>
                   )}
@@ -625,7 +632,7 @@ export default function App() {
             </Card>
           )}
 
-          <Text style={styles.footerText}>Randevu Ajandam ile kliniğiniz her zaman yanınızda.</Text>
+          <Text style={styles.footerText}>Kliniğiniz her zaman yanınızda.</Text>
           <LegalLinks tone="light" showKvkk style={{ marginBottom: 12, marginTop: 4 }} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -822,10 +829,10 @@ function IntroScreen({ onComplete }: { onComplete: () => void }) {
 
   return (
     <Pressable style={styles.introScreen} onPress={onComplete}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Animated.View style={[styles.introScene, sceneStyle]} pointerEvents="none">
         <LinearGradient
-          colors={['#0A1826', '#0D1F31', '#122A40']}
+          colors={['#F4F6F9', '#EEF2F7', '#FFFFFF']}
           start={{ x: 0.15, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -933,7 +940,7 @@ const APPOINTMENT_STATUS_LABEL: Record<AppointmentStatus, string> = {
 };
 
 const APPOINTMENT_STATUS_COLOR: Record<AppointmentStatus, string> = {
-  beklemede: '#F3A26B',
+  beklemede: '#C96A2B',
   onaylandi: '#4DBD8C',
   tamamlandi: '#7CA6E0',
   iptal: '#E0687A',
@@ -1034,6 +1041,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   const [deepLinkPending, setDeepLinkPending] = useState<string | null>(null);
   const isCalendar = screen === 'calendar';
   const isOverview = screen === 'overview';
+  const isQuickClose = screen === 'quickClose';
   const isProfileTab = (
     screen === 'profile'
     || screen === 'password'
@@ -1090,7 +1098,12 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   }, []);
 
   const handleModuleBack = useCallback(() => {
-    if (screen === 'menu' || screen === 'profile' || screen === 'notifications') {
+    if (
+      screen === 'menu'
+      || screen === 'profile'
+      || screen === 'notifications'
+      || screen === 'quickClose'
+    ) {
       setScreen('overview');
       return;
     }
@@ -1426,7 +1439,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         },
       ]}
     >
-      <View style={[styles.bottomNav, { minHeight: L.btnHeight + 14 }]}>
+      <View style={[styles.bottomNav, { minHeight: L.btnHeight + 4 }]}>
         <Pressable style={styles.bottomNavItem} onPress={() => setScreen('overview')}>
           <View style={[styles.bottomNavIconShell, isOverview && styles.bottomNavIconShellActive]}>
             <Text style={[styles.bottomNavIcon, isOverview && styles.bottomNavIconActive]}>⌂</Text>
@@ -1438,6 +1451,12 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
             <Text style={[styles.bottomNavIcon, isCalendar && styles.bottomNavIconActive]}>▦</Text>
           </View>
           <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isCalendar && styles.bottomNavLabelActive]}>Takvim</Text>
+        </Pressable>
+        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('quickClose')}>
+          <View style={[styles.bottomNavIconShell, isQuickClose && styles.bottomNavIconShellActive, isQuickClose && styles.bottomNavIconShellDanger]}>
+            <Text style={[styles.bottomNavIcon, isQuickClose && styles.bottomNavIconDanger]}>⊘</Text>
+          </View>
+          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isQuickClose && styles.bottomNavLabelActive]}>Kapat</Text>
         </Pressable>
         <Pressable style={styles.bottomNavItem} onPress={() => setScreen('menu')}>
           <View style={[styles.bottomNavIconShell, isMenuTab && styles.bottomNavIconShellActive]}>
@@ -1475,7 +1494,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
 
   return (
     <View style={styles.dashboard}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       {isOffline ? (
         <Pressable
           style={styles.offlineBanner}
@@ -1494,9 +1513,9 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         style={[
           styles.dashboardHeader,
           {
-            paddingTop: L.safeTop,
+            paddingTop: Math.max(L.safeTop - 2, L.safeTop * 0.85),
             paddingHorizontal: L.padX,
-            paddingBottom: L.space.sm,
+            paddingBottom: 6,
           },
         ]}
       >
@@ -1508,12 +1527,12 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
               accessibilityLabel="Randevu Ajandam"
             />
           </View>
-          <View style={{ flexShrink: 1 }}>
-            <Text style={[styles.dashboardIdentityTitle, { fontSize: L.font.md }]} numberOfLines={1}>
+          <View style={{ flexShrink: 1, justifyContent: 'center' }}>
+            <Text style={styles.dashboardIdentityTitle} numberOfLines={1}>
               Randevu Ajandam
             </Text>
-            <Text style={[styles.dashboardIdentitySubtitle, { fontSize: L.font.xs }]}>
-              HEKİM UYGULAMASI
+            <Text style={styles.dashboardIdentitySubtitle} numberOfLines={1}>
+              HEKİM
             </Text>
           </View>
         </View>
@@ -1521,13 +1540,18 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           style={styles.headerNotifyBtn}
           onPress={() => setScreen('notifications')}
           accessibilityLabel="Bildirimler"
-          hitSlop={10}
+          hitSlop={8}
         >
           <Text style={styles.headerNotifyIcon}>🔔</Text>
           {unreadNotifications > 0 ? (
-            <View style={styles.headerNotifyBadge}>
-              <Text style={styles.headerNotifyBadgeText}>
-                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+            <View
+              style={[
+                styles.headerNotifyBadge,
+                unreadNotifications > 9 && styles.headerNotifyBadgeWide,
+              ]}
+            >
+              <Text style={styles.headerNotifyBadgeText} numberOfLines={1}>
+                {unreadNotifications > 99 ? '99+' : String(unreadNotifications)}
               </Text>
             </View>
           ) : null}
@@ -1592,7 +1616,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                     </Text>
                     {pendingInvites.map((inv) => (
                       <View key={inv.id} style={{ marginTop: 10 }}>
-                        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{inv.klinik}</Text>
+                        <Text style={{ color: '#102133', fontWeight: '700' }}>{inv.klinik}</Text>
                         <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                           <Pressable
                             style={[styles.retryButton, { backgroundColor: 'rgba(77,189,140,0.2)' }]}
@@ -1816,7 +1840,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                 <View style={styles.bookingToggleCard}>
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text style={styles.statLabel}>Randevu alımı</Text>
-                    <Text style={[styles.statValue, { fontSize: 18, marginTop: 4 }]}>
+                    <Text style={[styles.statValue, { fontSize: 15, marginTop: 2 }]}>
                       {bookingOpen ? 'Açık' : 'Kapalı'}
                     </Text>
                     {dashboardStats?.paket?.ad ? (
@@ -1968,110 +1992,143 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
 
             {isCalendar && (
               <>
-                <View style={styles.calendarToolbar}>
-                  <Pressable style={styles.calendarArrow} onPress={() => changeWeek(-1)}>
-                    <Text style={styles.calendarArrowText}>‹</Text>
-                  </Pressable>
-                  <View style={styles.calendarToolbarCopy}>
-                    <Text style={styles.calendarMonth}>
-                      {MONTH_LABELS[selectedCalendarDate.getMonth()]} {selectedCalendarDate.getFullYear()}
-                    </Text>
-                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-                      <Pressable onPress={() => setSelectedDate(todayKey)}>
-                        <Text style={styles.calendarToday}>Bugün</Text>
-                      </Pressable>
-                      <Pressable onPress={() => setCalendarMode(calendarMode === 'week' ? 'month' : 'week')}>
-                        <Text style={styles.calendarToday}>
-                          {calendarMode === 'week' ? 'Ay' : 'Hafta'}
-                        </Text>
-                      </Pressable>
-                      <Pressable onPress={() => void exportIcal()}>
-                        <Text style={styles.calendarToday}>iCal</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => {
-                          Alert.alert('Randevu periyodu', 'Slot süresi (dk)', [
-                            ...([15, 20, 30, 45, 60] as const).map((p) => ({
-                              text: `${p} dk`,
-                              onPress: () => {
-                                void (async () => {
-                                  try {
-                                    const getRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
-                                      headers: await authHeaders(),
-                                    });
-                                    const getPayload = await getRes.json();
-                                    if (!getRes.ok || !getPayload.success || !getPayload.data) {
-                                      setActionMessage(getPayload.message ?? 'Ayarlar alınamadı.');
-                                      return;
-                                    }
-                                    const putRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
-                                      method: 'PUT',
-                                      headers: await authHeaders({ 'Content-Type': 'application/json' }),
-                                      body: JSON.stringify({
-                                        ...getPayload.data,
-                                        randevu_periyodu: p,
-                                      }),
-                                    });
-                                    const putPayload = await putRes.json();
-                                    if (!putRes.ok || !putPayload.success) {
-                                      setActionMessage(putPayload.message ?? 'Periyot güncellenemedi.');
-                                      return;
-                                    }
-                                    setActionMessage(`Randevu periyodu ${p} dk olarak ayarlandı.`);
-                                  } catch {
-                                    setActionMessage('Bağlantı hatası.');
-                                  }
-                                })();
-                              },
-                            })),
-                            { text: 'Vazgeç', style: 'cancel' as const },
-                          ]);
-                        }}
-                      >
-                        <Text style={styles.calendarToday}>Periyot</Text>
-                      </Pressable>
+                {/* Premium calendar chrome */}
+                <View style={styles.calHero}>
+                  <View style={styles.calHeroTop}>
+                    <Pressable style={styles.calNavBtn} onPress={() => changeWeek(-1)} hitSlop={8}>
+                      <Text style={styles.calNavBtnText}>‹</Text>
+                    </Pressable>
+                    <View style={styles.calHeroTitleWrap}>
+                      <Text style={styles.calHeroMonth}>
+                        {MONTH_LABELS[selectedCalendarDate.getMonth()]}
+                      </Text>
+                      <Text style={styles.calHeroYear}>{selectedCalendarDate.getFullYear()}</Text>
                     </View>
+                    <Pressable style={styles.calNavBtn} onPress={() => changeWeek(1)} hitSlop={8}>
+                      <Text style={styles.calNavBtnText}>›</Text>
+                    </Pressable>
                   </View>
-                  <Pressable style={styles.calendarArrow} onPress={() => changeWeek(1)}>
-                    <Text style={styles.calendarArrowText}>›</Text>
-                  </Pressable>
+
+                  <View style={styles.calModeSeg}>
+                    <Pressable
+                      style={[styles.calModeBtn, calendarMode === 'week' && styles.calModeBtnOn]}
+                      onPress={() => setCalendarMode('week')}
+                    >
+                      <Text style={[styles.calModeTxt, calendarMode === 'week' && styles.calModeTxtOn]}>
+                        Hafta
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.calModeBtn, calendarMode === 'month' && styles.calModeBtnOn]}
+                      onPress={() => setCalendarMode('month')}
+                    >
+                      <Text style={[styles.calModeTxt, calendarMode === 'month' && styles.calModeTxtOn]}>
+                        Ay
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <View style={styles.calChipRow}>
+                    <Pressable
+                      style={[styles.calChip, selectedDate === todayKey && styles.calChipOn]}
+                      onPress={() => setSelectedDate(todayKey)}
+                    >
+                      <Text style={[styles.calChipTxt, selectedDate === todayKey && styles.calChipTxtOn]}>
+                        Bugün
+                      </Text>
+                    </Pressable>
+                    <Pressable style={styles.calChip} onPress={() => void exportIcal()}>
+                      <Text style={styles.calChipTxt}>iCal</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.calChip}
+                      onPress={() => {
+                        Alert.alert('Randevu periyodu', 'Slot süresi (dk)', [
+                          ...([15, 20, 30, 45, 60] as const).map((p) => ({
+                            text: `${p} dk`,
+                            onPress: () => {
+                              void (async () => {
+                                try {
+                                  const getRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
+                                    headers: await authHeaders(),
+                                  });
+                                  const getPayload = await getRes.json();
+                                  if (!getRes.ok || !getPayload.success || !getPayload.data) {
+                                    setActionMessage(getPayload.message ?? 'Ayarlar alınamadı.');
+                                    return;
+                                  }
+                                  const putRes = await fetch(`${API_URL}/doctor/appointment-settings`, {
+                                    method: 'PUT',
+                                    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+                                    body: JSON.stringify({
+                                      ...getPayload.data,
+                                      randevu_periyodu: p,
+                                    }),
+                                  });
+                                  const putPayload = await putRes.json();
+                                  if (!putRes.ok || !putPayload.success) {
+                                    setActionMessage(putPayload.message ?? 'Periyot güncellenemedi.');
+                                    return;
+                                  }
+                                  setActionMessage(`Randevu periyodu ${p} dk olarak ayarlandı.`);
+                                } catch {
+                                  setActionMessage('Bağlantı hatası.');
+                                }
+                              })();
+                            },
+                          })),
+                          { text: 'Vazgeç', style: 'cancel' as const },
+                        ]);
+                      }}
+                    >
+                      <Text style={styles.calChipTxt}>Periyot</Text>
+                    </Pressable>
+                  </View>
                 </View>
 
                 {calendarMode === 'week' ? (
-                <View style={styles.weekStrip}>
-                  {weekDates.map((dateKey, index) => {
-                    const date = dateFromKey(dateKey);
-                    const isSelected = dateKey === selectedDate;
-                    const isToday = dateKey === todayKey;
-                    const count = dayCounts[dateKey] ?? 0;
-                    return (
-                      <Pressable
-                        key={dateKey}
-                        style={[styles.weekDay, isSelected && styles.weekDaySelected]}
-                        onPress={() => setSelectedDate(dateKey)}
-                      >
-                        <Text style={[styles.weekDayLabel, isSelected && styles.weekDayLabelSelected]}>
-                          {WEEKDAY_LABELS[index]}
-                        </Text>
-                        <Text style={[styles.weekDayNumber, isSelected && styles.weekDayNumberSelected]}>
-                          {date.getDate()}
-                        </Text>
-                        {count > 0 ? (
-                          <View style={[styles.weekDayEventDot, isSelected && styles.weekDayEventDotSelected]} />
-                        ) : isToday && !isSelected ? (
-                          <View style={styles.weekDayTodayDot} />
-                        ) : (
-                          <View style={styles.weekDayDotSpacer} />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                  <View style={styles.weekStrip}>
+                    {weekDates.map((dateKey, index) => {
+                      const date = dateFromKey(dateKey);
+                      const isSelected = dateKey === selectedDate;
+                      const isToday = dateKey === todayKey;
+                      const count = dayCounts[dateKey] ?? 0;
+                      return (
+                        <Pressable
+                          key={dateKey}
+                          style={[
+                            styles.weekDay,
+                            isToday && !isSelected && styles.weekDayToday,
+                            isSelected && styles.weekDaySelected,
+                          ]}
+                          onPress={() => setSelectedDate(dateKey)}
+                        >
+                          <Text style={[styles.weekDayLabel, isSelected && styles.weekDayLabelSelected]}>
+                            {WEEKDAY_LABELS[index]}
+                          </Text>
+                          <Text style={[styles.weekDayNumber, isSelected && styles.weekDayNumberSelected]}>
+                            {date.getDate()}
+                          </Text>
+                          {count > 0 ? (
+                            <View style={[styles.weekDayBadge, isSelected && styles.weekDayBadgeOn]}>
+                              <Text style={[styles.weekDayBadgeTxt, isSelected && styles.weekDayBadgeTxtOn]}>
+                                {count > 9 ? '9+' : count}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={styles.weekDayDotSpacer} />
+                          )}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 ) : (
                   <View style={styles.monthGrid}>
                     <View style={styles.monthHeaderRow}>
                       {WEEKDAY_LABELS.map((d) => (
-                        <Text key={d} style={styles.monthHeaderCell}>{d}</Text>
+                        <Text key={d} style={styles.monthHeaderCell}>
+                          {d}
+                        </Text>
                       ))}
                     </View>
                     {Array.from({ length: 6 }, (_, row) => (
@@ -2087,6 +2144,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                               key={dateKey}
                               style={[
                                 styles.monthCell,
+                                isToday && !isSelected && styles.monthCellToday,
                                 isSelected && styles.monthCellSelected,
                                 !inMonth && styles.monthCellMuted,
                               ]}
@@ -2101,7 +2159,17 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                               >
                                 {date.getDate()}
                               </Text>
-                              {count > 0 ? <View style={styles.monthDot} /> : <View style={styles.weekDayDotSpacer} />}
+                              {count > 0 ? (
+                                <View style={[styles.monthCountPill, isSelected && styles.monthCountPillOn]}>
+                                  <Text
+                                    style={[styles.monthCountTxt, isSelected && styles.monthCountTxtOn]}
+                                  >
+                                    {count}
+                                  </Text>
+                                </View>
+                              ) : (
+                                <View style={styles.monthCountSpacer} />
+                              )}
                             </Pressable>
                           );
                         })}
@@ -2110,37 +2178,25 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                   </View>
                 )}
 
-                <View style={styles.statusLegendRow}>
-                  {([
-                    ['beklemede', 'Bekliyor'],
-                    ['onaylandi', 'Onaylı'],
-                    ['tamamlandi', 'Tamam'],
-                    ['iptal', 'İptal'],
-                  ] as const).map(([key, label]) => (
-                    <View key={key} style={styles.statusLegendItem}>
-                      <View style={[styles.statusLegendDot, { backgroundColor: APPOINTMENT_STATUS_COLOR[key] }]} />
-                      <Text style={styles.statusLegendText}>{label}</Text>
-                    </View>
-                  ))}
-                </View>
-
                 <View style={styles.calendarAgendaHeader}>
                   <View style={styles.calendarAgendaCopy}>
                     <Text style={styles.calendarAgendaTitle}>
-                      {selectedCalendarDate.toLocaleDateString('tr-TR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                      })}
+                      {selectedDate === todayKey
+                        ? 'Bugün'
+                        : selectedCalendarDate.toLocaleDateString('tr-TR', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'short',
+                          })}
                     </Text>
                     <Text style={styles.calendarAgendaSubtitle}>
-                      {dayActiveCount
-                        ? `${dayActiveCount} aktif randevu planlandı`
-                        : 'Planlanmış aktif randevu bulunmuyor'}
+                      {dayAppointments.length === 0
+                        ? 'Randevu yok'
+                        : `${dayAppointments.length} randevu · ${dayActiveCount} aktif`}
                     </Text>
                   </View>
                   <Pressable style={styles.addAppointmentButton} onPress={() => setCreateOpen(true)}>
-                    <Text style={styles.addAppointmentButtonText}>＋ Ekle</Text>
+                    <Text style={styles.addAppointmentButtonText}>+ Ekle</Text>
                   </Pressable>
                 </View>
               </>
@@ -2163,20 +2219,35 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                 </Pressable>
               </View>
             ) : listToRender.length === 0 ? (
-              <View style={styles.comingSoonCard}>
-                <Text style={styles.comingSoonTitle}>Randevu yok</Text>
-                <Text style={styles.comingSoonText}>
+              <View style={isCalendar ? styles.calEmpty : styles.comingSoonCard}>
+                <Text style={isCalendar ? styles.calEmptyIcon : undefined}>{isCalendar ? '📅' : null}</Text>
+                <Text style={isCalendar ? styles.calEmptyTitle : styles.comingSoonTitle}>Randevu yok</Text>
+                <Text style={isCalendar ? styles.calEmptyText : styles.comingSoonText}>
                   {isOverview
                     ? 'Bugün için planlanmış bir randevunuz bulunmuyor.'
                     : selectedDate === todayKey
-                      ? 'Bugün için planlanmış bir randevunuz bulunmuyor.'
-                      : 'Seçili gün için planlanmış bir randevunuz bulunmuyor.'}
+                      ? 'Bugün için planlanmış randevu yok. Yeni ekleyebilirsiniz.'
+                      : 'Bu gün için planlanmış randevu yok.'}
                 </Text>
                 {isCalendar ? (
-                  <Pressable style={styles.retryButton} onPress={() => setCreateOpen(true)}>
-                    <Text style={styles.retryButtonText}>Yeni randevu ekle</Text>
+                  <Pressable style={styles.calEmptyBtn} onPress={() => setCreateOpen(true)}>
+                    <Text style={styles.calEmptyBtnTxt}>Yeni randevu</Text>
                   </Pressable>
                 ) : null}
+              </View>
+            ) : isCalendar ? (
+              <View style={styles.timeline}>
+                {listToRender.map((appointment, idx) => (
+                  <TimelineAppointmentRow
+                    key={appointment.id}
+                    appointment={appointment}
+                    isLast={idx === listToRender.length - 1}
+                    busy={updatingId === appointment.id}
+                    onUpdateStatus={(durum) => void updateStatus(appointment.id, durum)}
+                    onReschedule={() => setRescheduleTarget(appointment)}
+                    onOpenDetail={() => setDetailTarget(appointment)}
+                  />
+                ))}
               </View>
             ) : (
               listToRender.map((appointment) => (
@@ -2240,6 +2311,96 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   );
 }
 
+/** Takvim gün listesi — ince timeline satırı */
+function TimelineAppointmentRow({
+  appointment,
+  isLast,
+  busy,
+  onUpdateStatus,
+  onReschedule,
+  onOpenDetail,
+}: {
+  appointment: Appointment;
+  isLast: boolean;
+  busy: boolean;
+  onUpdateStatus: (durum: AppointmentStatus) => void;
+  onReschedule: () => void;
+  onOpenDetail: () => void;
+}) {
+  const statusColor = APPOINTMENT_STATUS_COLOR[appointment.durum];
+  const timeStart = formatTime(appointment.saat);
+  const timeEnd = appointment.bitis_saat ? formatTime(appointment.bitis_saat) : null;
+  const online = appointment.gorusme_tipi === 'online' || appointment.online_mi;
+  const showQuick =
+    appointment.durum === 'beklemede' || appointment.durum === 'onaylandi';
+
+  return (
+    <View style={styles.tlRow}>
+      <View style={styles.tlRail}>
+        <Text style={styles.tlTime}>{timeStart}</Text>
+        {timeEnd ? <Text style={styles.tlTimeEnd}>{timeEnd}</Text> : null}
+        <View style={[styles.tlDot, { backgroundColor: statusColor }]} />
+        {!isLast ? <View style={styles.tlLine} /> : null}
+      </View>
+      <Pressable
+        style={[styles.tlCard, busy && { opacity: 0.65 }]}
+        onPress={onOpenDetail}
+        onLongPress={onReschedule}
+        delayLongPress={350}
+      >
+        <View style={styles.tlCardTop}>
+          <Text style={styles.tlPatient} numberOfLines={1}>
+            {appointment.hasta_adi || 'Hasta'}
+          </Text>
+          <View style={[styles.tlStatus, { backgroundColor: `${statusColor}18` }]}>
+            <Text style={[styles.tlStatusTxt, { color: statusColor }]}>
+              {APPOINTMENT_STATUS_LABEL[appointment.durum]}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.tlMetaRow}>
+          {appointment.hizmet ? (
+            <Text style={styles.tlMeta} numberOfLines={1}>
+              {appointment.hizmet}
+            </Text>
+          ) : null}
+          {online ? <Text style={styles.tlOnline}>Online</Text> : null}
+        </View>
+        {showQuick ? (
+          <View style={styles.tlActions}>
+            {appointment.durum === 'beklemede' ? (
+              <Pressable
+                disabled={busy}
+                style={[styles.tlAct, styles.tlActOk]}
+                onPress={() => onUpdateStatus('onaylandi')}
+              >
+                <Text style={[styles.tlActTxt, { color: '#2E9E5B' }]}>Onayla</Text>
+              </Pressable>
+            ) : null}
+            <Pressable disabled={busy} style={styles.tlAct} onPress={onReschedule}>
+              <Text style={styles.tlActTxt}>Ertele</Text>
+            </Pressable>
+            <Pressable
+              disabled={busy}
+              style={styles.tlAct}
+              onPress={() => onUpdateStatus('tamamlandi')}
+            >
+              <Text style={styles.tlActTxt}>Tamam</Text>
+            </Pressable>
+            <Pressable
+              disabled={busy}
+              style={[styles.tlAct, styles.tlActDanger]}
+              onPress={() => onUpdateStatus('iptal')}
+            >
+              <Text style={[styles.tlActTxt, { color: '#C13C2C' }]}>İptal</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </Pressable>
+    </View>
+  );
+}
+
 function AppointmentCard({
   appointment,
   busy,
@@ -2263,7 +2424,7 @@ function AppointmentCard({
 
   return (
     <Pressable
-      style={[styles.appointmentCard, { borderLeftColor: statusColor, borderLeftWidth: 4 }]}
+      style={[styles.appointmentCard, { borderLeftColor: statusColor, borderLeftWidth: 3 }]}
       onPress={onOpenDetail}
       onLongPress={onReschedule}
       delayLongPress={380}
@@ -2284,7 +2445,6 @@ function AppointmentCard({
         <Text style={styles.appointmentMeta}>Online görüşme</Text>
       ) : null}
       {appointment.telefon ? <Text style={styles.appointmentPhone}>{appointment.telefon}</Text> : null}
-      <Text style={styles.appointmentPhone}>Detay için dokunun</Text>
 
       {!compact && (appointment.durum === 'beklemede' || appointment.durum === 'onaylandi') ? (
         <View style={styles.appointmentActions}>
@@ -2522,7 +2682,7 @@ function AppointmentDetailModal({
                   )}
                   {detail.platform_join_url ? (
                     <Pressable
-                      style={[styles.modalPrimaryButton, { marginTop: 10, backgroundColor: '#14283B' }]}
+                      style={[styles.modalPrimaryButton, { marginTop: 10, backgroundColor: '#FFFFFF' }]}
                       onPress={() => {
                         const url = detail.platform_join_url!;
                         void (async () => {
@@ -2538,7 +2698,7 @@ function AppointmentDetailModal({
                         })();
                       }}
                     >
-                      <Text style={[styles.modalPrimaryButtonText, { color: '#94A7B9' }]}>
+                      <Text style={[styles.modalPrimaryButtonText, { color: '#7A8B9C' }]}>
                         Hasta linkini paylaş
                       </Text>
                     </Pressable>
@@ -2582,7 +2742,7 @@ function AppointmentDetailModal({
                 disabled={busy}
                 onPress={() => void saveNotes()}
               >
-                {busy ? <ActivityIndicator color="#1A2B3C" /> : <Text style={styles.modalPrimaryButtonText}>Notu kaydet</Text>}
+                {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.modalPrimaryButtonText}>Notu kaydet</Text>}
               </Pressable>
 
               <View style={styles.appointmentActions}>
@@ -2941,7 +3101,7 @@ function CreateAppointmentModal({
                     onPress={() => void createPatient()}
                   >
                     {isCreatingPatient ? (
-                      <ActivityIndicator color="#F3A26B" />
+                      <ActivityIndicator color="#C96A2B" />
                     ) : (
                       <Text style={styles.secondaryButtonText}>Danışanı kaydet ve seç</Text>
                     )}
@@ -3064,7 +3224,7 @@ function CreateAppointmentModal({
                 onPress={() => void submit()}
               >
                 {isSaving ? (
-                  <ActivityIndicator color="#1A2B3C" />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalPrimaryButtonText}>Randevuyu kaydet</Text>
                 )}
@@ -3228,7 +3388,7 @@ function RescheduleAppointmentModal({
               onPress={() => void submit()}
             >
               {isSaving ? (
-                <ActivityIndicator color="#1A2B3C" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.modalPrimaryButtonText}>Yeni saate taşı</Text>
               )}
@@ -3242,26 +3402,26 @@ function RescheduleAppointmentModal({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { flex: 1, backgroundColor: '#0D1B2A' },
-  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0D1B2A' },
-  introScreen: { flex: 1, overflow: 'hidden', backgroundColor: '#0A1826' },
+  safeArea: { flex: 1, backgroundColor: '#F4F6F9' },
+  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F6F9' },
+  introScreen: { flex: 1, overflow: 'hidden', backgroundColor: '#F4F6F9' },
   introScene: { flex: 1, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   introGlowTop: { position: 'absolute', top: -190, right: -130, width: 420, height: 420, borderRadius: 210, backgroundColor: colors.brand.orangeGlow, opacity: 0.16 },
   introGlowBottom: { position: 'absolute', bottom: -170, left: -125, width: 380, height: 380, borderRadius: 190, borderWidth: 60, borderColor: colors.navy[600], opacity: 0.35 },
   introCenter: { alignItems: 'center', paddingHorizontal: 36 },
-  introMarkStack: { width: 148, height: 148, alignItems: 'center', justifyContent: 'center', marginBottom: 40 },
+  introMarkStack: { width: 108, height: 108, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   introAmbientGlowOuter: {
     position: 'absolute',
-    width: 148,
-    height: 148,
-    borderRadius: 74,
+    width: 108,
+    height: 108,
+    borderRadius: 54,
     backgroundColor: colors.brand.orangeGlow,
   },
   introAmbientGlowInner: {
     position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: colors.brand.orangeGlow,
   },
   introParticle: {
@@ -3275,20 +3435,20 @@ const styles = StyleSheet.create({
   introParticle2: { top: 44, right: 18, width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#F3D4B8' },
   introParticle3: { bottom: 30, left: 34, width: 7, height: 7, borderRadius: 3.5 },
   introLogoMark: {
-    width: 104,
-    height: 104,
+    width: 72,
+    height: 72,
     borderRadius: 30,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     shadowColor: colors.brand.orangeGlow,
-    shadowOpacity: 0.5,
-    shadowRadius: 22,
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 10 },
-    elevation: 11,
+    elevation: 4,
   },
-  introLogoImage: { width: 76, height: 76, resizeMode: 'contain' },
+  introLogoImage: { width: 52, height: 52, resizeMode: 'contain' },
   introShimmerClip: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30, overflow: 'hidden', pointerEvents: 'none' },
   introShimmerBand: {
     position: 'absolute',
@@ -3297,9 +3457,9 @@ const styles = StyleSheet.create({
     width: 46,
   },
   introCopy: { alignItems: 'center' },
-  introBrand: { color: '#B6C4D2', fontSize: 15, fontWeight: '700', letterSpacing: -0.1, textAlign: 'center' },
-  introHeadline: { color: '#FFFFFF', fontSize: 38, lineHeight: 44, fontWeight: '800', letterSpacing: -1.4, marginTop: 12, textAlign: 'center' },
-  introLabel: { color: '#F2A26F', fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 20, textAlign: 'center' },
+  introBrand: { color: '#6D7D8E', fontSize: 13, fontWeight: '600', letterSpacing: 0.2, textAlign: 'center' },
+  introHeadline: { color: '#102133', fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.5, marginTop: 10, textAlign: 'center' },
+  introLabel: { color: '#F2A26F', fontSize: 10, fontWeight: '700', letterSpacing: 1.6, marginTop: 10, textAlign: 'center' },
   introTrack: {
     position: 'absolute',
     bottom: 74,
@@ -3307,7 +3467,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(16,33,51,0.08)',
     overflow: 'hidden',
   },
   introTrackHighlight: {
@@ -3318,106 +3478,227 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.brand.orangeGlow,
   },
-  scrollContent: { flexGrow: 1, backgroundColor: '#F7F8FC' },
-  hero: { minHeight: 320, paddingHorizontal: 28, paddingTop: 28, paddingBottom: 38, backgroundColor: '#0D1B2A', overflow: 'hidden' },
-  heroOrbOne: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: '#EE7D31', opacity: 0.17, top: -125, right: -60 },
-  heroOrbTwo: { position: 'absolute', width: 170, height: 170, borderRadius: 85, borderWidth: 30, borderColor: '#FFFFFF', opacity: 0.04, bottom: -72, left: -44 },
+  scrollContent: { flexGrow: 1, backgroundColor: '#F4F6F9' },
+  authTop: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  logoShell: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  logoImage: { width: 39, height: 39, resizeMode: 'contain' },
-  brandName: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-  brandSubtitle: { color: '#F3A26B', fontSize: 10, fontWeight: '700', letterSpacing: 1.4, marginTop: 2 },
-  welcome: { color: '#FFFFFF', fontSize: 34, fontWeight: '800', letterSpacing: -1.1, marginTop: 62 },
-  heroDescription: { maxWidth: 280, color: '#BEC9D7', fontSize: 16, lineHeight: 24, marginTop: 12 },
-  formCard: { marginHorizontal: 20, marginTop: -28 },
+  logoShell: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    shadowColor: '#102133',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  logoImage: { width: 28, height: 28, resizeMode: 'contain' },
+  brandName: { color: '#102133', fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
+  brandSubtitle: { color: '#C96A2B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginTop: 2 },
+  welcome: {
+    color: '#102133',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginTop: 14,
+  },
+  heroDescription: {
+    color: '#6D7D8E',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+    maxWidth: 320,
+  },
+  formCard: {
+    marginHorizontal: 18,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#E1E6ED',
+  },
+  authBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  authBadgeTxt: { color: '#C96A2B', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
   loginRoleRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 18,
+    gap: 6,
+    marginBottom: 6,
     backgroundColor: '#EEF2F7',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 4,
   },
   loginRoleBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 11,
+    paddingVertical: 11,
+    borderRadius: 10,
     alignItems: 'center',
   },
   loginRoleBtnOn: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#0D1B2A',
-    shadowOpacity: 0.08,
+    shadowColor: '#102133',
+    shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  loginRoleText: { color: '#6D7D8E', fontSize: 14, fontWeight: '700' },
+  loginRoleText: { color: '#6D7D8E', fontSize: 13, fontWeight: '600' },
   loginRoleTextOn: { color: '#102133' },
-  formTitle: { color: '#102133', fontSize: 21, fontWeight: '800', letterSpacing: -0.5 },
-  formDescription: { color: '#6D7D8E', fontSize: 14, marginTop: 7, marginBottom: 26 },
-  signInButton: { marginTop: 25 },
-  errorMessage: { color: '#C13C2C', fontSize: 13, lineHeight: 19, marginTop: 12 },
-  forgotPassword: { color: '#53667A', fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 22 },
-  footerText: { color: '#7F8C9B', fontSize: 12, textAlign: 'center', paddingHorizontal: 35, marginTop: 25, marginBottom: 8, lineHeight: 18 },
-  dashboard: { flex: 1, backgroundColor: '#0D1B2A' },
+  formTitle: { color: '#102133', fontSize: 16, fontWeight: '700', letterSpacing: -0.25 },
+  formDescription: { color: '#6D7D8E', fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 6 },
+  signInButton: { marginTop: 8 },
+  errorMessage: { color: '#C13C2C', fontSize: 13, lineHeight: 19, marginTop: 10 },
+  authLinks: { marginTop: 6, alignItems: 'center', gap: 0 },
+  authDivider: {
+    width: 28,
+    height: 1,
+    backgroundColor: '#E1E6ED',
+    marginVertical: 10,
+  },
+  forgotPassword: { color: '#6D7D8E', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  registerLink: { color: '#C96A2B', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  footerText: {
+    color: '#95A2B5',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    marginTop: 8,
+    marginBottom: 6,
+    lineHeight: 17,
+  },
+  dashboard: { flex: 1, backgroundColor: '#F4F6F9' },
   moduleBody: { flex: 1 },
   offlineBanner: {
     backgroundColor: 'rgba(245,138,69,0.2)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(245,138,69,0.45)',
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
-  offlineBannerText: { color: '#F3A26B', fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  offlineBannerText: { color: '#C96A2B', fontSize: 12, fontWeight: '700', textAlign: 'center' },
   dashboardHeader: {
     zIndex: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: 'rgba(16,33,51,0.07)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    minHeight: 0,
   },
-  dashboardIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
-  dashboardLogoShell: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  dashboardLogo: { width: 32, height: 32, resizeMode: 'contain' },
-  dashboardIdentityTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', letterSpacing: -0.2 },
-  dashboardIdentitySubtitle: { color: '#F3A26B', fontSize: 8, letterSpacing: 1.1, fontWeight: '800', marginTop: 2 },
-  dashboardAvatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: 'rgba(245,138,69,0.5)', backgroundColor: '#1B2E40', alignItems: 'center', justifyContent: 'center' },
-  dashboardAvatarText: { color: '#F8B789', fontSize: 15, fontWeight: '800' },
-  headerNotifyBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 15,
+  dashboardIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
+  },
+  dashboardLogoShell: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#14283B',
+    borderColor: '#E8EDF3',
+  },
+  dashboardLogo: { width: 20, height: 20, resizeMode: 'contain' },
+  dashboardIdentityTitle: {
+    color: '#102133',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.15,
+    lineHeight: 16,
+  },
+  dashboardIdentitySubtitle: {
+    color: '#C96A2B',
+    fontSize: 9,
+    letterSpacing: 0.8,
+    fontWeight: '700',
+    marginTop: 1,
+    lineHeight: 11,
+  },
+  dashboardAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245,138,69,0.45)',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerNotifyIcon: { fontSize: 18 },
+  dashboardAvatarText: { color: '#F8B789', fontSize: 12, fontWeight: '700' },
+  headerNotifyBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  headerNotifyIcon: {
+    fontSize: 15,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   headerNotifyBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    backgroundColor: '#F58A45',
+    top: -5,
+    right: -5,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: '#EE7D31',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#0B1722',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
   },
-  headerNotifyBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
-  dashboardContent: { flex: 1, minHeight: 0, paddingTop: 12 },
-  dashboardHero: { paddingHorizontal: 8, paddingVertical: 14, overflow: 'hidden' },
+  headerNotifyBadgeWide: {
+    minWidth: 20,
+    paddingHorizontal: 4,
+  },
+  headerNotifyBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    lineHeight: 11,
+    textAlign: 'center',
+    includeFontPadding: false,
+    marginTop: Platform.OS === 'android' ? 0 : 0.5,
+  },
+  dashboardContent: { flex: 1, minHeight: 0, paddingTop: 4 },
+  dashboardHero: { paddingHorizontal: 2, paddingVertical: 6, overflow: 'hidden' },
   dashboardHeroGlow: { position: 'absolute', top: -86, right: -45, width: 190, height: 190, borderRadius: 95, backgroundColor: '#F58A45', opacity: 0.13 },
-  dashboardEyebrow: { color: '#F3A26B', fontSize: 11, fontWeight: '800', letterSpacing: 1.7 },
-  dashboardTitle: { color: '#FFFFFF', fontSize: 30, lineHeight: 37, fontWeight: '800', letterSpacing: -0.9, marginTop: 11 },
-  dashboardSpecialty: { color: '#B7C4D3', fontSize: 15, lineHeight: 22, marginTop: 13 },
-  heroMetaRow: { marginTop: 14, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  dashboardEyebrow: { color: '#C96A2B', fontSize: 11, fontWeight: '800', letterSpacing: 1.7 },
+  dashboardTitle: { color: '#102133', fontSize: 18, lineHeight: 24, fontWeight: '700', letterSpacing: -0.3, marginTop: 4 },
+  dashboardSpecialty: { color: '#6D7D8E', fontSize: 13, lineHeight: 18, marginTop: 4 },
+  heroMetaRow: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   heroStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3432,109 +3713,109 @@ const styles = StyleSheet.create({
   heroStatusDot: { width: 7, height: 7, borderRadius: 4 },
   heroStatusDotOpen: { backgroundColor: '#4DBD8C' },
   heroStatusDotClosed: { backgroundColor: '#E0687A' },
-  heroStatusText: { color: '#E8F0F7', fontSize: 11, fontWeight: '700' },
-  heroMetaHint: { color: '#94A7B9', fontSize: 12, fontWeight: '600' },
+  heroStatusText: { color: '#102133', fontSize: 11, fontWeight: '700' },
+  heroMetaHint: { color: '#7A8B9C', fontSize: 12, fontWeight: '600' },
   nextApptCard: {
-    marginTop: 18,
-    borderRadius: 22,
+    marginTop: 6,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(245,138,69,0.42)',
-    backgroundColor: '#1A2D40',
-    padding: 18,
+    backgroundColor: '#FFFFFF',
+    padding: 12,
   },
   nextApptTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  nextApptEyebrow: { color: '#F3A26B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  nextApptEyebrow: { color: '#C96A2B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
   nextApptStatus: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   nextApptStatusText: { fontSize: 11, fontWeight: '800' },
-  nextApptTime: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginTop: 12, letterSpacing: -0.5 },
-  nextApptPatient: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginTop: 6 },
-  nextApptService: { color: '#AEBECD', fontSize: 13, marginTop: 4 },
-  nextApptCta: { color: '#F3A26B', fontSize: 12, fontWeight: '800', marginTop: 14 },
+  nextApptTime: { color: '#102133', fontSize: 18, fontWeight: '700', marginTop: 6, letterSpacing: -0.3 },
+  nextApptPatient: { color: '#102133', fontSize: 14, fontWeight: '600', marginTop: 4 },
+  nextApptService: { color: '#8A98A8', fontSize: 13, marginTop: 4 },
+  nextApptCta: { color: '#C96A2B', fontSize: 12, fontWeight: '800', marginTop: 14 },
   nextApptEmpty: {
-    marginTop: 18,
-    borderRadius: 22,
+    marginTop: 6,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E1E6ED',
     borderStyle: 'dashed',
-    backgroundColor: '#14283B',
-    padding: 18,
+    backgroundColor: '#FFFFFF',
+    padding: 12,
   },
-  nextApptEmptyTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  nextApptEmptyText: { color: '#94A7B9', fontSize: 13, lineHeight: 19, marginTop: 8 },
+  nextApptEmptyTitle: { color: '#102133', fontSize: 13, fontWeight: '800' },
+  nextApptEmptyText: { color: '#7A8B9C', fontSize: 13, lineHeight: 19, marginTop: 8 },
   nextApptEmptyActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
-  statGrid: { gap: 12, marginTop: 16 },
+  statGrid: { gap: 12, marginTop: 6 },
   statRow: { flexDirection: 'row', gap: 12 },
   statCard: {
     flex: 1,
-    backgroundColor: '#14283B',
-    borderColor: '#2B4055',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E1E6ED',
     borderWidth: 1,
-    padding: 16,
-    borderRadius: 18,
+    padding: 12,
+    borderRadius: 12,
   },
-  statCardAccent: { borderColor: 'rgba(245,138,69,0.48)', backgroundColor: '#1B2C3D' },
-  statIcon: { color: '#F3A26B', fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  statValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', letterSpacing: -0.7 },
-  statLabel: { color: '#AEBECD', fontSize: 12, marginTop: 4, fontWeight: '600' },
+  statCardAccent: { borderColor: 'rgba(245,138,69,0.4)', backgroundColor: '#FFF7ED' },
+  statIcon: { color: '#C96A2B', fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  statValue: { color: '#102133', fontSize: 20, fontWeight: '700', letterSpacing: -0.4 },
+  statLabel: { color: '#8A98A8', fontSize: 12, marginTop: 4, fontWeight: '600' },
   statHint: { color: '#6F8499', fontSize: 11, marginTop: 8, fontWeight: '600' },
   todayBreakdownCard: {
     marginTop: 12,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#14283B',
-    padding: 16,
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
   },
-  todayBreakdownTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', marginBottom: 12 },
+  todayBreakdownTitle: { color: '#102133', fontSize: 14, fontWeight: '800', marginBottom: 12 },
   todayBreakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
   todayBreakdownItem: { flex: 1, alignItems: 'center' },
-  todayBreakdownValue: { fontSize: 20, fontWeight: '800' },
-  todayBreakdownLabel: { color: '#94A7B9', fontSize: 11, marginTop: 4, fontWeight: '600' },
+  todayBreakdownValue: { fontSize: 16, fontWeight: '700' },
+  todayBreakdownLabel: { color: '#7A8B9C', fontSize: 11, marginTop: 4, fontWeight: '600' },
   weekActivityCard: {
     marginTop: 12,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#14283B',
-    padding: 16,
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
   },
   weekActivityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  weekActivityTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  weekActivitySubtitle: { color: '#94A7B9', fontSize: 12, marginTop: 3 },
-  weekActivityBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16, gap: 4 },
+  weekActivityTitle: { color: '#102133', fontSize: 14, fontWeight: '800' },
+  weekActivitySubtitle: { color: '#7A8B9C', fontSize: 12, marginTop: 3 },
+  weekActivityBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 6, gap: 4 },
   weekActivityCol: { flex: 1, alignItems: 'center' },
   weekActivityBar: {
     width: '62%',
     maxWidth: 22,
     minHeight: 4,
     borderRadius: 8,
-    backgroundColor: '#24384C',
+    backgroundColor: '#E8EDF3',
   },
   weekActivityBarFilled: { backgroundColor: 'rgba(245,138,69,0.55)' },
   weekActivityBarToday: { backgroundColor: '#F58A45' },
   weekActivityDay: { color: '#8093A7', fontSize: 10, fontWeight: '700', marginTop: 8 },
-  weekActivityDayToday: { color: '#F3A26B' },
+  weekActivityDayToday: { color: '#C96A2B' },
   weekActivityCount: { color: '#6F8499', fontSize: 10, marginTop: 2, fontWeight: '600' },
   bookingToggleCard: {
     marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#14283B',
-    borderColor: '#2B4055',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E1E6ED',
     borderWidth: 1,
-    padding: 16,
-    borderRadius: 18,
+    padding: 12,
+    borderRadius: 12,
   },
-  quickSectionHeader: { marginTop: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  quickSectionTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  quickSectionLink: { color: '#F3A26B', fontSize: 13, fontWeight: '800' },
+  quickSectionHeader: { marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  quickSectionTitle: { color: '#102133', fontSize: 15, fontWeight: '700' },
+  quickSectionLink: { color: '#C96A2B', fontSize: 13, fontWeight: '800' },
   quickActionGrid: { flexDirection: 'row', gap: 12, marginTop: 14 },
-  quickAction: { flex: 1, borderWidth: 1, borderColor: '#2B4055', backgroundColor: '#14283B', borderRadius: 18, padding: 15 },
+  quickAction: { flex: 1, borderWidth: 1, borderColor: '#E1E6ED', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 15 },
   quickActionTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  quickActionIcon: { color: '#F3A26B', fontSize: 22, fontWeight: '700' },
-  quickActionTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', marginTop: 12 },
-  quickActionText: { color: '#94A7B9', fontSize: 11, marginTop: 4 },
+  quickActionIcon: { color: '#C96A2B', fontSize: 18, fontWeight: '600' },
+  quickActionTitle: { color: '#102133', fontSize: 14, fontWeight: '800', marginTop: 12 },
+  quickActionText: { color: '#7A8B9C', fontSize: 11, marginTop: 4 },
   quickBadge: {
     minWidth: 22,
     height: 22,
@@ -3554,77 +3835,319 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  insightBannerText: { color: '#C9DBF2', fontSize: 13, fontWeight: '700' },
-  sectionHeader: { marginTop: 30, marginBottom: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  sectionTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  sectionSubtitle: { color: '#94A7B9', fontSize: 12, marginTop: 4 },
-  comingSoonCard: { borderWidth: 1, borderColor: '#2B4055', backgroundColor: '#14283B', borderRadius: 22, padding: 22, marginTop: 20 },
-  comingSoonTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
-  comingSoonText: { color: '#B7C4D3', fontSize: 14, lineHeight: 21, marginTop: 9 },
+  insightBannerText: { color: '#1E4A7A', fontSize: 13, fontWeight: '700' },
+  sectionHeader: { marginTop: 16, marginBottom: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  sectionTitle: { color: '#102133', fontSize: 15, fontWeight: '700' },
+  sectionSubtitle: { color: '#7A8B9C', fontSize: 12, marginTop: 4 },
+  comingSoonCard: { borderWidth: 1, borderColor: '#E1E6ED', backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14, marginTop: 6 },
+  comingSoonTitle: { color: '#102133', fontSize: 14, fontWeight: '800' },
+  comingSoonText: { color: '#6D7D8E', fontSize: 14, lineHeight: 17, marginTop: 9 },
   dashboardScrollContent: { flexGrow: 1 },
   appointmentsLoading: { marginTop: 40 },
-  calendarToolbar: { marginTop: 22, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  calendarArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 13, borderWidth: 1, borderColor: '#2B4055', backgroundColor: '#14283B' },
-  calendarArrowText: { color: '#F3A26B', fontSize: 27, lineHeight: 29, fontWeight: '300' },
-  calendarToolbarCopy: { alignItems: 'center' },
-  calendarMonth: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
-  calendarToday: { color: '#F3A26B', fontSize: 12, fontWeight: '800', marginTop: 3 },
-  weekStrip: { marginTop: 16, flexDirection: 'row', justifyContent: 'space-between', borderRadius: 20, paddingHorizontal: 4, paddingVertical: 8, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#2B4055' },
-  monthGrid: {
-    marginTop: 16,
-    borderRadius: 20,
-    padding: 10,
-    backgroundColor: '#14283B',
+  /* ── Calendar redesign ── */
+  calHero: {
+    marginTop: 4,
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E8EDF3',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
-  monthHeaderRow: { flexDirection: 'row', marginBottom: 6 },
-  monthHeaderCell: { flex: 1, textAlign: 'center', color: '#7F8FA0', fontSize: 11, fontWeight: '700' },
+  calHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  calNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F4F6F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calNavBtnText: { color: '#102133', fontSize: 22, fontWeight: '300', marginTop: -2 },
+  calHeroTitleWrap: { alignItems: 'center' },
+  calHeroMonth: {
+    color: '#102133',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  calHeroYear: { color: '#8A98A8', fontSize: 12, fontWeight: '600', marginTop: 1 },
+  calModeSeg: {
+    marginTop: 12,
+    flexDirection: 'row',
+    backgroundColor: '#F0F3F7',
+    borderRadius: 10,
+    padding: 3,
+  },
+  calModeBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  calModeBtnOn: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#102133',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  calModeTxt: { color: '#6D7D8E', fontSize: 13, fontWeight: '600' },
+  calModeTxtOn: { color: '#102133', fontWeight: '700' },
+  calChipRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  calChip: {
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#F4F6F9',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+  },
+  calChipOn: {
+    backgroundColor: 'rgba(238,125,49,0.12)',
+    borderColor: 'rgba(238,125,49,0.35)',
+  },
+  calChipTxt: { color: '#5A6B7D', fontSize: 12, fontWeight: '600' },
+  calChipTxtOn: { color: '#C96A2B' },
+  weekStrip: {
+    marginTop: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+    borderRadius: 14,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+  },
+  monthGrid: {
+    marginTop: 2,
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+  },
+  monthHeaderRow: { flexDirection: 'row', marginBottom: 4 },
+  monthHeaderCell: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#95A2B5',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
   monthRow: { flexDirection: 'row' },
   monthCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
     margin: 1,
+    minHeight: 44,
   },
-  monthCellSelected: { backgroundColor: 'rgba(245,138,69,0.22)' },
-  monthCellMuted: { opacity: 0.35 },
-  monthCellText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  monthCellTextSelected: { color: '#F3A26B' },
-  monthCellTextToday: { color: '#7ED2AB' },
-  monthDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#F58A45', marginTop: 4 },
-  weekDay: { width: '13.5%', minHeight: 66, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
-  weekDaySelected: { backgroundColor: '#F58A45' },
-  weekDayLabel: { color: '#91A4B7', fontSize: 10, fontWeight: '800' },
-  weekDayLabelSelected: { color: '#253442' },
-  weekDayNumber: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginTop: 5 },
-  weekDayNumberSelected: { color: '#FFFFFF' },
-  weekDayTodayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#F58A45', marginTop: 4 },
-  weekDayEventDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#4DBD8C', marginTop: 4 },
-  weekDayEventDotSelected: { backgroundColor: '#FFFFFF' },
-  weekDayDotSpacer: { width: 5, height: 5, marginTop: 4 },
-  statusLegendRow: {
-    marginTop: 14,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  monthCellToday: {
+    backgroundColor: 'rgba(46,158,91,0.08)',
+  },
+  monthCellSelected: { backgroundColor: '#EE7D31' },
+  monthCellMuted: { opacity: 0.32 },
+  monthCellText: { color: '#102133', fontSize: 13, fontWeight: '600' },
+  monthCellTextSelected: { color: '#FFFFFF', fontWeight: '700' },
+  monthCellTextToday: { color: '#2E9E5B', fontWeight: '700' },
+  monthCountPill: {
+    marginTop: 2,
+    minWidth: 16,
+    height: 14,
     paddingHorizontal: 4,
+    borderRadius: 7,
+    backgroundColor: 'rgba(238,125,49,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statusLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  statusLegendDot: { width: 7, height: 7, borderRadius: 4 },
-  statusLegendText: { color: '#94A7B9', fontSize: 11, fontWeight: '700' },
-  calendarAgendaHeader: { marginTop: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  monthCountPillOn: { backgroundColor: 'rgba(255,255,255,0.28)' },
+  monthCountTxt: { color: '#C96A2B', fontSize: 9, fontWeight: '700' },
+  monthCountTxtOn: { color: '#FFFFFF' },
+  monthCountSpacer: { height: 14, marginTop: 2 },
+  weekDay: {
+    flex: 1,
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 6,
+  },
+  weekDayToday: {
+    backgroundColor: 'rgba(46,158,91,0.08)',
+  },
+  weekDaySelected: { backgroundColor: '#EE7D31' },
+  weekDayLabel: { color: '#95A2B5', fontSize: 10, fontWeight: '700' },
+  weekDayLabelSelected: { color: 'rgba(255,255,255,0.9)' },
+  weekDayNumber: { color: '#102133', fontSize: 16, fontWeight: '700', marginTop: 2 },
+  weekDayNumberSelected: { color: '#FFFFFF' },
+  weekDayBadge: {
+    marginTop: 4,
+    minWidth: 18,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(238,125,49,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekDayBadgeOn: { backgroundColor: 'rgba(255,255,255,0.28)' },
+  weekDayBadgeTxt: { color: '#C96A2B', fontSize: 10, fontWeight: '700' },
+  weekDayBadgeTxtOn: { color: '#FFFFFF' },
+  weekDayDotSpacer: { height: 16, marginTop: 4 },
+  calendarAgendaHeader: {
+    marginTop: 14,
+    marginBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   calendarAgendaCopy: { flex: 1 },
-  calendarAgendaTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', textTransform: 'capitalize' },
-  calendarAgendaSubtitle: { color: '#94A7B9', fontSize: 12, marginTop: 4 },
+  calendarAgendaTitle: {
+    color: '#102133',
+    fontSize: 16,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    letterSpacing: -0.2,
+  },
+  calendarAgendaSubtitle: { color: '#8A98A8', fontSize: 12, marginTop: 2, fontWeight: '500' },
   addAppointmentButton: {
-    borderRadius: 14,
-    backgroundColor: '#F58A45',
+    borderRadius: 10,
+    backgroundColor: '#EE7D31',
     paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  addAppointmentButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  /* Timeline agenda */
+  timeline: { marginTop: 4, marginBottom: 8 },
+  tlRow: { flexDirection: 'row', alignItems: 'stretch', minHeight: 72 },
+  tlRail: {
+    width: 52,
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  tlTime: { color: '#102133', fontSize: 12, fontWeight: '700', letterSpacing: -0.2 },
+  tlTimeEnd: { color: '#95A2B5', fontSize: 10, fontWeight: '500', marginTop: 1 },
+  tlDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    marginTop: 6,
+    borderWidth: 2,
+    borderColor: '#F4F6F9',
+  },
+  tlLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: '#E8EDF3',
+    marginTop: 4,
+    marginBottom: 0,
+    minHeight: 20,
+  },
+  tlCard: {
+    flex: 1,
+    marginLeft: 4,
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  addAppointmentButtonText: { color: '#1A2B3C', fontSize: 13, fontWeight: '800' },
+  tlCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  tlPatient: { flex: 1, color: '#102133', fontSize: 14, fontWeight: '700' },
+  tlStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  tlStatusTxt: { fontSize: 10, fontWeight: '700' },
+  tlMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 3,
+  },
+  tlMeta: { flex: 1, color: '#6D7D8E', fontSize: 12, fontWeight: '500' },
+  tlOnline: {
+    color: '#2E9E5B',
+    fontSize: 11,
+    fontWeight: '700',
+    backgroundColor: 'rgba(46,158,91,0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  tlActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  tlAct: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F4F6F9',
+  },
+  tlActOk: { backgroundColor: 'rgba(46,158,91,0.12)' },
+  tlActDanger: { backgroundColor: 'rgba(193,60,44,0.08)' },
+  tlActTxt: { color: '#39495B', fontSize: 11, fontWeight: '600' },
+  calEmpty: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8EDF3',
+    borderStyle: 'dashed',
+    backgroundColor: '#FFFFFF',
+  },
+  calEmptyIcon: { fontSize: 28, marginBottom: 8 },
+  calEmptyTitle: { color: '#102133', fontSize: 15, fontWeight: '700' },
+  calEmptyText: {
+    color: '#6D7D8E',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 6,
+    maxWidth: 280,
+  },
+  calEmptyBtn: {
+    marginTop: 14,
+    backgroundColor: '#EE7D31',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  calEmptyBtnTxt: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   inlineNotice: {
     marginTop: 14,
     borderRadius: 14,
@@ -3634,120 +4157,120 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  inlineNoticeText: { color: '#F3A26B', fontSize: 13, fontWeight: '700' },
+  inlineNoticeText: { color: '#C96A2B', fontSize: 13, fontWeight: '700' },
   retryButton: {
-    marginTop: 16,
+    marginTop: 6,
     alignSelf: 'flex-start',
     borderRadius: 12,
     backgroundColor: 'rgba(245,138,69,0.18)',
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  retryButtonText: { color: '#F3A26B', fontSize: 13, fontWeight: '800' },
+  retryButtonText: { color: '#C96A2B', fontSize: 13, fontWeight: '800' },
   appointmentCard: {
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#14283B',
-    borderRadius: 20,
-    padding: 18,
-    marginTop: 16,
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 6,
   },
   appointmentCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  appointmentTime: { color: '#F3A26B', fontSize: 13, fontWeight: '800', letterSpacing: 0.4, flexShrink: 1 },
-  appointmentStatusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  appointmentTime: { color: '#C96A2B', fontSize: 13, fontWeight: '800', letterSpacing: 0.4, flexShrink: 1 },
+  appointmentStatusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 },
   appointmentStatusText: { fontSize: 12, fontWeight: '800' },
-  appointmentPatient: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginTop: 10 },
-  appointmentService: { color: '#B7C4D3', fontSize: 14, marginTop: 4 },
-  appointmentMeta: { color: '#7ED2AB', fontSize: 12, fontWeight: '700', marginTop: 4 },
+  appointmentPatient: { color: '#102133', fontSize: 15, fontWeight: '700', marginTop: 6 },
+  appointmentService: { color: '#6D7D8E', fontSize: 14, marginTop: 4 },
+  appointmentMeta: { color: '#2E9E5B', fontSize: 12, fontWeight: '700', marginTop: 4 },
   appointmentPhone: { color: '#7F8FA0', fontSize: 13, marginTop: 4 },
-  appointmentActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  appointmentActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   appointmentActionButton: { minWidth: '22%', flexGrow: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
   appointmentActionConfirm: { backgroundColor: 'rgba(77,189,140,0.18)' },
   appointmentActionReschedule: { backgroundColor: 'rgba(243,162,107,0.18)' },
   appointmentActionComplete: { backgroundColor: 'rgba(124,166,224,0.18)' },
   appointmentActionCancel: { backgroundColor: 'rgba(224,104,122,0.18)' },
-  appointmentActionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  appointmentActionText: { color: '#102133', fontSize: 12, fontWeight: '700' },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(6, 12, 20, 0.72)',
+    backgroundColor: 'rgba(16, 33, 51, 0.42)',
     justifyContent: 'flex-end',
     paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) + 8 : 20,
   },
   modalSheetWrap: { maxHeight: '92%' },
   modalSheet: {
-    backgroundColor: '#122536',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E1E6ED',
     maxHeight: '92%',
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingHorizontal: 12,
+    paddingTop: 8,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#263D52',
+    borderBottomColor: '#E8EDF3',
   },
-  modalTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  modalClose: { color: '#F3A26B', fontSize: 14, fontWeight: '800' },
+  modalTitle: { color: '#102133', fontSize: 15, fontWeight: '700' },
+  modalClose: { color: '#C96A2B', fontSize: 14, fontWeight: '800' },
   modalBody: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingTop: 14,
     // Android system nav — extra space for sheet actions
     paddingBottom: Platform.OS === 'ios' ? 36 : 48,
   },
-  modalLabel: { color: '#AEBECD', fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 8 },
-  modalHint: { color: '#94A7B9', fontSize: 13, lineHeight: 19, marginBottom: 8 },
+  modalLabel: { color: '#8A98A8', fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 8 },
+  modalHint: { color: '#7A8B9C', fontSize: 13, lineHeight: 19, marginBottom: 8 },
   quickChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   quickChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2132',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
   },
   quickChipOn: { borderColor: '#F58A45', backgroundColor: 'rgba(245,138,69,0.16)' },
-  quickChipText: { color: '#94A7B9', fontSize: 12, fontWeight: '700' },
-  quickChipTextOn: { color: '#F3A26B' },
+  quickChipText: { color: '#7A8B9C', fontSize: 12, fontWeight: '700' },
+  quickChipTextOn: { color: '#C96A2B' },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2132',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    color: '#FFFFFF',
+    color: '#102133',
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
     fontSize: 15,
   },
   modalTextArea: { minHeight: 88, textAlignVertical: 'top' },
-  modalError: { color: '#F09AA8', fontSize: 13, marginTop: 12, lineHeight: 18 },
+  modalError: { color: '#C13C2C', fontSize: 13, marginTop: 12, lineHeight: 18 },
   modalPrimaryButton: {
-    marginTop: 22,
+    marginTop: 8,
     borderRadius: 14,
     backgroundColor: '#F58A45',
-    minHeight: 48,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalPrimaryButtonDisabled: { opacity: 0.7 },
-  modalPrimaryButtonText: { color: '#1A2B3C', fontSize: 15, fontWeight: '800' },
+  modalPrimaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   optionRow: {
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2132',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 8,
   },
   optionRowSelected: { borderColor: '#F58A45', backgroundColor: 'rgba(245,138,69,0.12)' },
-  optionTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-  optionSubtitle: { color: '#94A7B9', fontSize: 12, marginTop: 3 },
+  optionTitle: { color: '#102133', fontSize: 14, fontWeight: '700' },
+  optionSubtitle: { color: '#7A8B9C', fontSize: 12, marginTop: 3 },
   selectedChip: {
     marginTop: 10,
     borderRadius: 14,
@@ -3761,8 +4284,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  selectedChipText: { color: '#7ED2AB', fontSize: 13, fontWeight: '700', flex: 1 },
-  selectedChipClear: { color: '#F3A26B', fontSize: 12, fontWeight: '800' },
+  selectedChipText: { color: '#2E9E5B', fontSize: 13, fontWeight: '700', flex: 1 },
+  selectedChipClear: { color: '#C96A2B', fontSize: 12, fontWeight: '800' },
   modalLabelRow: {
     marginTop: 14,
     marginBottom: 8,
@@ -3770,14 +4293,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  modalLabelInline: { color: '#AEBECD', fontSize: 12, fontWeight: '700' },
-  modalLink: { color: '#F3A26B', fontSize: 12, fontWeight: '800' },
+  modalLabelInline: { color: '#8A98A8', fontSize: 12, fontWeight: '700' },
+  modalLink: { color: '#C96A2B', fontSize: 12, fontWeight: '800' },
   newPatientBox: {
     marginTop: 4,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2132',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingBottom: 14,
     paddingTop: 4,
@@ -3795,41 +4318,41 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  secondaryButtonText: { color: '#F3A26B', fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  secondaryButtonText: { color: '#C96A2B', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   segmentRow: { flexDirection: 'row', gap: 10 },
   segmentButton: {
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2B4055',
-    backgroundColor: '#0F2132',
+    borderColor: '#E1E6ED',
+    backgroundColor: '#FFFFFF',
     paddingVertical: 12,
     alignItems: 'center',
   },
   segmentButtonActive: { borderColor: '#F58A45', backgroundColor: 'rgba(245,138,69,0.14)' },
-  segmentButtonText: { color: '#94A7B9', fontSize: 13, fontWeight: '700' },
-  segmentButtonTextActive: { color: '#F3A26B' },
+  segmentButtonText: { color: '#7A8B9C', fontSize: 13, fontWeight: '700' },
+  segmentButtonTextActive: { color: '#C96A2B' },
   bottomNavWrap: {
-    backgroundColor: '#0D1B2A',
+    backgroundColor: '#F4F6F9',
     zIndex: 40,
     elevation: 16,
   },
   bottomNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12263A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#2B4055',
+    borderColor: '#E1E6ED',
     marginBottom: 4,
-    borderRadius: 22,
+    borderRadius: 14,
     paddingHorizontal: 6,
-    paddingTop: 8,
-    paddingBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
+    paddingTop: 4,
+    paddingBottom: 4,
+    shadowColor: '#102133',
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -2 },
-    elevation: 10,
+    elevation: 8,
   },
   bottomNavItem: {
     flex: 1,
@@ -3837,7 +4360,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 3,
     paddingVertical: 4,
-    minHeight: 48,
+    minHeight: 42,
     minWidth: 0,
   },
   bottomNavIconShell: {
@@ -3850,10 +4373,14 @@ const styles = StyleSheet.create({
   bottomNavIconShellActive: {
     backgroundColor: 'rgba(245,138,69,0.16)',
   },
-  bottomNavIcon: { color: '#8093A7', fontSize: 18, lineHeight: 22 },
+  bottomNavIconShellDanger: {
+    backgroundColor: 'rgba(193,60,44,0.12)',
+  },
+  bottomNavIcon: { color: '#8093A7', fontSize: 16, lineHeight: 20 },
   bottomNavIconActive: { color: '#F58A45' },
+  bottomNavIconDanger: { color: '#C13C2C' },
   bottomNavLabel: { color: '#8093A7', fontSize: 10, fontWeight: '700' },
-  bottomNavLabelActive: { color: '#FFFFFF' },
+  bottomNavLabelActive: { color: '#102133' },
   profileNavIcon: {
     width: 20,
     height: 20,
@@ -3878,20 +4405,20 @@ const styles = StyleSheet.create({
   },
   profileNavBodyActive: { backgroundColor: '#F58A45' },
   menuBack: { marginTop: 7, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 2 },
-  menuBackText: { color: '#F3A26B', fontSize: 14, fontWeight: '800' },
-  menuTitle: { color: '#FFFFFF', fontSize: 29, fontWeight: '800', letterSpacing: -0.8, marginTop: 14 },
-  menuDescription: { color: '#AEBECD', fontSize: 14, lineHeight: 21, marginTop: 8 },
-  menuGroup: { marginTop: 29 },
-  menuGroupTitle: { color: '#F3A26B', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 10, marginLeft: 4 },
-  menuCard: { borderRadius: 20, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#2B4055', overflow: 'hidden' },
-  menuItem: { minHeight: 70, paddingHorizontal: 15, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },
-  menuItemBorder: { borderTopWidth: 1, borderTopColor: '#263D52' },
-  menuIconWrap: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245,138,69,0.12)' },
-  menuIcon: { color: '#F3A26B', fontSize: 19, fontWeight: '700' },
-  menuItemCopy: { flex: 1, marginLeft: 12 },
-  menuItemTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  menuItemDescription: { color: '#94A7B9', fontSize: 11, marginTop: 3 },
-  menuChevron: { color: '#7E94A9', fontSize: 26, fontWeight: '300' },
-  menuSignOut: { alignItems: 'center', paddingVertical: 14, marginTop: 26, marginBottom: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(224,104,122,0.35)', backgroundColor: 'rgba(224,104,122,0.08)' },
-  menuSignOutText: { color: '#F09AA8', fontSize: 14, fontWeight: '800' },
+  menuBackText: { color: '#C96A2B', fontSize: 14, fontWeight: '800' },
+  menuTitle: { color: '#102133', fontSize: 18, fontWeight: '700', letterSpacing: -0.3, marginTop: 6 },
+  menuDescription: { color: '#8A98A8', fontSize: 12, lineHeight: 17, marginTop: 4 },
+  menuGroup: { marginTop: 14 },
+  menuGroupTitle: { color: '#C96A2B', fontSize: 10, fontWeight: '700', letterSpacing: 0.9, marginBottom: 6, marginLeft: 2, textTransform: 'uppercase' },
+  menuCard: { borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1E6ED', overflow: 'hidden' },
+  menuItem: { minHeight: 48, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
+  menuItemBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8EDF3' },
+  menuIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245,138,69,0.1)' },
+  menuIcon: { color: '#C96A2B', fontSize: 14, fontWeight: '700' },
+  menuItemCopy: { flex: 1, marginLeft: 10 },
+  menuItemTitle: { color: '#102133', fontSize: 13, fontWeight: '700' },
+  menuItemDescription: { color: '#7A8B9C', fontSize: 11, marginTop: 1 },
+  menuChevron: { color: '#8A98A8', fontSize: 18, fontWeight: '300' },
+  menuSignOut: { alignItems: 'center', paddingVertical: 12, marginTop: 14, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(224,104,122,0.28)', backgroundColor: 'rgba(224,104,122,0.08)' },
+  menuSignOutText: { color: '#C13C2C', fontSize: 13, fontWeight: '700' },
 });
