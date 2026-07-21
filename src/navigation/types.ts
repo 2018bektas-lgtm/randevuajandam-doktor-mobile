@@ -29,6 +29,7 @@ export type ScreenId =
   | 'clinic'
   | 'notifications'
   | 'packages'
+  | 'referral'
   | 'menu';
 
 export type ModuleProps = {

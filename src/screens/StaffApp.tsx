@@ -378,6 +378,9 @@ function StaffAppointments() {
   const [items, setItems] = useState<Appt[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [reschedule, setReschedule] = useState<{ id: number; tarih: string; saat: string; doktor_id?: number } | null>(null);
+  const [reSlots, setReSlots] = useState<string[]>([]);
+  const [reBusy, setReBusy] = useState(false);
 
   const loadDoctors = useCallback(async () => {
     try {
@@ -442,6 +445,59 @@ function StaffAppointments() {
     ]);
   }
 
+  async function openReschedule(a: Appt) {
+    const next = {
+      id: a.id,
+      tarih: a.tarih,
+      saat: String(a.saat || '09:00').slice(0, 5),
+      doktor_id: a.doktor_id,
+    };
+    setReschedule(next);
+    try {
+      const res = await apiGet<{ slots: string[] }>('/staff/doctor-meta', {
+        doktor_id: a.doktor_id || doktorId || undefined,
+        tarih: a.tarih,
+      });
+      setReSlots(res.data?.slots ?? []);
+    } catch {
+      setReSlots([]);
+    }
+  }
+
+  async function submitReschedule() {
+    if (!reschedule) return;
+    setReBusy(true);
+    try {
+      await apiPost(`/staff/appointments/${reschedule.id}/reschedule`, {
+        tarih: reschedule.tarih,
+        saat: reschedule.saat,
+      });
+      setReschedule(null);
+      await load();
+      Alert.alert('Tamam', 'Randevu ertelendi.');
+    } catch (e) {
+      Alert.alert('Hata', errMsg(e, 'Erteleme başarısız.'));
+    } finally {
+      setReBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!reschedule?.doktor_id && !doktorId) return;
+    if (!reschedule) return;
+    void (async () => {
+      try {
+        const res = await apiGet<{ slots: string[] }>('/staff/doctor-meta', {
+          doktor_id: reschedule.doktor_id || doktorId || undefined,
+          tarih: reschedule.tarih,
+        });
+        setReSlots(res.data?.slots ?? []);
+      } catch {
+        setReSlots([]);
+      }
+    })();
+  }, [reschedule?.tarih, reschedule?.doktor_id, doktorId]);
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -494,6 +550,11 @@ function StaffAppointments() {
                     <Text style={st.chipOkText}>Tamamla</Text>
                   </Pressable>
                 ) : null}
+                {a.durum === 'beklemede' || a.durum === 'onaylandi' ? (
+                  <Pressable style={st.chipNeutral} onPress={() => void openReschedule(a)}>
+                    <Text style={st.chipNeutralText}>Ertele</Text>
+                  </Pressable>
+                ) : null}
                 {a.durum !== 'iptal' ? (
                   <Pressable style={st.chipDanger} onPress={() => void cancel(a.id)}>
                     <Text style={st.chipDangerText}>İptal</Text>
@@ -516,6 +577,47 @@ function StaffAppointments() {
           void load();
         }}
       />
+
+      <Modal visible={!!reschedule} transparent animationType="slide" onRequestClose={() => setReschedule(null)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalSheet}>
+            <Text style={st.cardTitle}>Randevuyu ertele</Text>
+            {reschedule ? (
+              <ScrollView keyboardShouldPersistTaps="handled">
+                <DateField
+                  label="Yeni tarih"
+                  value={reschedule.tarih}
+                  onChange={(v) => setReschedule({ ...reschedule, tarih: v })}
+                />
+                {reSlots.length > 0 ? (
+                  <SelectField
+                    label="Saat"
+                    options={reSlots.map((sl) => ({ label: sl, value: sl }))}
+                    value={reschedule.saat}
+                    onChange={(v) => setReschedule({ ...reschedule, saat: v })}
+                  />
+                ) : (
+                  <TimeField
+                    label="Saat"
+                    value={reschedule.saat}
+                    onChange={(v) => setReschedule({ ...reschedule, saat: v })}
+                  />
+                )}
+                <Pressable
+                  style={[st.primaryBtn, { marginTop: 14 }, reBusy && { opacity: 0.6 }]}
+                  disabled={reBusy}
+                  onPress={() => void submitReschedule()}
+                >
+                  <Text style={st.primaryBtnText}>{reBusy ? 'Kaydediliyor…' : 'Kaydet'}</Text>
+                </Pressable>
+                <Pressable style={{ marginTop: 12, alignItems: 'center' }} onPress={() => setReschedule(null)}>
+                  <Text style={st.link}>Vazgeç</Text>
+                </Pressable>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1251,6 +1353,13 @@ const st = StyleSheet.create({
     borderRadius: 10,
   },
   chipDangerText: { color: '#C13C2C', fontWeight: '800', fontSize: 12 },
+  chipNeutral: {
+    backgroundColor: 'rgba(59,130,246,0.14)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  chipNeutralText: { color: '#2563EB', fontWeight: '800', fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   modalSheet: {
     maxHeight: '90%',

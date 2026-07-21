@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   Switch,
   Text,
   TextInput,
@@ -23,6 +24,7 @@ import { SelectField } from '../components/SelectField';
 import { RichTextEditor } from '../components/RichTextEditor';
 
 import type { ModuleProps, ScreenId } from '../navigation/types';
+import { ReferralScreen } from './Referral';
 import { ScreenShell } from '../ui/Screen';
 import { moduleStyles as s } from '../ui/styles';
 
@@ -2825,12 +2827,29 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
   }, []);
   const { items, loading, refreshing, onRefresh, reload } = useModuleList(loader);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
   const [ad, setAd] = useState('');
   const [tur, setTur] = useState<'gelir' | 'gider'>('gelir');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  async function createCategory() {
+  function openCreate() {
+    setEditId(null);
+    setAd('');
+    setTur('gelir');
+    setFormError(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(item: CategoryItem) {
+    setEditId(item.id);
+    setAd(item.ad);
+    setTur(item.tur === 'gider' ? 'gider' : 'gelir');
+    setFormError(null);
+    setModalOpen(true);
+  }
+
+  async function saveCategory() {
     if (!ad.trim()) {
       setFormError('Kategori adı zorunludur.');
       return;
@@ -2838,12 +2857,17 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
     setSubmitting(true);
     setFormError(null);
     try {
-      await apiPost('/doctor/finance/categories', { ad: ad.trim(), tur, aktif: true });
+      if (editId) {
+        await apiPut(`/doctor/finance/categories/${editId}`, { ad: ad.trim(), tur, aktif: true });
+      } else {
+        await apiPost('/doctor/finance/categories', { ad: ad.trim(), tur, aktif: true });
+      }
       setModalOpen(false);
       setAd('');
+      setEditId(null);
       await reload(false);
     } catch (e) {
-      setFormError(errMessage(e, 'Kategori eklenemedi.'));
+      setFormError(errMessage(e, editId ? 'Kategori güncellenemedi.' : 'Kategori eklenemedi.'));
     } finally {
       setSubmitting(false);
     }
@@ -2878,7 +2902,7 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
       refreshing={refreshing}
       onRefresh={onRefresh}
       rightAction={
-        <Pressable onPress={() => setModalOpen(true)}>
+        <Pressable onPress={openCreate}>
           <Text style={s.modalClose}>+ Ekle</Text>
         </Pressable>
       }
@@ -2896,6 +2920,9 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
             </View>
             <Text style={s.cardMeta}>{item.aktif === false ? 'Pasif' : 'Aktif'}</Text>
             <View style={s.actions}>
+              <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
+                <Text style={s.actionBtnText}>Düzenle</Text>
+              </Pressable>
               <Pressable
                 style={s.actionBtn}
                 onPress={() =>
@@ -2904,7 +2931,7 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
                     .catch(alertError)
                 }
               >
-                <Text style={s.actionBtnText}>Toggle</Text>
+                <Text style={s.actionBtnText}>{item.aktif === false ? 'Aktif et' : 'Pasif et'}</Text>
               </Pressable>
               <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
                 <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
@@ -2916,9 +2943,12 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
 
       <FormModal
         visible={modalOpen}
-        title="Yeni kategori"
-        onClose={() => setModalOpen(false)}
-        onSubmit={() => void createCategory()}
+        title={editId ? 'Kategori düzenle' : 'Yeni kategori'}
+        onClose={() => {
+          setModalOpen(false);
+          setEditId(null);
+        }}
+        onSubmit={() => void saveCategory()}
         submitting={submitting}
         error={formError}
       >
@@ -4199,6 +4229,7 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
     { icon: '🔑', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
     { icon: '🛡', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
     { icon: '📦', title: 'Paket & Abonelik', description: 'Paket listesi ve ödeme', screen: 'packages' },
+    { icon: '🎁', title: 'Referans programı', description: 'Davet linki ve ödüller', screen: 'referral' },
     { icon: 'ℹ', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about' },
     { icon: '🌐', title: 'Web Sitesi', description: 'Site bilgisi ve panel', screen: 'website' },
     { icon: '🔔', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
@@ -5108,8 +5139,10 @@ type ClinicTab =
   | 'talepler'
   | 'takvim'
   | 'giderler'
+  | 'finans'
   | 'hakedis'
   | 'rapor'
+  | 'saatler'
   | 'ayarlar'
   | 'website';
 
@@ -5165,8 +5198,36 @@ export function ClinicScreen({ onBack }: ModuleProps) {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('09:00');
   const [busy, setBusy] = useState(false);
+  const [clinicFinance, setClinicFinance] = useState<any>(null);
+  const [doctorsHours, setDoctorsHours] = useState<any[]>([]);
+  const [patientDetail, setPatientDetail] = useState<any>(null);
+  const [annEditId, setAnnEditId] = useState<number | null>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
 
   const isOwner = !!data?.sahip_mi;
+
+  const defaultClinicHours = useMemo(
+    () => ({
+      pazartesi: { acilis: '09:00', kapanis: '18:00', kapali: false },
+      sali: { acilis: '09:00', kapanis: '18:00', kapali: false },
+      carsamba: { acilis: '09:00', kapanis: '18:00', kapali: false },
+      persembe: { acilis: '09:00', kapanis: '18:00', kapali: false },
+      cuma: { acilis: '09:00', kapanis: '18:00', kapali: false },
+      cumartesi: { acilis: '09:00', kapanis: '13:00', kapali: false },
+      pazar: { acilis: '09:00', kapanis: '18:00', kapali: true },
+    }),
+    [],
+  );
+
+  const gunLabels: Record<string, string> = {
+    pazartesi: 'Pazartesi',
+    sali: 'Salı',
+    carsamba: 'Çarşamba',
+    persembe: 'Perşembe',
+    cuma: 'Cuma',
+    cumartesi: 'Cumartesi',
+    pazar: 'Pazar',
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -5237,12 +5298,22 @@ export function ClinicScreen({ onBack }: ModuleProps) {
           if (!settleForm.doktor_id && res.data?.doktorlar?.[0]) {
             setSettleForm((f) => ({ ...f, doktor_id: String(res.data.doktorlar[0].id) }));
           }
+        } else if (tab === 'finans' && isOwner) {
+          const res = await apiGet<any>('/doctor/clinic/finance/overview');
+          setClinicFinance(res.data);
+        } else if (tab === 'saatler') {
+          const res = await apiGet<any[]>('/doctor/clinic/doctors/working-hours');
+          setDoctorsHours(res.data ?? []);
         } else if (tab === 'rapor' && isOwner) {
           const res = await apiGet<any>('/doctor/clinic/reports', reportRange);
           setReports(res.data);
         } else if (tab === 'ayarlar' && isOwner) {
           const res = await apiGet<any>('/doctor/clinic/settings');
-          setSettings(res.data);
+          const raw = res.data ?? {};
+          setSettings({
+            ...raw,
+            calisma_saatleri: raw.calisma_saatleri || defaultClinicHours,
+          });
         } else if (tab === 'website' && isOwner) {
           const res = await apiGet<any>('/doctor/clinic/website');
           setWebsite(res.data);
@@ -5488,8 +5559,13 @@ export function ClinicScreen({ onBack }: ModuleProps) {
     }
     setBusy(true);
     try {
-      await apiPost('/doctor/clinic/announcements', annForm);
+      if (annEditId) {
+        await apiPut(`/doctor/clinic/announcements/${annEditId}`, annForm);
+      } else {
+        await apiPost('/doctor/clinic/announcements', annForm);
+      }
       setAnnForm({ baslik: '', icerik: '', onem_derecesi: 'genel' });
+      setAnnEditId(null);
       const res = await apiGet<any[]>('/doctor/clinic/announcements/admin');
       setAnnouncements(res.data ?? []);
     } catch (e) {
@@ -5523,15 +5599,81 @@ export function ClinicScreen({ onBack }: ModuleProps) {
     { key: 'talepler', label: 'Talepler' },
     { key: 'takvim', label: 'Takvim' },
     { key: 'hekimler', label: 'Hekimler' },
+    { key: 'saatler', label: 'Mesai' },
     { key: 'personel', label: 'Personel', ownerOnly: true },
     { key: 'hastalar', label: 'Hastalar' },
     { key: 'duyuru', label: 'Duyuru' },
+    { key: 'finans', label: 'Finans', ownerOnly: true },
     { key: 'giderler', label: 'Gider', ownerOnly: true },
     { key: 'hakedis', label: 'Hakediş', ownerOnly: true },
     { key: 'rapor', label: 'Rapor', ownerOnly: true },
     { key: 'ayarlar', label: 'Ayarlar', ownerOnly: true },
     { key: 'website', label: 'Web', ownerOnly: true },
   ];
+
+  async function openClinicPatient(id: number) {
+    setBusy(true);
+    try {
+      const res = await apiGet<any>(`/doctor/clinic/patients/${id}`);
+      setPatientDetail(res.data);
+    } catch (e) {
+      alertError(e, 'Hasta detayı yüklenemedi.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadClinicLogo() {
+    const source = await pickImageSource();
+    if (!source) return;
+    const asset = await launchImagePicker(source);
+    if (!asset?.uri) return;
+    setLogoBusy(true);
+    try {
+      const form = new FormData();
+      form.append('logo', {
+        uri: asset.uri,
+        name: `logo_${Date.now()}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+      } as any);
+      const res = await apiUpload<{ logo: string; logo_url: string }>('/doctor/clinic/settings/logo', form);
+      setSettings((prev: any) => (prev ? { ...prev, logo: res.data?.logo, logo_url: res.data?.logo_url } : prev));
+      Alert.alert('Tamam', 'Klinik logosu güncellendi.');
+    } catch (e) {
+      alertError(e, 'Logo yüklenemedi.');
+    } finally {
+      setLogoBusy(false);
+    }
+  }
+
+  async function shareClinicPdf() {
+    try {
+      const res = await apiGet<{ filename: string; pdf_base64: string }>('/doctor/clinic/reports.pdf', {
+        ...reportRange,
+        base64: 1,
+      });
+      const b64 = res.data?.pdf_base64;
+      const filename = res.data?.filename || 'klinik-raporu.pdf';
+      if (!b64) {
+        Alert.alert('Hata', 'PDF içeriği alınamadı.');
+        return;
+      }
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const a = document.createElement('a');
+        a.href = `data:application/pdf;base64,${b64}`;
+        a.download = filename;
+        a.click();
+        return;
+      }
+      await Share.share({
+        title: filename,
+        message: Platform.OS === 'android' ? `${filename} hazır (${Math.round(b64.length / 1024)} KB).` : filename,
+        url: `data:application/pdf;base64,${b64}`,
+      });
+    } catch (e) {
+      alertError(e, 'PDF alınamadı.');
+    }
+  }
 
   return (
     <ScreenShell title="Klinik" subtitle="Ekip, talepler ve yönetim" onBack={onBack} loading={loading}>
@@ -5914,7 +6056,7 @@ export function ClinicScreen({ onBack }: ModuleProps) {
             <>
               {isOwner ? (
                 <View style={s.card}>
-                  <Text style={s.cardTitle}>Yeni duyuru</Text>
+                  <Text style={s.cardTitle}>{annEditId ? 'Duyuru düzenle' : 'Yeni duyuru'}</Text>
                   <Text style={s.label}>Başlık</Text>
                   <TextInput style={s.input} value={annForm.baslik} onChangeText={(v) => setAnnForm({ ...annForm, baslik: v })} />
                   <Text style={s.label}>İçerik</Text>
@@ -5929,9 +6071,22 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                     value={annForm.onem_derecesi}
                     onChange={(k) => setAnnForm({ ...annForm, onem_derecesi: k })}
                   />
-                  <Pressable style={[s.primaryButton, { marginTop: 12 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void saveAnnouncement()}>
-                    <Text style={s.primaryButtonText}>Yayınla</Text>
-                  </Pressable>
+                  <View style={s.actions}>
+                    <Pressable style={[s.primaryButton, { flex: 1 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void saveAnnouncement()}>
+                      <Text style={s.primaryButtonText}>{annEditId ? 'Güncelle' : 'Yayınla'}</Text>
+                    </Pressable>
+                    {annEditId ? (
+                      <Pressable
+                        style={s.actionBtn}
+                        onPress={() => {
+                          setAnnEditId(null);
+                          setAnnForm({ baslik: '', icerik: '', onem_derecesi: 'genel' });
+                        }}
+                      >
+                        <Text style={s.actionBtnText}>Vazgeç</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 </View>
               ) : null}
               {announcements.length === 0 ? (
@@ -5946,6 +6101,19 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                       <View style={s.actions}>
                         <Pressable
                           style={s.actionBtn}
+                          onPress={() => {
+                            setAnnEditId(a.id);
+                            setAnnForm({
+                              baslik: a.baslik || '',
+                              icerik: a.icerik || '',
+                              onem_derecesi: a.onem_derecesi || 'genel',
+                            });
+                          }}
+                        >
+                          <Text style={s.actionBtnText}>Düzenle</Text>
+                        </Pressable>
+                        <Pressable
+                          style={s.actionBtn}
                           onPress={() =>
                             void apiPost(`/doctor/clinic/announcements/${a.id}/toggle`)
                               .then(() => apiGet<any[]>('/doctor/clinic/announcements/admin'))
@@ -5953,7 +6121,7 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                               .catch(alertError)
                           }
                         >
-                          <Text style={s.actionBtnText}>Toggle</Text>
+                          <Text style={s.actionBtnText}>{a.aktif_mi === false ? 'Aktif et' : 'Pasif et'}</Text>
                         </Pressable>
                         <Pressable
                           style={[s.actionBtn, s.actionBtnDanger]}
@@ -5973,9 +6141,91 @@ export function ClinicScreen({ onBack }: ModuleProps) {
             </>
           ) : null}
 
+          {tab === 'saatler' ? (
+            doctorsHours.length === 0 ? (
+              <EmptyState title="Mesai yok" text="Klinik hekimlerinin çalışma saatleri yüklenemedi." />
+            ) : (
+              doctorsHours.map((d) => (
+                <View key={d.id} style={s.card}>
+                  <Text style={s.cardTitle}>{d.ad_soyad}</Text>
+                  <Text style={s.cardMeta}>{d.klinik_aktif_mi === false ? 'Klinikte pasif' : 'Aktif'}</Text>
+                  {(d.calisma_saatleri || []).map((h: any) => (
+                    <Text key={h.gun} style={s.cardBody}>
+                      {h.gun_ad}:{' '}
+                      {h.aktif_mi
+                        ? `${h.baslangic || '—'} – ${h.bitis || '—'}`
+                        : 'Kapalı'}
+                    </Text>
+                  ))}
+                </View>
+              ))
+            )
+          ) : null}
+
+          {tab === 'finans' && isOwner ? (
+            clinicFinance ? (
+              <>
+                <View style={s.statGrid}>
+                  <View style={s.statCard}>
+                    <Text style={s.statValue}>{money(clinicFinance.bu_ay_gelir)}</Text>
+                    <Text style={s.statLabel}>Bu ay gelir</Text>
+                  </View>
+                  <View style={s.statCard}>
+                    <Text style={s.statValue}>{money(clinicFinance.bu_ay_gider)}</Text>
+                    <Text style={s.statLabel}>Bu ay gider</Text>
+                  </View>
+                  <View style={s.statCard}>
+                    <Text style={s.statValue}>{money(clinicFinance.bu_ay_net)}</Text>
+                    <Text style={s.statLabel}>Net</Text>
+                  </View>
+                  <View style={s.statCard}>
+                    <Text style={s.statValue}>{money(clinicFinance.acik_borc)}</Text>
+                    <Text style={s.statLabel}>Açık bakiye</Text>
+                  </View>
+                </View>
+                <View style={s.card}>
+                  <Text style={s.cardTitle}>6 aylık trend</Text>
+                  {(clinicFinance.trend || []).map((t: any, i: number) => (
+                    <Text key={i} style={s.cardMeta}>
+                      {t.ay}: +{money(t.gelir)} / −{money(t.gider)} · net {money(t.net)}
+                    </Text>
+                  ))}
+                </View>
+                <Text style={s.hint}>Detaylı gider ve hakediş için ilgili sekmeleri kullanın.</Text>
+              </>
+            ) : (
+              <EmptyState title="Finans" text="Özet yükleniyor veya veri yok." />
+            )
+          ) : null}
+
           {tab === 'hastalar' ? (
             <>
               <TextInput style={s.searchInput} value={q} onChangeText={setQ} placeholder="Klinik hastası ara" placeholderTextColor="#6B7F93" />
+              {patientDetail ? (
+                <View style={s.card}>
+                  <View style={s.cardHeader}>
+                    <Text style={s.cardTitle}>{patientDetail.hasta?.ad_soyad}</Text>
+                    <Pressable onPress={() => setPatientDetail(null)}>
+                      <Text style={s.modalClose}>Kapat</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={s.cardMeta}>{patientDetail.hasta?.telefon || '—'}</Text>
+                  <Text style={s.cardMeta}>{patientDetail.hasta?.e_posta || '—'}</Text>
+                  {patientDetail.hasta?.notlar ? (
+                    <Text style={s.cardBody}>Not: {patientDetail.hasta.notlar}</Text>
+                  ) : null}
+                  <Text style={[s.cardTitle, { marginTop: 10 }]}>Randevular</Text>
+                  {(patientDetail.randevular || []).length === 0 ? (
+                    <Text style={s.cardBody}>Randevu yok.</Text>
+                  ) : (
+                    (patientDetail.randevular || []).map((r: any) => (
+                      <Text key={r.id} style={s.cardMeta}>
+                        {r.tarih} {r.saat} · {r.doktor} · {r.hizmet || '—'} · {r.durum}
+                      </Text>
+                    ))
+                  )}
+                </View>
+              ) : null}
               {patients.length === 0 ? (
                 <EmptyState title="Hasta yok" text="Klinik havuzunda hasta bulunamadı." />
               ) : (
@@ -5986,15 +6236,25 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                     {p.pivot?.notlar || p.notlar ? (
                       <Text style={s.cardBody}>Not: {p.pivot?.notlar || p.notlar}</Text>
                     ) : null}
-                    <Pressable
-                      style={[s.actionBtn, { marginTop: 8 }]}
-                      onPress={() => {
-                        setPatientNoteId(p.id);
-                        setPatientNoteText(p.pivot?.notlar || p.notlar || '');
-                      }}
-                    >
-                      <Text style={s.actionBtnText}>Not düzenle</Text>
-                    </Pressable>
+                    <View style={s.actions}>
+                      <Pressable style={s.actionBtn} disabled={busy} onPress={() => void openClinicPatient(p.id)}>
+                        <Text style={s.actionBtnText}>Detay</Text>
+                      </Pressable>
+                      <Pressable
+                        style={s.actionBtn}
+                        onPress={() => {
+                          setPatientNoteId(p.id);
+                          setPatientNoteText(p.pivot?.notlar || p.notlar || '');
+                        }}
+                      >
+                        <Text style={s.actionBtnText}>Not</Text>
+                      </Pressable>
+                      {p.telefon ? (
+                        <Pressable style={s.actionBtn} onPress={() => openPhone(p.telefon)}>
+                          <Text style={s.actionBtnText}>Ara</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
                   </View>
                 ))
               )}
@@ -6196,40 +6456,10 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                       .catch(alertError)
                   }
                 >
-                  <Text style={s.primaryButtonText}>Raporu yukle</Text>
+                  <Text style={s.primaryButtonText}>Raporu yükle</Text>
                 </Pressable>
-                <Pressable
-                  style={[s.secondaryButton, { marginTop: 10 }]}
-                  onPress={() => {
-                    void (async () => {
-                      try {
-                        const res = await apiGet<{ filename: string; pdf_base64: string }>(
-                          '/doctor/clinic/reports.pdf',
-                          { ...reportRange, base64: 1 },
-                        );
-                        const b64 = res.data?.pdf_base64;
-                        if (!b64) {
-                          Alert.alert('Hata', 'PDF icerigi alinamadi.');
-                          return;
-                        }
-                        if (Platform.OS === 'web') {
-                          const a = document.createElement('a');
-                          a.href = ['data:application/', 'pdf', ';base64,', b64].join('');
-                          a.download = res.data?.filename || 'klinik-raporu.pdf';
-                          a.click();
-                        } else {
-                          Alert.alert(
-                            'PDF hazir',
-                            `${res.data?.filename || 'klinik-raporu.pdf'} olusturuldu (${Math.round(b64.length / 1024)} KB).`,
-                          );
-                        }
-                      } catch (e) {
-                        alertError(e, 'PDF alinamadi.');
-                      }
-                    })();
-                  }}
-                >
-                  <Text style={s.secondaryButtonText}>PDF indir</Text>
+                <Pressable style={[s.secondaryButton, { marginTop: 10 }]} onPress={() => void shareClinicPdf()}>
+                  <Text style={s.secondaryButtonText}>PDF paylaş / indir</Text>
                 </Pressable>
               </View>
               {reports ? (
@@ -6276,22 +6506,126 @@ export function ClinicScreen({ onBack }: ModuleProps) {
           ) : null}
 
           {tab === 'ayarlar' && isOwner && settings ? (
-            <View style={s.card}>
-              <Text style={s.cardTitle}>Klinik ayarları</Text>
-              <Text style={s.label}>Ad</Text>
-              <TextInput style={s.input} value={settings.ad || ''} onChangeText={(v) => setSettings({ ...settings, ad: v })} />
-              <Text style={s.label}>Telefon</Text>
-              <TextInput style={s.input} value={settings.telefon || ''} onChangeText={(v) => setSettings({ ...settings, telefon: v })} />
-              <Text style={s.label}>E-posta</Text>
-              <TextInput style={s.input} value={settings.e_posta || ''} onChangeText={(v) => setSettings({ ...settings, e_posta: v })} autoCapitalize="none" />
-              <Text style={s.label}>Adres</Text>
-              <TextInput style={[s.input, s.textArea]} value={settings.adres || ''} onChangeText={(v) => setSettings({ ...settings, adres: v })} multiline />
-              <Text style={s.label}>Açıklama</Text>
-              <TextInput style={[s.input, s.textArea]} value={settings.aciklama || ''} onChangeText={(v) => setSettings({ ...settings, aciklama: v })} multiline />
-              <Pressable style={[s.primaryButton, { marginTop: 14 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void saveSettings()}>
-                <Text style={s.primaryButtonText}>Kaydet</Text>
+            <>
+              <View style={s.card}>
+                <Text style={s.cardTitle}>Klinik ayarları</Text>
+                <Text style={s.label}>Ad</Text>
+                <TextInput style={s.input} value={settings.ad || ''} onChangeText={(v) => setSettings({ ...settings, ad: v })} />
+                <Text style={s.label}>Telefon</Text>
+                <TextInput style={s.input} value={settings.telefon || ''} onChangeText={(v) => setSettings({ ...settings, telefon: v })} />
+                <Text style={s.label}>E-posta</Text>
+                <TextInput style={s.input} value={settings.e_posta || ''} onChangeText={(v) => setSettings({ ...settings, e_posta: v })} autoCapitalize="none" />
+                <Text style={s.label}>Adres</Text>
+                <TextInput style={[s.input, s.textArea]} value={settings.adres || ''} onChangeText={(v) => setSettings({ ...settings, adres: v })} multiline />
+                <Text style={s.label}>Açıklama</Text>
+                <TextInput style={[s.input, s.textArea]} value={settings.aciklama || ''} onChangeText={(v) => setSettings({ ...settings, aciklama: v })} multiline />
+              </View>
+
+              <View style={s.card}>
+                <Text style={s.cardTitle}>Logo</Text>
+                {settings.logo || settings.logo_url ? (
+                  <Image
+                    source={{ uri: settings.logo_url || `${SITE_URL}/${String(settings.logo || '').replace(/^\//, '')}` }}
+                    style={{ width: 96, height: 96, borderRadius: 12, marginBottom: 10, backgroundColor: '#EEF1F5' }}
+                  />
+                ) : (
+                  <Text style={s.hint}>Henüz logo yok.</Text>
+                )}
+                <Pressable style={[s.secondaryButton, logoBusy && s.primaryButtonDisabled]} disabled={logoBusy} onPress={() => void uploadClinicLogo()}>
+                  <Text style={s.secondaryButtonText}>{logoBusy ? 'Yükleniyor…' : 'Logo yükle'}</Text>
+                </Pressable>
+              </View>
+
+              <View style={s.card}>
+                <Text style={s.cardTitle}>SEO</Text>
+                <Text style={s.label}>Meta başlık</Text>
+                <TextInput
+                  style={s.input}
+                  value={settings.meta_baslik || ''}
+                  onChangeText={(v) => setSettings({ ...settings, meta_baslik: v })}
+                  placeholder="Klinik SEO başlığı"
+                  placeholderTextColor="#6B7F93"
+                />
+                <Text style={s.label}>Meta açıklama</Text>
+                <TextInput
+                  style={[s.input, s.textArea]}
+                  value={settings.meta_aciklama || ''}
+                  onChangeText={(v) => setSettings({ ...settings, meta_aciklama: v })}
+                  multiline
+                  placeholder="Kısa klinik açıklaması"
+                  placeholderTextColor="#6B7F93"
+                />
+              </View>
+
+              <View style={s.card}>
+                <Text style={s.cardTitle}>Klinik çalışma saatleri</Text>
+                {Object.keys(gunLabels).map((gun) => {
+                  const row = (settings.calisma_saatleri || defaultClinicHours)[gun] || defaultClinicHours[gun as keyof typeof defaultClinicHours];
+                  return (
+                    <View key={gun} style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#EEF1F5' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={s.cardMeta}>{gunLabels[gun]}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={s.hint}>{row.kapali ? 'Kapalı' : 'Açık'}</Text>
+                          <Switch
+                            value={!row.kapali}
+                            onValueChange={(open) =>
+                              setSettings({
+                                ...settings,
+                                calisma_saatleri: {
+                                  ...(settings.calisma_saatleri || defaultClinicHours),
+                                  [gun]: { ...row, kapali: !open },
+                                },
+                              })
+                            }
+                            trackColor={{ false: '#D1D5DB', true: '#FDBA8C' }}
+                            thumbColor={!row.kapali ? '#F58A45' : '#9CA3AF'}
+                          />
+                        </View>
+                      </View>
+                      {!row.kapali ? (
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                          <View style={{ flex: 1 }}>
+                            <TimeField
+                              label="Açılış"
+                              value={String(row.acilis || '09:00').slice(0, 5)}
+                              onChange={(v) =>
+                                setSettings({
+                                  ...settings,
+                                  calisma_saatleri: {
+                                    ...(settings.calisma_saatleri || defaultClinicHours),
+                                    [gun]: { ...row, acilis: v },
+                                  },
+                                })
+                              }
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <TimeField
+                              label="Kapanış"
+                              value={String(row.kapanis || '18:00').slice(0, 5)}
+                              onChange={(v) =>
+                                setSettings({
+                                  ...settings,
+                                  calisma_saatleri: {
+                                    ...(settings.calisma_saatleri || defaultClinicHours),
+                                    [gun]: { ...row, kapanis: v },
+                                  },
+                                })
+                              }
+                            />
+                          </View>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+
+              <Pressable style={[s.primaryButton, { marginTop: 8 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void saveSettings()}>
+                <Text style={s.primaryButtonText}>Tüm ayarları kaydet</Text>
               </Pressable>
-            </View>
+            </>
           ) : null}
 
           {tab === 'website' && isOwner ? (
@@ -6396,6 +6730,7 @@ const MENU_GROUPS: MenuGroup[] = [
     items: [
       { icon: '₺', title: 'Finans', description: 'Gelir, gider ve bakiyeler', screen: 'finance', feature: 'finans' },
       { icon: '⌂', title: 'Klinik', description: 'Ekip, duyuru ve hasta havuzu', screen: 'clinic' },
+      { icon: '🎁', title: 'Referans programı', description: 'Davet linki ve ödül günleri', screen: 'referral' },
       { icon: '●', title: 'Profil', description: 'Kişisel ve iletişim bilgileri', screen: 'profile' },
       { icon: '🔑', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
       { icon: '🛡', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
@@ -6653,27 +6988,12 @@ export function PackagesScreen({ onBack }: ModuleProps) {
     const ref = (havaleById[paket.id] ?? '').trim();
     const isKlinik = (paket.tur ?? '') === 'klinik' || String(paket.ad ?? '').toLowerCase().includes('klinik');
 
-    if (isKlinik) {
-      try {
-        await apiPost('/doctor/packages/prefer', {
-          paket_id: paket.id,
-          odeme_periyodu: period,
-          tur: 'klinik',
-        });
-        Alert.alert(
-          'Klinik paket',
-          'Klinik paketleri mobil abonelikle açılamaz. Tercihiniz kaydedildi; klinik kaydı ve paket bağlama web panelinden yapılır.',
-        );
-      } catch (e) {
-        alertError(e, 'Klinik paket tercihi kaydedilemedi.');
-      }
-      return;
-    }
-
     if (!isFree && !ref) {
       Alert.alert(
         'Havale referansı',
-        'Ücretli paket için havale/EFT referans numaranızı girin veya “Mağazadan satın al” kullanın.',
+        isKlinik
+          ? 'Klinik paket yükseltmesi için havale/EFT referansını girin. Yeni klinik kaydı hâlâ web panelinden yapılır.'
+          : 'Ücretli paket için havale/EFT referans numaranızı girin veya “Mağazadan satın al” kullanın.',
       );
       return;
     }
@@ -6693,10 +7013,31 @@ export function PackagesScreen({ onBack }: ModuleProps) {
       } catch {
         /* ignore */
       }
-      Alert.alert('Tamam', res.message ?? (isFree ? 'Paket aktifleştirildi.' : 'Havale talebiniz alındı.'));
+      Alert.alert(
+        'Tamam',
+        res.message ??
+          (isFree
+            ? 'Paket aktifleştirildi.'
+            : isKlinik
+              ? 'Klinik paket havale talebiniz alındı.'
+              : 'Havale talebiniz alındı.'),
+      );
       await load();
     } catch (e) {
-      alertError(e, 'Paket aboneliği başarısız.');
+      const msg = errMessage(e, 'Paket aboneliği başarısız.');
+      // Sahip değilse tercihi kaydet + web yönlendirme
+      if (isKlinik && /klinik sahibi|owner|web panel/i.test(msg)) {
+        try {
+          await apiPost('/doctor/packages/prefer', {
+            paket_id: paket.id,
+            odeme_periyodu: period,
+            tur: 'klinik',
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+      alertError(e, msg);
     } finally {
       setBusyId(null);
     }
@@ -8112,5 +8453,6 @@ export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>
   clinic: ClinicScreen,
   notifications: NotificationsScreen,
   packages: PackagesScreen,
+  referral: ReferralScreen,
   menu: MenuScreen,
 };

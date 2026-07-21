@@ -44,9 +44,11 @@ npm run build:apk
 | İzin / hızlı kapat | Uzun izin + günlük slot kapatma |
 | Çalışma saatleri / ayarlar | Tam düzenleme |
 | Hizmetler, blog, yorum, galeri, SSS, eğitim | CRUD (galeri/blog görsel yükleme) |
-| Finans | Özet, gelir (kalem ekle/sil), gider, kategori, bakiye |
-| Klinik | Üye + sahip: hekim davet, personel, talepler toplu onay, takvim, gider |
-| Profil / şifre / hakkımda / 2FA / web sitesi | Kurulum ve yönetim |
+| Finans | Özet, gelir (kalem ekle/sil), gider, kategori (düzenle), bakiye |
+| Klinik | Üye + sahip: hekim, mesai özeti, personel, talepler, takvim, finans özeti, gider, hakediş, rapor/PDF, logo/SEO/çalışma saatleri, website |
+| Referans | Davet kodu/link, kota, davet listesi |
+| Personel | Randevu, erteleme, talep, hasta, ödeme |
+| Profil / şifre / hakkımda / 2FA / web sitesi / paket | Kurulum ve yönetim (klinik sahibi havale ile paket yükseltebilir) |
 
 ## Notlar
 

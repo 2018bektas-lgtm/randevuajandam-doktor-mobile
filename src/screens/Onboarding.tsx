@@ -2621,7 +2621,8 @@ export function OnboardingScreen({ onFinish }: Props) {
               })}
               <Text style={[s.iapNote, { marginHorizontal: L.padX, marginBottom: 24 }]}>
                 Ücretsiz paket giriş sonrası otomatik aktifleşir. Ücretli bireysel: havale veya (yapılandırılınca)
-                mağaza IAP. Klinik paketler web panelinden bağlanır. Siteye kart yönlendirmesi yok.
+                mağaza IAP. Mevcut klinik sahibi klinik paket yükseltmesini havale ile talep edebilir; yeni klinik
+                kaydı web panelinden yapılır. Siteye kart yönlendirmesi yok.
               </Text>
             </>
           )}
