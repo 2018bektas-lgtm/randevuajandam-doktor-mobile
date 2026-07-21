@@ -4251,22 +4251,27 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
         : `${SITE_URL}/storage/${form.profil_resmi.replace(/^storage\//, '')}`
       : null);
 
-  const accountLinks: { icon: string; title: string; description: string; screen: ScreenId }[] = [
-    { icon: '🔑', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
-    { icon: '🛡', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
-    { icon: '📦', title: 'Paket & Abonelik', description: 'Paket listesi ve ödeme', screen: 'packages' },
-    { icon: '🎁', title: 'Referans programı', description: 'Davet linki ve ödüller', screen: 'referral' },
-    { icon: 'ℹ', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about' },
-    { icon: '🌐', title: 'Web Sitesi', description: 'Site bilgisi ve panel', screen: 'website' },
-    { icon: '🔔', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
+  /** Sadece hesap / güvenlik — iş modülleri Menü sekmesinde */
+  const accountLinks: {
+    icon: import('../components/AppIcon').AppIconName;
+    title: string;
+    description: string;
+    screen: ScreenId;
+  }[] = [
+    { icon: 'lock', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
+    { icon: 'lock', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
+    { icon: 'package', title: 'Paket & Abonelik', description: 'Paket listesi ve ödeme', screen: 'packages' },
+    { icon: 'referral', title: 'Referans programı', description: 'Davet linki ve ödüller', screen: 'referral' },
+    { icon: 'document', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about' },
+    { icon: 'globe', title: 'Web Sitesi', description: 'Domain ve vitrin ayarları', screen: 'website' },
+    { icon: 'bell', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
   ];
 
   return (
     <ScreenShell
       title="Profil"
-      subtitle="Hesap bilgileriniz ve güvenlik ayarları."
+      subtitle="Kimlik, güvenlik ve abonelik."
       onBack={onBack}
-      backLabel="‹  Panele dön"
       loading={loading}
     >
       {form ? (
@@ -4292,7 +4297,7 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
             </Pressable>
           </View>
 
-          <Text style={s.menuGroupTitle}>Hesap işlemleri</Text>
+          <Text style={s.menuGroupTitle}>Hesap & güvenlik</Text>
           <View style={s.menuCard}>
             {accountLinks.map((item, index) => (
               <Pressable
@@ -4301,13 +4306,13 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
                 onPress={() => onNavigate(item.screen)}
               >
                 <View style={s.menuIconWrap}>
-                  <Text style={s.menuIcon}>{item.icon}</Text>
+                  <AppIcon name={item.icon} size={20} color="#EE7D31" />
                 </View>
                 <View style={s.menuItemCopy}>
                   <Text style={s.menuItemTitle}>{item.title}</Text>
                   <Text style={s.menuItemDescription}>{item.description}</Text>
                 </View>
-                <Text style={s.menuChevron}>›</Text>
+                <AppIcon name="chevronRight" size={18} color="#94A3B8" />
               </Pressable>
             ))}
           </View>
@@ -6725,6 +6730,7 @@ type MenuGroup = {
   items: MenuItem[];
 };
 
+/** İş modülleri — hesap ayarları Profil sekmesinde */
 const MENU_GROUPS: MenuGroup[] = [
   {
     title: 'Randevu & Hastalar',
@@ -6752,18 +6758,10 @@ const MENU_GROUPS: MenuGroup[] = [
     ],
   },
   {
-    title: 'İşletme & Hesap',
+    title: 'İşletme',
     items: [
       { icon: 'finance', title: 'Finans', description: 'Gelir, gider ve bakiyeler', screen: 'finance', feature: 'finans' },
       { icon: 'clinic', title: 'Klinik', description: 'Ekip, duyuru ve hasta havuzu', screen: 'clinic' },
-      { icon: 'referral', title: 'Referans programı', description: 'Davet linki ve ödül günleri', screen: 'referral' },
-      { icon: 'profile', title: 'Profil', description: 'Kişisel ve iletişim bilgileri', screen: 'profile' },
-      { icon: 'lock', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
-      { icon: 'lock', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
-      { icon: 'bell', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
-      { icon: 'package', title: 'Paket & Abonelik', description: 'Paket seçimi ve abonelik', screen: 'packages' },
-      { icon: 'document', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about', feature: 'hakkimda' },
-      { icon: 'globe', title: 'Web Sitesi', description: 'Site bilgisi ve panel bağlantısı', screen: 'website', feature: 'web_sitesi' },
     ],
   },
 ];
@@ -6795,14 +6793,13 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
 
   return (
     <ScreenShell
-      title="Yönetim menüsü"
+      title="Menü"
       subtitle={
         paketAd
-          ? `Paket: ${paketAd}. Hekim panelinizdeki tüm modüllere buradan erişin.`
-          : 'Hekim panelinizdeki tüm modüllere buradan erişin.'
+          ? `Paket: ${paketAd}`
+          : 'Randevu, içerik ve işletme modülleri'
       }
       onBack={onBack}
-      backLabel="‹  Panele dön"
     >
       {MENU_GROUPS.map((group) => (
         <View key={group.title} style={s.menuGroup}>
@@ -6851,6 +6848,10 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
           </View>
         </View>
       ))}
+
+      <Pressable style={[s.secondaryButton, { marginTop: 18 }]} onPress={() => onNavigate('profile')}>
+        <Text style={s.secondaryButtonText}>Profil & hesap ayarları</Text>
+      </Pressable>
 
       {onSignOut ? (
         <Pressable style={s.menuSignOut} onPress={() => void onSignOut()}>
