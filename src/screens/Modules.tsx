@@ -1882,15 +1882,36 @@ type ReviewItem = {
   onay_durumu: string;
   hasta_adi: string;
   hizmet: string | null;
+  doktor_adi?: string | null;
+  created_at?: string | null;
 };
+
+function reviewStatusLabel(status: string): string {
+  if (status === 'onaylandi') return 'Yayında';
+  if (status === 'beklemede') return 'Onay bekliyor';
+  if (status === 'reddedildi') return 'Reddedildi';
+  return status || '—';
+}
 
 export function ReviewsScreen({ onBack }: ModuleProps) {
   const [filter, setFilter] = useState<'' | 'beklemede' | 'onaylandi' | 'reddedildi'>('');
-  const [meta, setMeta] = useState<{ toplam?: number; beklemede?: number; onaylandi?: number } | null>(null);
+  const [meta, setMeta] = useState<{
+    toplam?: number;
+    beklemede?: number;
+    onaylandi?: number;
+    klinik_geneli?: boolean;
+  } | null>(null);
   const loader = useCallback(async () => {
     const res = await apiGet<ReviewItem[]>('/doctor/reviews', filter ? { durum: filter } : undefined);
     if (res.meta) {
-      setMeta(res.meta as { toplam?: number; beklemede?: number; onaylandi?: number });
+      setMeta(
+        res.meta as {
+          toplam?: number;
+          beklemede?: number;
+          onaylandi?: number;
+          klinik_geneli?: boolean;
+        },
+      );
     }
     return res.data ?? [];
   }, [filter]);
@@ -1922,84 +1943,48 @@ export function ReviewsScreen({ onBack }: ModuleProps) {
     }
   }
 
-  async function setStatus(id: number, onay_durumu: 'beklemede' | 'onaylandi' | 'reddedildi') {
-    try {
-      await apiPost(`/doctor/reviews/${id}/status`, { onay_durumu });
-      await reload(false);
-    } catch (e) {
-      alertError(e);
-    }
-  }
-
-  function removeReview(id: number) {
-    Alert.alert('Yorumu sil', 'Bu yorum kalıcı olarak silinsin mi?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            try {
-              await apiDelete(`/doctor/reviews/${id}`);
-              await reload(false);
-            } catch (e) {
-              alertError(e);
-            }
-          })();
-        },
-      },
-    ]);
-  }
-
   return (
     <ScreenShell
-      title="Hasta Yorumları"
-      subtitle="Yorumları inceleyin, onaylayın ve yanıtlayın."
+      title={meta?.klinik_geneli ? 'Klinik Yorumları' : 'Hasta Yorumları'}
+      subtitle="Yorumları inceleyin ve yanıtlayın. Yayın onayı platform yönetiminde."
       onBack={onBack}
       loading={loading}
       refreshing={refreshing}
       onRefresh={onRefresh}
     >
       <SelectField
-        label="Filtre"
+        label="Durum"
         options={[
           { label: `Tümü${meta?.toplam != null ? ` (${meta.toplam})` : ''}`, value: '' },
-          { label: `Bekleyen${meta?.beklemede != null ? ` (${meta.beklemede})` : ''}`, value: 'beklemede' },
-          { label: 'Onaylı', value: 'onaylandi' },
-          { label: 'Red', value: 'reddedildi' },
+          { label: `Onay bekleyen${meta?.beklemede != null ? ` (${meta.beklemede})` : ''}`, value: 'beklemede' },
+          { label: `Yayında${meta?.onaylandi != null ? ` (${meta.onaylandi})` : ''}`, value: 'onaylandi' },
+          { label: 'Reddedilen', value: 'reddedildi' },
         ]}
         value={filter}
         onChange={setFilter}
       />
 
       {items.length === 0 ? (
-        <EmptyState title="Yorum yok" text="Danışan yorumları burada listelenir." />
+        <EmptyState title="Yorum yok" text="Danışanlar tamamlanan randevulara yorum bıraktığında burada görünür." />
       ) : (
         items.map((item) => (
           <View key={item.id} style={s.card}>
             <View style={s.cardHeader}>
               <Text style={s.cardTitle}>{item.hasta_adi || 'Danışan'}</Text>
               <View style={s.pill}>
-                <Text style={s.pillText}>{item.onay_durumu || '—'}</Text>
+                <Text style={s.pillText}>{reviewStatusLabel(item.onay_durumu)}</Text>
               </View>
             </View>
             <Text style={s.cardMeta}>{'★'.repeat(Math.max(1, Math.min(5, item.puan || 0)))}</Text>
+            {meta?.klinik_geneli && item.doktor_adi ? (
+              <Text style={s.cardMeta}>Hekim: {item.doktor_adi}</Text>
+            ) : null}
             {item.hizmet ? <Text style={s.cardMeta}>{item.hizmet}</Text> : null}
             <Text style={s.cardBody}>{item.yorum}</Text>
             {item.doktor_yaniti ? (
-              <Text style={[s.cardBody, { color: '#2E9E5B' }]}>Yanıtınız: {item.doktor_yaniti}</Text>
+              <Text style={[s.cardBody, { color: '#2E9E5B' }]}>Yanıt: {item.doktor_yaniti}</Text>
             ) : null}
             <View style={s.actions}>
-              {item.onay_durumu !== 'onaylandi' ? (
-                <Pressable style={[s.actionBtn, s.actionBtnSuccess]} onPress={() => void setStatus(item.id, 'onaylandi')}>
-                  <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Onayla</Text>
-                </Pressable>
-              ) : null}
-              {item.onay_durumu !== 'reddedildi' ? (
-                <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => void setStatus(item.id, 'reddedildi')}>
-                  <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Reddet</Text>
-                </Pressable>
-              ) : null}
               <Pressable
                 style={s.actionBtn}
                 onPress={() => {
@@ -2009,9 +1994,6 @@ export function ReviewsScreen({ onBack }: ModuleProps) {
                 }}
               >
                 <Text style={s.actionBtnText}>{item.doktor_yaniti ? 'Yanıtı düzenle' : 'Yanıtla'}</Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => removeReview(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
               </Pressable>
             </View>
           </View>
@@ -2033,6 +2015,7 @@ export function ReviewsScreen({ onBack }: ModuleProps) {
           value={replyText}
           onChangeText={setReplyText}
           multiline
+          placeholder="Hastanıza yanıt yazın..."
           placeholderTextColor="#6B7F93"
         />
       </FormModal>

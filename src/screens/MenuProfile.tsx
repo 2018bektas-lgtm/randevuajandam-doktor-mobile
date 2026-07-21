@@ -47,7 +47,7 @@ const MENU_GROUPS: MenuGroup[] = [
     items: [
       { icon: 'list', title: 'Hizmetler', description: 'Süre & fiyat', screen: 'services', tint: '#10B981' },
       { icon: 'blog', title: 'Blog', description: 'Yazılar', screen: 'blogs', feature: 'blog', tint: '#6366F1' },
-      { icon: 'star', title: 'Yorumlar', description: 'Hasta geri bildirimi', screen: 'reviews', feature: 'yorum', tint: '#EAB308' },
+      { icon: 'star', title: 'Yorumlar', description: 'Hasta geri bildirimi', screen: 'reviews', tint: '#EAB308' },
       { icon: 'gallery', title: 'Galeri', description: 'Fotoğraflar', screen: 'gallery', feature: 'galeri', tint: '#EC4899' },
       { icon: 'document', title: 'SSS', description: 'Sık sorulanlar', screen: 'faq', feature: 'faq', tint: '#14B8A6' },
       { icon: 'education', title: 'Eğitimler', description: 'Kurs & seminer', screen: 'education', feature: 'egitimler', tint: '#8B5CF6' },
