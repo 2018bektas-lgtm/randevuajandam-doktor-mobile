@@ -33,6 +33,12 @@ import {
   SoftAction,
   StatusChip,
 } from '../components/ContentUI';
+import {
+  MenuScreen as PolishedMenuScreen,
+  ProfileChrome,
+  ProfileHeroCard,
+  ProfileLinkGroup,
+} from './MenuProfile';
 import { ReferralScreen } from './Referral';
 import { ScreenShell } from '../ui/Screen';
 import { moduleStyles as s } from '../ui/styles';
@@ -4251,78 +4257,43 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
         : `${SITE_URL}/storage/${form.profil_resmi.replace(/^storage\//, '')}`
       : null);
 
-  /** Sadece hesap / güvenlik — iş modülleri Menü sekmesinde */
-  const accountLinks: {
-    icon: import('../components/AppIcon').AppIconName;
-    title: string;
-    description: string;
-    screen: ScreenId;
-  }[] = [
-    { icon: 'lock', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
-    { icon: 'lock', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
-    { icon: 'package', title: 'Paket & Abonelik', description: 'Paket listesi ve ödeme', screen: 'packages' },
-    { icon: 'referral', title: 'Referans programı', description: 'Davet linki ve ödüller', screen: 'referral' },
-    { icon: 'document', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about' },
-    { icon: 'globe', title: 'Web Sitesi', description: 'Domain ve vitrin ayarları', screen: 'website' },
-    { icon: 'bell', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
+  const securityLinks = [
+    { icon: 'lock' as const, title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' as ScreenId, tint: '#EF4444' },
+    { icon: 'lock' as const, title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' as ScreenId, tint: '#F59E0B' },
+    { icon: 'bell' as const, title: 'Bildirimler', description: 'Push bildirimleri', screen: 'notifications' as ScreenId, tint: '#3B82F6' },
+  ];
+  const membershipLinks = [
+    { icon: 'package' as const, title: 'Paket & Abonelik', description: 'Plan ve ödeme', screen: 'packages' as ScreenId, tint: '#EE7D31' },
+    { icon: 'referral' as const, title: 'Referans programı', description: 'Davet & ödül', screen: 'referral' as ScreenId, tint: '#8B5CF6' },
+  ];
+  const publicLinks = [
+    { icon: 'document' as const, title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about' as ScreenId, tint: '#10B981' },
+    { icon: 'globe' as const, title: 'Web Sitesi', description: 'Domain ve vitrin', screen: 'website' as ScreenId, tint: '#0EA5E9' },
   ];
 
   return (
-    <ScreenShell
-      title="Profil"
-      subtitle="Kimlik, güvenlik ve abonelik."
-      onBack={onBack}
-      loading={loading}
-    >
+    <ProfileChrome onBack={onBack} loading={loading}>
       {form ? (
         <>
-          <View style={s.profileHero}>
-            {photoUri ? (
-              <Image source={{ uri: photoUri }} style={s.profileAvatarImg} />
-            ) : (
-              <View style={s.profileAvatarFallback}>
-                <Text style={s.profileAvatarLetter}>
-                  {(form.ad_soyad || '?').charAt(0).toLocaleUpperCase('tr-TR')}
-                </Text>
-              </View>
-            )}
-            <Text style={s.profileName}>
-              {[form.unvan, form.ad_soyad].filter(Boolean).join(' ')}
-            </Text>
-            <Text style={s.profileMeta}>{form.e_posta}</Text>
-            {form.uzmanlik_alani ? <Text style={s.profileMeta}>{form.uzmanlik_alani}</Text> : null}
-            {form.telefon ? <Text style={s.profileMeta}>{form.telefon}</Text> : null}
-            <Pressable style={[s.secondaryButton, { marginTop: 14, minWidth: 180 }]} onPress={() => void pickPhoto()}>
-              <Text style={s.secondaryButtonText}>Profil fotoğrafı seç</Text>
-            </Pressable>
-          </View>
+          <ProfileHeroCard
+            photoUri={photoUri}
+            name={[form.unvan, form.ad_soyad].filter(Boolean).join(' ')}
+            email={form.e_posta}
+            specialty={form.uzmanlik_alani}
+            phone={form.telefon}
+            onPickPhoto={() => void pickPhoto()}
+          />
 
-          <Text style={s.menuGroupTitle}>Hesap & güvenlik</Text>
-          <View style={s.menuCard}>
-            {accountLinks.map((item, index) => (
-              <Pressable
-                key={item.screen}
-                style={[s.menuItem, index > 0 && s.menuItemBorder]}
-                onPress={() => onNavigate(item.screen)}
-              >
-                <View style={s.menuIconWrap}>
-                  <AppIcon name={item.icon} size={20} color="#EE7D31" />
-                </View>
-                <View style={s.menuItemCopy}>
-                  <Text style={s.menuItemTitle}>{item.title}</Text>
-                  <Text style={s.menuItemDescription}>{item.description}</Text>
-                </View>
-                <AppIcon name="chevronRight" size={18} color="#94A3B8" />
-              </Pressable>
-            ))}
-          </View>
+          <ProfileLinkGroup title="Güvenlik" items={securityLinks} onNavigate={onNavigate} />
+          <ProfileLinkGroup title="Abonelik" items={membershipLinks} onNavigate={onNavigate} />
+          <ProfileLinkGroup title="Herkese açık" items={publicLinks} onNavigate={onNavigate} />
 
           <Pressable
-            style={[s.secondaryButton, { marginTop: 18 }]}
+            style={[s.secondaryButton, { marginTop: 18, backgroundColor: '#FFFFFF', borderWidth: 0 }]}
             onPress={() => setShowDetails((v) => !v)}
           >
             <Text style={s.secondaryButtonText}>
-              {showDetails ? 'Profil formunu gizle' : 'Profil bilgilerini düzenle'}
+              {showDetails ? 'Formu gizle' : 'Profil bilgilerini düzenle'}
             </Text>
           </Pressable>
 
@@ -4495,7 +4466,7 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
 
           {onSignOut ? (
             <Pressable
-              style={[s.secondaryButton, { marginTop: 22, marginBottom: 12, borderColor: 'rgba(224,104,122,0.45)' }]}
+              style={[s.menuSignOut, { marginTop: 22, marginBottom: 8 }]}
               onPress={() => {
                 Alert.alert('Çıkış yap', 'Hesabınızdan çıkmak istiyor musunuz?', [
                   { text: 'Vazgeç', style: 'cancel' },
@@ -4509,12 +4480,12 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
                 ]);
               }}
             >
-              <Text style={[s.secondaryButtonText, { color: '#E0687A' }]}>Çıkış yap</Text>
+              <Text style={s.menuSignOutText}>Oturumu kapat</Text>
             </Pressable>
           ) : null}
         </>
       ) : null}
-    </ScreenShell>
+    </ProfileChrome>
   );
 }
 
@@ -6714,153 +6685,8 @@ export function ClinicScreen({ onBack }: ModuleProps) {
   );
 }
 
-// --- Menu ---
-
-type MenuItem = {
-  icon: import('../components/AppIcon').AppIconName;
-  title: string;
-  description: string;
-  screen: ScreenId;
-  /** Paket özellik kodu (web `paket.yetki` ile uyumlu) */
-  feature?: string;
-};
-
-type MenuGroup = {
-  title: string;
-  items: MenuItem[];
-};
-
-/** İş modülleri — hesap ayarları Profil sekmesinde */
-const MENU_GROUPS: MenuGroup[] = [
-  {
-    title: 'Randevu & Hastalar',
-    items: [
-      { icon: 'calendar', title: 'Takvimim', description: 'Randevular ve günlük plan', screen: 'calendar' },
-      { icon: 'requests', title: 'Randevu Talepleri', description: 'Onay bekleyen başvurular', screen: 'requests', feature: 'randevu_talepleri' },
-      { icon: 'people', title: 'Hasta Kayıtları', description: 'Hastalar ve geçmişleri', screen: 'patients' },
-      { icon: 'waitlist', title: 'Bekleme Listesi', description: 'Boşalan randevuları doldurun', screen: 'waitlist' },
-      { icon: 'block', title: 'Hızlı Kapat', description: 'Saat dilimlerini kapat / aç', screen: 'quickClose' },
-      { icon: 'time', title: 'İzin / Tatil', description: 'Müsait olmadığınız aralıklar', screen: 'leaves' },
-      { icon: 'time', title: 'Çalışma Saatleri', description: 'Haftalık çalışma planı', screen: 'workingHours' },
-      { icon: 'settings', title: 'Randevu Ayarları', description: 'Periyot, onay ve bildirimler', screen: 'settings' },
-    ],
-  },
-  {
-    title: 'İçerik & Hizmetler',
-    items: [
-      { icon: 'list', title: 'Hizmet ve Tedaviler', description: 'Hizmet, süre ve fiyatlar', screen: 'services' },
-      { icon: 'blog', title: 'Blog Yazılarım', description: 'Yayınlarınızı yönetin', screen: 'blogs', feature: 'blog' },
-      { icon: 'star', title: 'Hasta Yorumları', description: 'Yorumları inceleyin ve yanıtlayın', screen: 'reviews', feature: 'yorum' },
-      { icon: 'gallery', title: 'Fotoğraf Galerisi', description: 'Profil galerinizi düzenleyin', screen: 'gallery', feature: 'galeri' },
-      { icon: 'document', title: 'Sıkça Sorulan Sorular', description: 'SSS içeriğinizi yönetin', screen: 'faq', feature: 'faq' },
-      { icon: 'education', title: 'Eğitimler', description: 'Kurs ve webinarlar', screen: 'education', feature: 'egitimler' },
-      { icon: 'mail', title: 'Eğitim Başvuruları', description: 'Başvuruları onaylayın', screen: 'educationApps', feature: 'egitimler' },
-    ],
-  },
-  {
-    title: 'İşletme',
-    items: [
-      { icon: 'finance', title: 'Finans', description: 'Gelir, gider ve bakiyeler', screen: 'finance', feature: 'finans' },
-      { icon: 'clinic', title: 'Klinik', description: 'Ekip, duyuru ve hasta havuzu', screen: 'clinic' },
-    ],
-  },
-];
-
-export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
-  const [features, setFeatures] = useState<string[]>([]);
-  const [restrict, setRestrict] = useState(false);
-  const [paketAd, setPaketAd] = useState<string | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await apiGet<{ features: string[]; restrict: boolean; paket: { ad?: string } | null }>(
-          '/doctor/package-features',
-        );
-        setFeatures(res.data?.features ?? []);
-        setRestrict(!!res.data?.restrict);
-        setPaketAd(res.data?.paket?.ad ?? null);
-      } catch {
-        setRestrict(false);
-      }
-    })();
-  }, []);
-
-  function isLocked(item: MenuItem): boolean {
-    if (!restrict || !item.feature) return false;
-    return !features.includes(item.feature);
-  }
-
-  return (
-    <ScreenShell
-      title="Menü"
-      subtitle={
-        paketAd
-          ? `Paket: ${paketAd}`
-          : 'Randevu, içerik ve işletme modülleri'
-      }
-      onBack={onBack}
-    >
-      {MENU_GROUPS.map((group) => (
-        <View key={group.title} style={s.menuGroup}>
-          <Text style={s.menuGroupTitle}>{group.title}</Text>
-          <View style={s.menuCard}>
-            {group.items.map((item, index) => {
-              const locked = isLocked(item);
-              return (
-                <Pressable
-                  key={item.screen}
-                  style={[s.menuItem, index > 0 && s.menuItemBorder, locked && { opacity: 0.55 }]}
-                  onPress={() => {
-                    if (locked) {
-                      Alert.alert(
-                        'Paket gerekli',
-                        'Bu özellik mevcut paketinizde yok. Uygulama içinden paket yükseltebilirsiniz.',
-                        [
-                          { text: 'Tamam', style: 'cancel' },
-                          {
-                            text: 'Paketlere git',
-                            onPress: () => onNavigate('packages'),
-                          },
-                        ],
-                      );
-                      return;
-                    }
-                    onNavigate(item.screen);
-                  }}
-                >
-                  <View style={s.menuIconWrap}>
-                    <AppIcon name={item.icon} size={20} color="#EE7D31" />
-                  </View>
-                  <View style={s.menuItemCopy}>
-                    <Text style={s.menuItemTitle}>
-                      {item.title}
-                      {locked ? ' · paket' : ''}
-                    </Text>
-                    <Text style={s.menuItemDescription}>
-                      {locked ? 'Paket yükseltme gerekli' : item.description}
-                    </Text>
-                  </View>
-                  <AppIcon name={locked ? 'lock' : 'chevronRight'} size={18} color="#94A3B8" />
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      ))}
-
-      <Pressable style={[s.secondaryButton, { marginTop: 18 }]} onPress={() => onNavigate('profile')}>
-        <Text style={s.secondaryButtonText}>Profil & hesap ayarları</Text>
-      </Pressable>
-
-      {onSignOut ? (
-        <Pressable style={s.menuSignOut} onPress={() => void onSignOut()}>
-          <Text style={s.menuSignOutText}>Oturumu kapat</Text>
-        </Pressable>
-      ) : null}
-    </ScreenShell>
-  );
-}
+// Menü ekranı: şık native tasarım (MenuProfile.tsx)
+export { PolishedMenuScreen as MenuScreen };
 
 // ── Packages (premium · site paket_sec etiketleri) ─────────────────────────
 
@@ -8497,5 +8323,5 @@ export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>
   notifications: NotificationsScreen,
   packages: PackagesScreen,
   referral: ReferralScreen,
-  menu: MenuScreen,
+  menu: PolishedMenuScreen,
 };
