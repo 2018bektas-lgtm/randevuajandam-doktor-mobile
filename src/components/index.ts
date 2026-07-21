@@ -6,3 +6,7 @@ export { VideoCallModal } from './VideoCallModal';
 export { SelectField } from './SelectField';
 export type { SelectOption, SelectFieldProps } from './SelectField';
 export { RichTextEditor } from './RichTextEditor';
+export { AppIcon, TabGlyph } from './AppIcon';
+export type { AppIconName } from './AppIcon';
+export { TabBar } from './TabBar';
+export type { TabId } from './TabBar';

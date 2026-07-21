@@ -27,7 +27,7 @@ export function AppChrome({
   bottomNav,
   style,
   statusBarStyle = 'dark',
-  bg = '#F4F6F9',
+  bg = '#F2F4F7',
 }: Props) {
   const L = useLayout();
 
@@ -68,9 +68,7 @@ export function AppChrome({
         </View>
       ) : null}
 
-      {bottomNav ? (
-        <View style={{ paddingBottom: L.footerPad, backgroundColor: bg }}>{bottomNav}</View>
-      ) : null}
+      {bottomNav ? <View style={styles.tabHost}>{bottomNav}</View> : null}
     </View>
   );
 }
@@ -79,13 +77,15 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     zIndex: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(16,33,51,0.08)',
-    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 0,
+    backgroundColor: '#F2F4F7',
   },
   body: { flex: 1, minHeight: 0 },
   footer: {
     zIndex: 30,
     elevation: 12,
+  },
+  tabHost: {
+    zIndex: 40,
   },
 });

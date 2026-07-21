@@ -162,8 +162,9 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
         {tab === 'odemeler' && yetki.odeme ? <StaffPayments /> : null}
       </View>
 
-      <View style={[st.tabBarWrap, { paddingBottom: L.footerPad, paddingHorizontal: L.padX - 6 }]}>
-        <View style={[st.tabBar, { minHeight: L.btnHeight + 4 }]}>
+      <View style={[st.tabBarWrap, { paddingBottom: L.footerPad }]}>
+        <View style={st.tabHairline} />
+        <View style={[st.tabBar, { minHeight: 52 }]}>
           {tabs.map((t) => {
             const active = tab === t.id;
             return (
@@ -171,19 +172,17 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
                 key={t.id}
                 style={st.tabItem}
                 onPress={() => setTab(t.id)}
-                accessibilityRole="button"
+                accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={t.label}
               >
                 <View style={[st.tabIconShell, active && st.tabIconShellOn]}>
                   <Text style={[st.tabIcon, active && st.tabIconOn]}>{t.icon}</Text>
                 </View>
-                <Text
-                  style={[st.tabLabel, { fontSize: L.font.xs }, active && st.tabLabelOn]}
-                  numberOfLines={1}
-                >
+                <Text style={[st.tabLabel, active && st.tabLabelOn]} numberOfLines={1}>
                   {t.label}
                 </Text>
+                {active ? <View style={st.tabDot} /> : <View style={st.tabDotSpacer} />}
               </Pressable>
             );
           })}
@@ -1204,84 +1203,100 @@ function AddPaymentModal({
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F6F9' },
+  safe: { flex: 1, backgroundColor: '#F2F4F7' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E1E6ED',
-    backgroundColor: '#F4F6F9',
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
+    backgroundColor: '#F2F4F7',
     zIndex: 20,
   },
-  headerEyebrow: { color: '#C96A2B', fontWeight: '800', letterSpacing: 1 },
-  headerTitle: { color: '#102133', fontWeight: '700', marginTop: 2 },
-  headerSub: { color: '#7A8B9C', marginTop: 2 },
+  headerEyebrow: { color: '#64748B', fontWeight: '600', letterSpacing: -0.1, fontSize: 12 },
+  headerTitle: { color: '#0F172A', fontWeight: '700', marginTop: 2, fontSize: 20, letterSpacing: -0.4 },
+  headerSub: { color: '#64748B', marginTop: 2, fontSize: 13 },
   logoutBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(245,138,69,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245,138,69,0.35)',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 0,
+    borderColor: 'transparent',
     minHeight: 40,
     justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  logoutText: { color: '#C96A2B', fontWeight: '800', fontSize: 12 },
+  logoutText: { color: '#C96A2B', fontWeight: '600', fontSize: 13 },
   body: { flex: 1, minHeight: 0 },
   tabBarWrap: {
-    backgroundColor: '#F4F6F9',
-    paddingTop: 6,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    paddingTop: 0,
     zIndex: 30,
-    elevation: 12,
+    elevation: 14,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+  },
+  tabHairline: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(15,23,42,0.1)',
   },
   tabBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E6ED',
-    marginBottom: 4,
-    borderRadius: 14,
+    alignItems: 'flex-start',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    marginBottom: 0,
+    borderRadius: 0,
     paddingHorizontal: 4,
-    paddingTop: 8,
-    paddingBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -2 },
-    elevation: 10,
+    paddingTop: 6,
+    paddingBottom: 2,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 4,
+    justifyContent: 'flex-start',
+    gap: 2,
+    paddingVertical: 2,
     minWidth: 0,
-    minHeight: 44,
+    minHeight: 48,
   },
   tabIconShell: {
-    width: 36,
+    width: 40,
     height: 28,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabIconShellOn: {
     backgroundColor: 'rgba(245,138,69,0.16)',
   },
-  tabIcon: { color: '#8093A7', fontSize: 14, lineHeight: 22, textAlign: 'center' },
+  tabIcon: { color: '#8E99A8', fontSize: 14, lineHeight: 22, textAlign: 'center' },
   tabIconOn: { color: '#F58A45' },
   tabLabel: {
-    color: '#8093A7',
-    fontWeight: '700',
+    color: '#8E99A8',
+    fontWeight: '600',
     textAlign: 'center',
     maxWidth: '100%',
+    fontSize: 10,
   },
-  tabLabelOn: { color: '#102133' },
-  scroll: { padding: 12, paddingBottom: 48 },
+  tabLabelOn: { color: '#0F172A', fontWeight: '700' },
+  tabDot: {
+    marginTop: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#EE7D31',
+  },
+  tabDotSpacer: { marginTop: 2, height: 4 },
+  scroll: { padding: 14, paddingBottom: 48 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { color: '#102133', fontSize: 13, fontWeight: '800', marginBottom: 10 },
+  sectionTitle: { color: '#0F172A', fontSize: 15, fontWeight: '700', marginBottom: 10, letterSpacing: -0.2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCard: {
     width: '47%',
@@ -1298,26 +1313,31 @@ const st = StyleSheet.create({
     marginTop: 12,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E1E6ED',
+    borderWidth: 0,
+    borderColor: 'transparent',
     padding: 14,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  cardTitle: { color: '#102133', fontSize: 15, fontWeight: '800' },
-  cardBody: { color: '#6D7D8E', fontSize: 14, marginTop: 6 },
-  meta: { color: '#7A8B9C', fontSize: 12, marginTop: 4 },
-  label: { color: '#7A8B9C', fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 },
+  cardTitle: { color: '#0F172A', fontSize: 16, fontWeight: '600', letterSpacing: -0.2 },
+  cardBody: { color: '#334155', fontSize: 14, marginTop: 6, lineHeight: 20 },
+  meta: { color: '#64748B', fontSize: 13, marginTop: 4 },
+  label: { color: '#64748B', fontSize: 12, fontWeight: '600', marginTop: 12, marginBottom: 6 },
   input: {
-    borderWidth: 1,
-    borderColor: '#E1E6ED',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.1)',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#102133',
-    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#0F172A',
+    fontSize: 16,
   },
-  primaryBtn: { backgroundColor: '#EE7D31', borderRadius: 12, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
-  primaryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  primaryBtn: { backgroundColor: '#EE7D31', borderRadius: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  primaryBtnText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
   quickRow: {
     marginTop: 8,
     padding: 14,

@@ -9,7 +9,7 @@ type Props = {
   elevated?: boolean;
 };
 
-/** Beyaz kart — ince kenarlık, hafif gölge, sıkı padding. */
+/** Native surface card — soft elevation, no hard web border. */
 export function Card({ children, style, padded = true, elevated = true }: Props) {
   return (
     <View
@@ -18,10 +18,10 @@ export function Card({ children, style, padded = true, elevated = true }: Props)
           backgroundColor: colors.background.card,
           borderRadius: radius.lg,
           padding: padded ? spacing.lg : 0,
-          borderWidth: 1,
-          borderColor: colors.border.input,
+          borderWidth: 0,
+          borderColor: 'transparent',
         },
-        elevated && shadow.soft,
+        elevated && shadow.card,
         style,
       ]}
     >

@@ -32,6 +32,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Button, Card, TextField, SelectField, VideoCallModal } from './src/components';
+import { AppIcon } from './src/components/AppIcon';
+import { TabBar, type TabId } from './src/components/TabBar';
 import { LegalLinks } from './src/components/LegalLinks';
 import { DateField, TimeField } from './src/components/DateTimeFields';
 import {
@@ -1428,53 +1430,29 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
 
   const listToRender = isOverview ? overviewList : dayAppointments;
 
+  const activeTab: TabId = isOverview
+    ? 'overview'
+    : isCalendar
+      ? 'calendar'
+      : isQuickClose
+        ? 'quickClose'
+        : isProfileTab
+          ? 'profile'
+          : isMenuTab
+            ? 'menu'
+            : 'menu';
+
   const bottomNav = (
-    <View
-      style={[
-        styles.bottomNavWrap,
-        {
-          // Never reduce system inset — Android 3-button nav sits under this
-          paddingBottom: L.footerPad,
-          paddingHorizontal: Math.max(L.padX - 8, 8),
-        },
-      ]}
-    >
-      <View style={[styles.bottomNav, { minHeight: L.btnHeight + 4 }]}>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('overview')}>
-          <View style={[styles.bottomNavIconShell, isOverview && styles.bottomNavIconShellActive]}>
-            <Text style={[styles.bottomNavIcon, isOverview && styles.bottomNavIconActive]}>⌂</Text>
-          </View>
-          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isOverview && styles.bottomNavLabelActive]}>Özet</Text>
-        </Pressable>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('calendar')}>
-          <View style={[styles.bottomNavIconShell, isCalendar && styles.bottomNavIconShellActive]}>
-            <Text style={[styles.bottomNavIcon, isCalendar && styles.bottomNavIconActive]}>▦</Text>
-          </View>
-          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isCalendar && styles.bottomNavLabelActive]}>Takvim</Text>
-        </Pressable>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('quickClose')}>
-          <View style={[styles.bottomNavIconShell, isQuickClose && styles.bottomNavIconShellActive, isQuickClose && styles.bottomNavIconShellDanger]}>
-            <Text style={[styles.bottomNavIcon, isQuickClose && styles.bottomNavIconDanger]}>⊘</Text>
-          </View>
-          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isQuickClose && styles.bottomNavLabelActive]}>Kapat</Text>
-        </Pressable>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('menu')}>
-          <View style={[styles.bottomNavIconShell, isMenuTab && styles.bottomNavIconShellActive]}>
-            <Text style={[styles.bottomNavIcon, isMenuTab && styles.bottomNavIconActive]}>☷</Text>
-          </View>
-          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isMenuTab && styles.bottomNavLabelActive]}>Menü</Text>
-        </Pressable>
-        <Pressable style={styles.bottomNavItem} onPress={() => setScreen('profile')}>
-          <View style={[styles.bottomNavIconShell, isProfileTab && styles.bottomNavIconShellActive]}>
-            <View style={[styles.profileNavIcon, isProfileTab && styles.profileNavIconActive]}>
-              <View style={[styles.profileNavHead, isProfileTab && styles.profileNavHeadActive]} />
-              <View style={[styles.profileNavBody, isProfileTab && styles.profileNavBodyActive]} />
-            </View>
-          </View>
-          <Text style={[styles.bottomNavLabel, { fontSize: L.font.xs }, isProfileTab && styles.bottomNavLabelActive]}>Profil</Text>
-        </Pressable>
-      </View>
-    </View>
+    <TabBar
+      active={activeTab}
+      onChange={(tab) => {
+        if (tab === 'overview') setScreen('overview');
+        else if (tab === 'calendar') setScreen('calendar');
+        else if (tab === 'quickClose') setScreen('quickClose');
+        else if (tab === 'menu') setScreen('menu');
+        else setScreen('profile');
+      }}
+    />
   );
 
   if (ModuleScreen) {
@@ -1529,10 +1507,10 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           </View>
           <View style={{ flexShrink: 1, justifyContent: 'center' }}>
             <Text style={styles.dashboardIdentityTitle} numberOfLines={1}>
-              Randevu Ajandam
+              {isOverview ? 'Bugün' : isCalendar ? 'Takvim' : 'Panel'}
             </Text>
             <Text style={styles.dashboardIdentitySubtitle} numberOfLines={1}>
-              HEKİM
+              {title}
             </Text>
           </View>
         </View>
@@ -1540,9 +1518,9 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           style={styles.headerNotifyBtn}
           onPress={() => setScreen('notifications')}
           accessibilityLabel="Bildirimler"
-          hitSlop={8}
+          hitSlop={10}
         >
-          <Text style={styles.headerNotifyIcon}>🔔</Text>
+          <AppIcon name="bell" size={20} color="#0F172A" />
           {unreadNotifications > 0 ? (
             <View
               style={[
@@ -1578,29 +1556,28 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
       >
           <>
             <View style={styles.dashboardHero}>
-              <View style={styles.dashboardHeroGlow} />
               <Text style={styles.dashboardEyebrow}>
-                {isOverview ? `${greeting.toLocaleUpperCase('tr-TR')} · GÜNLÜK ÖZET` : 'HAFTALIK TAKVİM'}
+                {isOverview ? greeting : 'Plan'}
               </Text>
               <Text style={styles.dashboardTitle}>
-                {isOverview ? `${title}` : 'Randevu Takvimi'}
+                {isOverview ? todayDateLabel : 'Randevu takvimi'}
               </Text>
               <Text style={styles.dashboardSpecialty}>
                 {isOverview
-                  ? `${todayDateLabel}${specialty ? ` · ${specialty}` : ''}`
-                  : 'Site panelindeki takvim gibi haftalık planınızı yönetin.'}
+                  ? specialty || 'Bugünkü programınız'
+                  : 'Gün ve hafta görünümü'}
               </Text>
               {isOverview ? (
                 <View style={styles.heroMetaRow}>
                   <View style={[styles.heroStatusPill, bookingOpen ? styles.heroStatusOpen : styles.heroStatusClosed]}>
                     <View style={[styles.heroStatusDot, bookingOpen ? styles.heroStatusDotOpen : styles.heroStatusDotClosed]} />
                     <Text style={styles.heroStatusText}>
-                      {bookingOpen ? 'Randevu alımı açık' : 'Randevu alımı kapalı'}
+                      {bookingOpen ? 'Alım açık' : 'Alım kapalı'}
                     </Text>
                   </View>
                   {(dashboardStats?.hafta_randevu ?? weekTotalFromCounts) > 0 ? (
                     <Text style={styles.heroMetaHint}>
-                      Bu hafta {dashboardStats?.hafta_randevu ?? weekTotalFromCounts} randevu
+                      Bu hafta {dashboardStats?.hafta_randevu ?? weekTotalFromCounts}
                     </Text>
                   ) : null}
                 </View>
@@ -3582,82 +3559,90 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     lineHeight: 17,
   },
-  dashboard: { flex: 1, backgroundColor: '#F4F6F9' },
+  dashboard: { flex: 1, backgroundColor: '#F2F4F7' },
   moduleBody: { flex: 1 },
   offlineBanner: {
-    backgroundColor: 'rgba(245,138,69,0.2)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(245,138,69,0.45)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(238,125,49,0.14)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(238,125,49,0.35)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
-  offlineBannerText: { color: '#C96A2B', fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  offlineBannerText: { color: '#C96A2B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
   dashboardHeader: {
     zIndex: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(16,33,51,0.07)',
+    borderBottomWidth: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    minHeight: 0,
+    backgroundColor: '#F2F4F7',
+    minHeight: 44,
   },
   dashboardIdentity: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     flex: 1,
     minWidth: 0,
     paddingRight: 8,
   },
   dashboardLogoShell: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
+    borderWidth: 0,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  dashboardLogo: { width: 20, height: 20, resizeMode: 'contain' },
+  dashboardLogo: { width: 24, height: 24, resizeMode: 'contain' },
   dashboardIdentityTitle: {
-    color: '#102133',
-    fontSize: 13,
+    color: '#0F172A',
+    fontSize: 17,
     fontWeight: '700',
-    letterSpacing: -0.15,
-    lineHeight: 16,
+    letterSpacing: -0.35,
+    lineHeight: 21,
   },
   dashboardIdentitySubtitle: {
-    color: '#C96A2B',
-    fontSize: 9,
-    letterSpacing: 0.8,
-    fontWeight: '700',
+    color: '#64748B',
+    fontSize: 12,
+    letterSpacing: -0.1,
+    fontWeight: '500',
     marginTop: 1,
-    lineHeight: 11,
+    lineHeight: 15,
   },
   dashboardAvatar: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(245,138,69,0.45)',
+    borderWidth: 0,
+    borderColor: 'transparent',
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   dashboardAvatarText: { color: '#F8B789', fontSize: 12, fontWeight: '700' },
   headerNotifyBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 0,
+    borderColor: 'transparent',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   headerNotifyIcon: {
     fontSize: 15,
@@ -3692,36 +3677,41 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     marginTop: Platform.OS === 'android' ? 0 : 0.5,
   },
-  dashboardContent: { flex: 1, minHeight: 0, paddingTop: 4 },
-  dashboardHero: { paddingHorizontal: 2, paddingVertical: 6, overflow: 'hidden' },
-  dashboardHeroGlow: { position: 'absolute', top: -86, right: -45, width: 190, height: 190, borderRadius: 95, backgroundColor: '#F58A45', opacity: 0.13 },
-  dashboardEyebrow: { color: '#C96A2B', fontSize: 11, fontWeight: '800', letterSpacing: 1.7 },
-  dashboardTitle: { color: '#102133', fontSize: 18, lineHeight: 24, fontWeight: '700', letterSpacing: -0.3, marginTop: 4 },
-  dashboardSpecialty: { color: '#6D7D8E', fontSize: 13, lineHeight: 18, marginTop: 4 },
-  heroMetaRow: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  dashboardContent: { flex: 1, minHeight: 0, paddingTop: 2 },
+  dashboardHero: { paddingHorizontal: 2, paddingVertical: 8, overflow: 'hidden' },
+  dashboardHeroGlow: { display: 'none' },
+  dashboardEyebrow: { color: '#64748B', fontSize: 13, fontWeight: '600', letterSpacing: -0.1, textTransform: 'capitalize' },
+  dashboardTitle: { color: '#0F172A', fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: -0.7, marginTop: 2 },
+  dashboardSpecialty: { color: '#64748B', fontSize: 15, lineHeight: 20, marginTop: 4, fontWeight: '400' },
+  heroMetaRow: { marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   heroStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 0,
   },
-  heroStatusOpen: { backgroundColor: 'rgba(77,189,140,0.12)', borderColor: 'rgba(77,189,140,0.35)' },
-  heroStatusClosed: { backgroundColor: 'rgba(224,104,122,0.12)', borderColor: 'rgba(224,104,122,0.35)' },
+  heroStatusOpen: { backgroundColor: '#E6F6ED', borderColor: 'transparent' },
+  heroStatusClosed: { backgroundColor: '#FEF2F2', borderColor: 'transparent' },
   heroStatusDot: { width: 7, height: 7, borderRadius: 4 },
-  heroStatusDotOpen: { backgroundColor: '#4DBD8C' },
-  heroStatusDotClosed: { backgroundColor: '#E0687A' },
-  heroStatusText: { color: '#102133', fontSize: 11, fontWeight: '700' },
-  heroMetaHint: { color: '#7A8B9C', fontSize: 12, fontWeight: '600' },
+  heroStatusDotOpen: { backgroundColor: '#1F9D55' },
+  heroStatusDotClosed: { backgroundColor: '#DC2626' },
+  heroStatusText: { color: '#0F172A', fontSize: 12, fontWeight: '600' },
+  heroMetaHint: { color: '#64748B', fontSize: 13, fontWeight: '500' },
   nextApptCard: {
-    marginTop: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(245,138,69,0.42)',
+    marginTop: 10,
+    borderRadius: 18,
+    borderWidth: 0,
+    borderColor: 'transparent',
     backgroundColor: '#FFFFFF',
-    padding: 12,
+    padding: 16,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   nextApptTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   nextApptEyebrow: { color: '#C96A2B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
@@ -4333,7 +4323,7 @@ const styles = StyleSheet.create({
   segmentButtonText: { color: '#7A8B9C', fontSize: 13, fontWeight: '700' },
   segmentButtonTextActive: { color: '#C96A2B' },
   bottomNavWrap: {
-    backgroundColor: '#F4F6F9',
+    backgroundColor: 'transparent',
     zIndex: 40,
     elevation: 16,
   },
@@ -4341,18 +4331,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E6ED',
-    marginBottom: 4,
-    borderRadius: 14,
-    paddingHorizontal: 6,
-    paddingTop: 4,
-    paddingBottom: 4,
-    shadowColor: '#102133',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -2 },
-    elevation: 8,
+    borderWidth: 0,
+    marginBottom: 0,
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   bottomNavItem: {
     flex: 1,
@@ -4360,7 +4344,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 3,
     paddingVertical: 4,
-    minHeight: 42,
+    minHeight: 48,
     minWidth: 0,
   },
   bottomNavIconShell: {
@@ -4405,20 +4389,38 @@ const styles = StyleSheet.create({
   },
   profileNavBodyActive: { backgroundColor: '#F58A45' },
   menuBack: { marginTop: 7, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 2 },
-  menuBackText: { color: '#C96A2B', fontSize: 14, fontWeight: '800' },
-  menuTitle: { color: '#102133', fontSize: 18, fontWeight: '700', letterSpacing: -0.3, marginTop: 6 },
-  menuDescription: { color: '#8A98A8', fontSize: 12, lineHeight: 17, marginTop: 4 },
-  menuGroup: { marginTop: 14 },
-  menuGroupTitle: { color: '#C96A2B', fontSize: 10, fontWeight: '700', letterSpacing: 0.9, marginBottom: 6, marginLeft: 2, textTransform: 'uppercase' },
-  menuCard: { borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1E6ED', overflow: 'hidden' },
-  menuItem: { minHeight: 48, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
-  menuItemBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8EDF3' },
-  menuIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245,138,69,0.1)' },
-  menuIcon: { color: '#C96A2B', fontSize: 14, fontWeight: '700' },
-  menuItemCopy: { flex: 1, marginLeft: 10 },
-  menuItemTitle: { color: '#102133', fontSize: 13, fontWeight: '700' },
-  menuItemDescription: { color: '#7A8B9C', fontSize: 11, marginTop: 1 },
-  menuChevron: { color: '#8A98A8', fontSize: 18, fontWeight: '300' },
-  menuSignOut: { alignItems: 'center', paddingVertical: 12, marginTop: 14, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(224,104,122,0.28)', backgroundColor: 'rgba(224,104,122,0.08)' },
-  menuSignOutText: { color: '#C13C2C', fontSize: 13, fontWeight: '700' },
+  menuBackText: { color: '#C96A2B', fontSize: 17, fontWeight: '400' },
+  menuTitle: { color: '#0F172A', fontSize: 28, fontWeight: '700', letterSpacing: -0.7, marginTop: 4 },
+  menuDescription: { color: '#64748B', fontSize: 14, lineHeight: 19, marginTop: 4 },
+  menuGroup: { marginTop: 18 },
+  menuGroupTitle: { color: '#64748B', fontSize: 13, fontWeight: '600', letterSpacing: -0.1, marginBottom: 8, marginLeft: 12, textTransform: 'none' },
+  menuCard: {
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 0,
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  menuItem: { minHeight: 56, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },
+  menuItemBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(15,23,42,0.08)' },
+  menuIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245,138,69,0.12)' },
+  menuIcon: { color: '#C96A2B', fontSize: 15, fontWeight: '700' },
+  menuItemCopy: { flex: 1, marginLeft: 12 },
+  menuItemTitle: { color: '#0F172A', fontSize: 16, fontWeight: '500', letterSpacing: -0.2 },
+  menuItemDescription: { color: '#64748B', fontSize: 13, marginTop: 2 },
+  menuChevron: { color: '#94A3B8', fontSize: 20, fontWeight: '300' },
+  menuSignOut: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 18,
+    marginBottom: 10,
+    borderRadius: 14,
+    borderWidth: 0,
+    backgroundColor: '#FEF2F2',
+  },
+  menuSignOutText: { color: '#DC2626', fontSize: 16, fontWeight: '600' },
 });

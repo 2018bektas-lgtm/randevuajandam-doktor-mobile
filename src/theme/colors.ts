@@ -1,60 +1,56 @@
 /**
- * Randevu Ajandam Doktor — açık (light) tema paleti.
- * Sayfa: soft gri-mavi · kart: beyaz · vurgu: marka turuncu · metin: lacivert gri.
+ * Native-first light palette (iOS grouped + Material soft surface).
+ * Less “marketing website”, more system app.
  */
 export const colors = {
   background: {
-    /** Ana ekran zemin */
-    primary: '#F4F6F9',
-    /** Daha koyu paneller / alt katman */
-    deep: '#EEF1F6',
-    /** İçerik şeridi */
-    surface: '#F7F8FC',
-    /** Kart / sheet */
+    /** Grouped list canvas */
+    primary: '#F2F4F7',
+    deep: '#E8ECF1',
+    surface: '#F7F8FA',
     card: '#FFFFFF',
-    /** Input içi */
     inputSurface: '#FFFFFF',
+    elevated: '#FFFFFF',
   },
   navy: {
-    /** Başlık / güçlü metin */
-    900: '#102133',
-    /** İkincil yüzey (chip, soft panel) */
+    900: '#0F172A',
     800: '#F1F5F9',
     700: '#E2E8F0',
     600: '#CBD5E1',
     500: '#94A3B8',
-    border: '#E1E6ED',
+    border: 'rgba(15,23,42,0.08)',
   },
   brand: {
     orange: '#EE7D31',
-    orangeDark: '#E66D25',
-    orangeDeep: '#D85F18',
+    orangeDark: '#E06620',
+    orangeDeep: '#C95716',
     orangeGlow: '#F0782C',
-    orangeSoft: '#C96A2B',
-    orangeLight: '#F59A5F',
+    orangeSoft: '#D9772A',
+    orangeLight: '#F5A46A',
   },
   status: {
-    success: '#2E9E5B',
-    successBg: '#E8F7EE',
-    warning: '#BA5015',
-    warningBg: '#FFF1E9',
+    success: '#1F9D55',
+    successBg: '#E6F6ED',
+    warning: '#B45309',
+    warningBg: '#FFF7ED',
     warningDot: '#E97029',
-    error: '#C13C2C',
-    errorBg: '#FBE9E7',
+    error: '#DC2626',
+    errorBg: '#FEF2F2',
   },
   text: {
     onDark: '#FFFFFF',
     onDarkMuted: '#E2E8F0',
     onDarkSubtle: '#94A3B8',
-    heading: '#102133',
-    body: '#39495B',
-    muted: '#6D7D8E',
-    mutedLight: '#95A2B5',
-    link: '#C96A2B',
+    heading: '#0F172A',
+    body: '#334155',
+    muted: '#64748B',
+    mutedLight: '#94A3B8',
+    link: '#D9772A',
   },
   border: {
-    input: '#E1E6ED',
-    soft: '#E8EDF3',
+    input: 'rgba(15,23,42,0.1)',
+    soft: 'rgba(15,23,42,0.06)',
+    hairline: 'rgba(15,23,42,0.08)',
   },
   white: '#FFFFFF',
   black: '#000000',
