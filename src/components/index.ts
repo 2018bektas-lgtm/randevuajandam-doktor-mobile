@@ -10,4 +10,15 @@ export { AppIcon, TabGlyph, IconBadge } from './AppIcon';
 export type { AppIconName } from './AppIcon';
 export { TabBar } from './TabBar';
 export type { TabId } from './TabBar';
-export { ListRow, SectionHeader, MetricTile, StatusChip, EmptyContent } from './ContentUI';
+export {
+  ListRow,
+  SectionHeader,
+  MetricTile,
+  StatusChip,
+  EmptyContent,
+  SoftAction,
+  AppointmentTile,
+  SearchField,
+  HeaderIconButton,
+  Surface,
+} from './ContentUI';

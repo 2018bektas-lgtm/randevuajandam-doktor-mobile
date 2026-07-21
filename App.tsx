@@ -33,7 +33,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Button, Card, TextField, SelectField, VideoCallModal } from './src/components';
 import { AppIcon } from './src/components/AppIcon';
-import { MetricTile, SectionHeader, StatusChip } from './src/components/ContentUI';
+import {
+  AppointmentTile,
+  HeaderIconButton,
+  MetricTile,
+  SectionHeader,
+} from './src/components/ContentUI';
 import { TabBar, type TabId } from './src/components/TabBar';
 import { LegalLinks } from './src/components/LegalLinks';
 import { DateField, TimeField } from './src/components/DateTimeFields';
@@ -1529,13 +1534,8 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
             </Text>
           </View>
         </View>
-        <Pressable
-          style={styles.headerNotifyBtn}
-          onPress={() => setScreen('notifications')}
-          accessibilityLabel="Bildirimler"
-          hitSlop={10}
-        >
-          <AppIcon name="bellOutline" size={22} color="#FFFFFF" />
+        <View style={styles.headerNotifyWrap}>
+          <HeaderIconButton name="bellOutline" onPress={() => setScreen('notifications')} />
           {unreadNotifications > 0 ? (
             <View
               style={[
@@ -1548,7 +1548,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
               </Text>
             </View>
           ) : null}
-        </Pressable>
+        </View>
       </LinearGradient>
 
       <ScrollView
@@ -1994,7 +1994,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                 <View style={styles.calHero}>
                   <View style={styles.calHeroTop}>
                     <Pressable style={styles.calNavBtn} onPress={() => changeWeek(-1)} hitSlop={8}>
-                      <Text style={styles.calNavBtnText}>‹</Text>
+                      <AppIcon name="chevronLeft" size={20} color="#0F172A" />
                     </Pressable>
                     <View style={styles.calHeroTitleWrap}>
                       <Text style={styles.calHeroMonth}>
@@ -2003,7 +2003,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                       <Text style={styles.calHeroYear}>{selectedCalendarDate.getFullYear()}</Text>
                     </View>
                     <Pressable style={styles.calNavBtn} onPress={() => changeWeek(1)} hitSlop={8}>
-                      <Text style={styles.calNavBtnText}>›</Text>
+                      <AppIcon name="chevronRight" size={20} color="#0F172A" />
                     </Pressable>
                   </View>
 
@@ -2414,71 +2414,28 @@ function AppointmentCard({
   onReschedule: () => void;
   onOpenDetail?: () => void;
 }) {
-  const timeLabel = appointment.bitis_saat
-    ? `${formatTime(appointment.saat)} – ${formatTime(appointment.bitis_saat)}`
-    : formatTime(appointment.saat);
-  const dateLabel = (appointment.tarih || '').split('-').reverse().join('.');
-  const statusColor = APPOINTMENT_STATUS_COLOR[appointment.durum];
-
+  const canAct = appointment.durum === 'beklemede' || appointment.durum === 'onaylandi';
   return (
-    <Pressable
-      style={[styles.appointmentCard, { borderLeftColor: statusColor, borderLeftWidth: 3 }]}
+    <AppointmentTile
+      time={formatTime(appointment.saat)}
+      endTime={appointment.bitis_saat ? formatTime(appointment.bitis_saat) : null}
+      date={(appointment.tarih || '').split('-').reverse().join('.')}
+      patient={appointment.hasta_adi || 'Hasta'}
+      service={appointment.hizmet}
+      statusLabel={APPOINTMENT_STATUS_LABEL[appointment.durum]}
+      statusColor={APPOINTMENT_STATUS_COLOR[appointment.durum]}
+      online={appointment.gorusme_tipi === 'online' || !!appointment.online_mi}
+      phone={appointment.telefon}
+      compact={compact}
+      busy={busy}
       onPress={onOpenDetail}
-      onLongPress={onReschedule}
-      delayLongPress={380}
-    >
-      <View style={styles.appointmentCardHeader}>
-        <Text style={styles.appointmentTime}>
-          {timeLabel} · {dateLabel}
-        </Text>
-        <View style={[styles.appointmentStatusPill, { backgroundColor: `${statusColor}22` }]}>
-          <Text style={[styles.appointmentStatusText, { color: statusColor }]}>
-            {APPOINTMENT_STATUS_LABEL[appointment.durum]}
-          </Text>
-        </View>
-      </View>
-      <Text style={styles.appointmentPatient}>{appointment.hasta_adi || 'Hasta'}</Text>
-      {appointment.hizmet ? <Text style={styles.appointmentService}>{appointment.hizmet}</Text> : null}
-      {appointment.gorusme_tipi === 'online' || appointment.online_mi ? (
-        <Text style={styles.appointmentMeta}>Online görüşme</Text>
-      ) : null}
-      {appointment.telefon ? <Text style={styles.appointmentPhone}>{appointment.telefon}</Text> : null}
-
-      {!compact && (appointment.durum === 'beklemede' || appointment.durum === 'onaylandi') ? (
-        <View style={styles.appointmentActions}>
-          {appointment.durum === 'beklemede' ? (
-            <Pressable
-              disabled={busy}
-              style={[styles.appointmentActionButton, styles.appointmentActionConfirm]}
-              onPress={() => onUpdateStatus('onaylandi')}
-            >
-              <Text style={styles.appointmentActionText}>Onayla</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            disabled={busy}
-            style={[styles.appointmentActionButton, styles.appointmentActionReschedule]}
-            onPress={onReschedule}
-          >
-            <Text style={styles.appointmentActionText}>Ertele</Text>
-          </Pressable>
-          <Pressable
-            disabled={busy}
-            style={[styles.appointmentActionButton, styles.appointmentActionComplete]}
-            onPress={() => onUpdateStatus('tamamlandi')}
-          >
-            <Text style={styles.appointmentActionText}>Tamam</Text>
-          </Pressable>
-          <Pressable
-            disabled={busy}
-            style={[styles.appointmentActionButton, styles.appointmentActionCancel]}
-            onPress={() => onUpdateStatus('iptal')}
-          >
-            <Text style={styles.appointmentActionText}>İptal</Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </Pressable>
+      onConfirm={
+        !compact && appointment.durum === 'beklemede' ? () => onUpdateStatus('onaylandi') : undefined
+      }
+      onReschedule={!compact && canAct ? onReschedule : undefined}
+      onComplete={!compact && canAct ? () => onUpdateStatus('tamamlandi') : undefined}
+      onCancel={!compact && canAct ? () => onUpdateStatus('iptal') : undefined}
+    />
   );
 }
 
@@ -3679,6 +3636,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dashboardAvatarText: { color: '#F8B789', fontSize: 12, fontWeight: '700' },
+  headerNotifyWrap: {
+    position: 'relative',
+  },
   headerNotifyBtn: {
     width: 42,
     height: 42,
@@ -4216,59 +4176,66 @@ const styles = StyleSheet.create({
   },
   retryButtonText: { color: '#C96A2B', fontSize: 13, fontWeight: '800' },
   appointmentCard: {
-    borderWidth: 1,
-    borderColor: '#E1E6ED',
+    borderWidth: 0,
+    borderColor: 'transparent',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 6,
+    borderRadius: 18,
+    padding: 0,
+    marginTop: 0,
   },
   appointmentCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  appointmentTime: { color: '#C96A2B', fontSize: 13, fontWeight: '800', letterSpacing: 0.4, flexShrink: 1 },
+  appointmentTime: { color: '#0F172A', fontSize: 14, fontWeight: '700', letterSpacing: -0.2, flexShrink: 1 },
   appointmentStatusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 },
-  appointmentStatusText: { fontSize: 12, fontWeight: '800' },
-  appointmentPatient: { color: '#102133', fontSize: 15, fontWeight: '700', marginTop: 6 },
-  appointmentService: { color: '#6D7D8E', fontSize: 14, marginTop: 4 },
-  appointmentMeta: { color: '#2E9E5B', fontSize: 12, fontWeight: '700', marginTop: 4 },
-  appointmentPhone: { color: '#7F8FA0', fontSize: 13, marginTop: 4 },
-  appointmentActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  appointmentActionButton: { minWidth: '22%', flexGrow: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
-  appointmentActionConfirm: { backgroundColor: 'rgba(77,189,140,0.18)' },
-  appointmentActionReschedule: { backgroundColor: 'rgba(243,162,107,0.18)' },
-  appointmentActionComplete: { backgroundColor: 'rgba(124,166,224,0.18)' },
-  appointmentActionCancel: { backgroundColor: 'rgba(224,104,122,0.18)' },
-  appointmentActionText: { color: '#102133', fontSize: 12, fontWeight: '700' },
+  appointmentStatusText: { fontSize: 12, fontWeight: '700' },
+  appointmentPatient: { color: '#0F172A', fontSize: 17, fontWeight: '600', marginTop: 6 },
+  appointmentService: { color: '#64748B', fontSize: 14, marginTop: 4 },
+  appointmentMeta: { color: '#1F9D55', fontSize: 12, fontWeight: '600', marginTop: 4 },
+  appointmentPhone: { color: '#64748B', fontSize: 13, marginTop: 4 },
+  appointmentActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  appointmentActionButton: {
+    minWidth: '22%',
+    flexGrow: 1,
+    minHeight: 40,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appointmentActionConfirm: { backgroundColor: 'rgba(31,157,85,0.14)' },
+  appointmentActionReschedule: { backgroundColor: 'rgba(238,125,49,0.14)' },
+  appointmentActionComplete: { backgroundColor: 'rgba(37,99,235,0.12)' },
+  appointmentActionCancel: { backgroundColor: 'rgba(220,38,38,0.12)' },
+  appointmentActionText: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(16, 33, 51, 0.42)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
     paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 24) + 8 : 20,
   },
   modalSheetWrap: { maxHeight: '92%' },
   modalSheet: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: '#E1E6ED',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 0,
+    borderColor: 'transparent',
     maxHeight: '92%',
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EDF3',
-  },
-  modalTitle: { color: '#102133', fontSize: 15, fontWeight: '700' },
-  modalClose: { color: '#C96A2B', fontSize: 14, fontWeight: '800' },
-  modalBody: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingTop: 14,
-    // Android system nav — extra space for sheet actions
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(15,23,42,0.08)',
+  },
+  modalTitle: { color: '#0F172A', fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  modalClose: { color: '#C96A2B', fontSize: 16, fontWeight: '600' },
+  modalBody: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: Platform.OS === 'ios' ? 36 : 48,
   },
   modalLabel: { color: '#8A98A8', fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 8 },

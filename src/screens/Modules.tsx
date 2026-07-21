@@ -25,7 +25,14 @@ import { RichTextEditor } from '../components/RichTextEditor';
 
 import type { ModuleProps, ScreenId } from '../navigation/types';
 import { AppIcon } from '../components/AppIcon';
-import { EmptyContent, ListRow, StatusChip } from '../components/ContentUI';
+import {
+  EmptyContent,
+  HeaderIconButton,
+  ListRow,
+  SearchField,
+  SoftAction,
+  StatusChip,
+} from '../components/ContentUI';
 import { ReferralScreen } from './Referral';
 import { ScreenShell } from '../ui/Screen';
 import { moduleStyles as s } from '../ui/styles';
@@ -224,10 +231,11 @@ function FormModal({
           style={{ maxHeight: '92%' }}
         >
           <View style={s.modalSheet}>
+            <View style={s.modalGrabber} />
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>{title}</Text>
-              <Pressable onPress={onClose}>
-                <Text style={s.modalClose}>Kapat</Text>
+              <Pressable onPress={onClose} hitSlop={10} style={s.modalCloseBtn}>
+                <AppIcon name="close" size={20} color="#64748B" />
               </Pressable>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.modalBody}>
@@ -777,31 +785,27 @@ export function PatientsScreen({ onBack }: ModuleProps) {
       loading={loading}
       refreshing={refreshing}
       onRefresh={onRefresh}
-      rightAction={
-        <Pressable onPress={() => setModalOpen(true)}>
-          <Text style={s.modalClose}>+ Ekle</Text>
-        </Pressable>
-      }
+      rightAction={<HeaderIconButton name="plus" onPress={() => setModalOpen(true)} />}
     >
-      <TextInput
-        style={s.searchInput}
+      <SearchField
         value={query}
         onChangeText={setQuery}
         placeholder="Ad, telefon veya e-posta ara…"
-        placeholderTextColor="#6B7F93"
-        autoCapitalize="none"
-        onSubmitEditing={() => setSearch(query.trim())}
-        returnKeyType="search"
-      />
-      <Pressable
-        style={[s.secondaryButton, { marginTop: 10 }]}
-        onPress={() => {
+        onSubmit={() => {
           setPage(1);
           setSearch(query.trim());
         }}
-      >
-        <Text style={s.secondaryButtonText}>Ara</Text>
-      </Pressable>
+      />
+      <View style={{ marginTop: 10 }}>
+        <SoftAction
+          label="Ara"
+          icon="search"
+          onPress={() => {
+            setPage(1);
+            setSearch(query.trim());
+          }}
+        />
+      </View>
       {total > 0 ? (
         <Text style={s.hint}>
           Toplam {total} · Sayfa {page}/{lastPage}
@@ -810,42 +814,43 @@ export function PatientsScreen({ onBack }: ModuleProps) {
 
       {items.length === 0 ? (
         <EmptyState
+          icon="people"
           title="Danışan bulunamadı"
           text="Arama kriterinizi değiştirin veya yeni danışan ekleyin."
         />
       ) : (
         items.map((p) => (
-          <Pressable key={p.id} style={s.card} onPress={() => void openDetail(p.id)}>
-            <Text style={s.cardTitle}>
-              {p.ad} {p.soyad}
-            </Text>
-            <Text style={s.cardMeta}>{p.telefon || 'Telefon yok'}</Text>
-            {p.e_posta ? <Text style={s.cardMeta}>{p.e_posta}</Text> : null}
-            {typeof p.randevu_sayisi === 'number' ? (
-              <Text style={s.cardMeta}>{p.randevu_sayisi} randevu · detay için dokunun</Text>
-            ) : (
-              <Text style={s.hint}>Detay için dokunun</Text>
-            )}
-          </Pressable>
+          <ListRow
+            key={p.id}
+            icon="people"
+            title={`${p.ad} ${p.soyad}`.trim()}
+            subtitle={p.telefon || p.e_posta || 'İletişim yok'}
+            meta={
+              typeof p.randevu_sayisi === 'number'
+                ? `${p.randevu_sayisi} randevu`
+                : 'Detay için dokunun'
+            }
+            onPress={() => void openDetail(p.id)}
+          />
         ))
       )}
 
       {lastPage > 1 ? (
         <View style={s.actions}>
-          <Pressable
-            style={[s.actionBtn, page <= 1 && { opacity: 0.4 }]}
+          <SoftAction
+            label="Önceki"
+            icon="chevronLeft"
+            tone="neutral"
             disabled={page <= 1}
             onPress={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <Text style={s.actionBtnText}>‹ Önceki</Text>
-          </Pressable>
-          <Pressable
-            style={[s.actionBtn, page >= lastPage && { opacity: 0.4 }]}
+          />
+          <SoftAction
+            label="Sonraki"
+            icon="chevronRight"
+            tone="neutral"
             disabled={page >= lastPage}
             onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
-          >
-            <Text style={s.actionBtnText}>Sonraki ›</Text>
-          </Pressable>
+          />
         </View>
       ) : null}
 
@@ -7778,8 +7783,8 @@ function NotificationRow({
   const unread = !item.read_at;
   return (
     <View style={[notifStyles.row, unread && notifStyles.rowUnread]}>
-      <View style={notifStyles.dotCol}>
-        {unread ? <View style={notifStyles.dot} /> : <View style={notifStyles.dotEmpty} />}
+      <View style={[notifStyles.iconWrap, unread && notifStyles.iconWrapUnread]}>
+        <AppIcon name={unread ? 'bell' : 'bellOutline'} size={18} color={unread ? '#EE7D31' : '#94A3B8'} />
       </View>
       <View style={notifStyles.copy}>
         <Text style={[notifStyles.title, unread && notifStyles.titleUnread]} numberOfLines={1}>
@@ -7803,7 +7808,7 @@ function NotificationRow({
             onPress={() => onMarkRead(item.id)}
             accessibilityLabel="Okundu işaretle"
           >
-            <Text style={notifStyles.iconTxt}>✓</Text>
+            <AppIcon name="check" size={16} color="#1F9D55" />
           </Pressable>
         ) : null}
         <Pressable
@@ -7813,7 +7818,7 @@ function NotificationRow({
           onPress={() => onDelete(item.id)}
           accessibilityLabel="Bildirimi sil"
         >
-          <Text style={notifStyles.iconTxt}>×</Text>
+          <AppIcon name="close" size={16} color="#DC2626" />
         </Pressable>
       </View>
     </View>
@@ -7822,20 +7827,36 @@ function NotificationRow({
 
 const notifStyles = {
   row: {
-    marginTop: 6,
+    marginTop: 10,
     flexDirection: 'row' as const,
-    alignItems: 'flex-start' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    gap: 8,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 12,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   rowUnread: {
-    borderColor: 'rgba(238,125,49,0.35)',
+    borderColor: 'transparent',
     backgroundColor: '#FFFBF7',
+  },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  iconWrapUnread: {
+    backgroundColor: 'rgba(238,125,49,0.14)',
   },
   dotCol: { width: 10, paddingTop: 5, alignItems: 'center' as const },
   dot: {
