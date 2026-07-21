@@ -24,6 +24,8 @@ import { SelectField } from '../components/SelectField';
 import { RichTextEditor } from '../components/RichTextEditor';
 
 import type { ModuleProps, ScreenId } from '../navigation/types';
+import { AppIcon } from '../components/AppIcon';
+import { EmptyContent, ListRow, StatusChip } from '../components/ContentUI';
 import { ReferralScreen } from './Referral';
 import { ScreenShell } from '../ui/Screen';
 import { moduleStyles as s } from '../ui/styles';
@@ -252,13 +254,16 @@ function FormModal({
   );
 }
 
-function EmptyState({ title, text }: { title: string; text: string }) {
-  return (
-    <View style={s.empty}>
-      <Text style={s.emptyTitle}>{title}</Text>
-      <Text style={s.emptyText}>{text}</Text>
-    </View>
-  );
+function EmptyState({
+  title,
+  text,
+  icon = 'document',
+}: {
+  title: string;
+  text: string;
+  icon?: import('../components/AppIcon').AppIconName;
+}) {
+  return <EmptyContent icon={icon} title={title} text={text} />;
 }
 
 function useModuleList<T>(loader: () => Promise<T[]>) {
@@ -346,21 +351,35 @@ export function RequestsScreen({ onBack }: ModuleProps) {
       onRefresh={onRefresh}
     >
       {items.length === 0 ? (
-        <EmptyState title="Bekleyen talep yok" text="Yeni randevu talepleri burada listelenir." />
+        <EmptyState
+          icon="requests"
+          title="Bekleyen talep yok"
+          text="Yeni randevu talepleri burada listelenir."
+        />
       ) : (
         items.map((item) => (
           <View key={item.id} style={s.card}>
             <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{item.hasta_adi || 'Danışan'}</Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>Bekliyor</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={s.contentIconBadge}>
+                  <AppIcon name="people" size={18} color="#EE7D31" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.cardTitle}>{item.hasta_adi || 'Danışan'}</Text>
+                  <Text style={s.cardMeta}>
+                    {item.tarih} · {timeSlice(item.saat)}
+                    {item.hizmet ? ` · ${item.hizmet}` : ''}
+                  </Text>
+                </View>
               </View>
+              <StatusChip label="Bekliyor" tone="warning" />
             </View>
-            <Text style={s.cardMeta}>
-              {item.tarih} · {timeSlice(item.saat)}
-              {item.hizmet ? ` · ${item.hizmet}` : ''}
-            </Text>
-            {item.telefon ? <Text style={s.cardMeta}>{item.telefon}</Text> : null}
+            {item.telefon ? (
+              <Pressable style={s.inlineContact} onPress={() => openPhone(item.telefon)}>
+                <AppIcon name="call" size={14} color="#64748B" />
+                <Text style={s.cardMeta}>{item.telefon}</Text>
+              </Pressable>
+            ) : null}
             {item.not ? <Text style={s.cardBody}>{item.not}</Text> : null}
             <View style={s.actions}>
               <Pressable
@@ -368,6 +387,7 @@ export function RequestsScreen({ onBack }: ModuleProps) {
                 disabled={busyId === item.id}
                 onPress={() => void setStatus(item.id, 'onaylandi')}
               >
+                <AppIcon name="check" size={16} color="#1F9D55" />
                 <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>
                   {busyId === item.id ? '…' : 'Onayla'}
                 </Text>
@@ -377,6 +397,7 @@ export function RequestsScreen({ onBack }: ModuleProps) {
                 disabled={busyId === item.id}
                 onPress={() => void setStatus(item.id, 'iptal')}
               >
+                <AppIcon name="close" size={16} color="#DC2626" />
                 <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Reddet</Text>
               </Pressable>
             </View>
@@ -6686,7 +6707,7 @@ export function ClinicScreen({ onBack }: ModuleProps) {
 // --- Menu ---
 
 type MenuItem = {
-  icon: string;
+  icon: import('../components/AppIcon').AppIconName;
   title: string;
   description: string;
   screen: ScreenId;
@@ -6703,41 +6724,41 @@ const MENU_GROUPS: MenuGroup[] = [
   {
     title: 'Randevu & Hastalar',
     items: [
-      { icon: '▦', title: 'Takvimim', description: 'Randevular ve günlük plan', screen: 'calendar' },
-      { icon: '◷', title: 'Randevu Talepleri', description: 'Onay bekleyen başvurular', screen: 'requests', feature: 'randevu_talepleri' },
-      { icon: '☺', title: 'Hasta Kayıtları', description: 'Hastalar ve geçmişleri', screen: 'patients' },
-      { icon: '◷', title: 'Bekleme Listesi', description: 'Boşalan randevuları doldurun', screen: 'waitlist' },
-      { icon: '⛔', title: 'Hızlı Kapat', description: 'Saat dilimlerini kapat / aç', screen: 'quickClose' },
-      { icon: '✈', title: 'İzin / Tatil', description: 'Müsait olmadığınız aralıklar', screen: 'leaves' },
-      { icon: '◷', title: 'Çalışma Saatleri', description: 'Haftalık çalışma planı', screen: 'workingHours' },
-      { icon: '⚙', title: 'Randevu Ayarları', description: 'Periyot, onay ve bildirimler', screen: 'settings' },
+      { icon: 'calendar', title: 'Takvimim', description: 'Randevular ve günlük plan', screen: 'calendar' },
+      { icon: 'requests', title: 'Randevu Talepleri', description: 'Onay bekleyen başvurular', screen: 'requests', feature: 'randevu_talepleri' },
+      { icon: 'people', title: 'Hasta Kayıtları', description: 'Hastalar ve geçmişleri', screen: 'patients' },
+      { icon: 'waitlist', title: 'Bekleme Listesi', description: 'Boşalan randevuları doldurun', screen: 'waitlist' },
+      { icon: 'block', title: 'Hızlı Kapat', description: 'Saat dilimlerini kapat / aç', screen: 'quickClose' },
+      { icon: 'time', title: 'İzin / Tatil', description: 'Müsait olmadığınız aralıklar', screen: 'leaves' },
+      { icon: 'time', title: 'Çalışma Saatleri', description: 'Haftalık çalışma planı', screen: 'workingHours' },
+      { icon: 'settings', title: 'Randevu Ayarları', description: 'Periyot, onay ve bildirimler', screen: 'settings' },
     ],
   },
   {
     title: 'İçerik & Hizmetler',
     items: [
-      { icon: '✦', title: 'Hizmet ve Tedaviler', description: 'Hizmet, süre ve fiyatlar', screen: 'services' },
-      { icon: '✎', title: 'Blog Yazılarım', description: 'Yayınlarınızı yönetin', screen: 'blogs', feature: 'blog' },
-      { icon: '★', title: 'Hasta Yorumları', description: 'Yorumları inceleyin ve yanıtlayın', screen: 'reviews', feature: 'yorum' },
-      { icon: '▣', title: 'Fotoğraf Galerisi', description: 'Profil galerinizi düzenleyin', screen: 'gallery', feature: 'galeri' },
-      { icon: '?', title: 'Sıkça Sorulan Sorular', description: 'SSS içeriğinizi yönetin', screen: 'faq', feature: 'faq' },
-      { icon: '🎓', title: 'Eğitimler', description: 'Kurs ve webinarlar', screen: 'education', feature: 'egitimler' },
-      { icon: '✉', title: 'Eğitim Başvuruları', description: 'Başvuruları onaylayın', screen: 'educationApps', feature: 'egitimler' },
+      { icon: 'list', title: 'Hizmet ve Tedaviler', description: 'Hizmet, süre ve fiyatlar', screen: 'services' },
+      { icon: 'blog', title: 'Blog Yazılarım', description: 'Yayınlarınızı yönetin', screen: 'blogs', feature: 'blog' },
+      { icon: 'star', title: 'Hasta Yorumları', description: 'Yorumları inceleyin ve yanıtlayın', screen: 'reviews', feature: 'yorum' },
+      { icon: 'gallery', title: 'Fotoğraf Galerisi', description: 'Profil galerinizi düzenleyin', screen: 'gallery', feature: 'galeri' },
+      { icon: 'document', title: 'Sıkça Sorulan Sorular', description: 'SSS içeriğinizi yönetin', screen: 'faq', feature: 'faq' },
+      { icon: 'education', title: 'Eğitimler', description: 'Kurs ve webinarlar', screen: 'education', feature: 'egitimler' },
+      { icon: 'mail', title: 'Eğitim Başvuruları', description: 'Başvuruları onaylayın', screen: 'educationApps', feature: 'egitimler' },
     ],
   },
   {
     title: 'İşletme & Hesap',
     items: [
-      { icon: '₺', title: 'Finans', description: 'Gelir, gider ve bakiyeler', screen: 'finance', feature: 'finans' },
-      { icon: '⌂', title: 'Klinik', description: 'Ekip, duyuru ve hasta havuzu', screen: 'clinic' },
-      { icon: '🎁', title: 'Referans programı', description: 'Davet linki ve ödül günleri', screen: 'referral' },
-      { icon: '●', title: 'Profil', description: 'Kişisel ve iletişim bilgileri', screen: 'profile' },
-      { icon: '🔑', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
-      { icon: '🛡', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
-      { icon: '🔔', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
-      { icon: '📦', title: 'Paket & Abonelik', description: 'Paket seçimi ve abonelik', screen: 'packages' },
-      { icon: 'ℹ', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about', feature: 'hakkimda' },
-      { icon: '🌐', title: 'Web Sitesi', description: 'Site bilgisi ve panel bağlantısı', screen: 'website', feature: 'web_sitesi' },
+      { icon: 'finance', title: 'Finans', description: 'Gelir, gider ve bakiyeler', screen: 'finance', feature: 'finans' },
+      { icon: 'clinic', title: 'Klinik', description: 'Ekip, duyuru ve hasta havuzu', screen: 'clinic' },
+      { icon: 'referral', title: 'Referans programı', description: 'Davet linki ve ödül günleri', screen: 'referral' },
+      { icon: 'profile', title: 'Profil', description: 'Kişisel ve iletişim bilgileri', screen: 'profile' },
+      { icon: 'lock', title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' },
+      { icon: 'lock', title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' },
+      { icon: 'bell', title: 'Bildirimler', description: 'Push ve uygulama bildirimleri', screen: 'notifications' },
+      { icon: 'package', title: 'Paket & Abonelik', description: 'Paket seçimi ve abonelik', screen: 'packages' },
+      { icon: 'document', title: 'Hakkımda', description: 'Biyografi ve branşlar', screen: 'about', feature: 'hakkimda' },
+      { icon: 'globe', title: 'Web Sitesi', description: 'Site bilgisi ve panel bağlantısı', screen: 'website', feature: 'web_sitesi' },
     ],
   },
 ];
@@ -6807,18 +6828,18 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
                   }}
                 >
                   <View style={s.menuIconWrap}>
-                    <Text style={s.menuIcon}>{item.icon}</Text>
+                    <AppIcon name={item.icon} size={20} color="#EE7D31" />
                   </View>
                   <View style={s.menuItemCopy}>
                     <Text style={s.menuItemTitle}>
                       {item.title}
-                      {locked ? ' 🔑' : ''}
+                      {locked ? ' · paket' : ''}
                     </Text>
                     <Text style={s.menuItemDescription}>
                       {locked ? 'Paket yükseltme gerekli' : item.description}
                     </Text>
                   </View>
-                  <Text style={s.menuChevron}>›</Text>
+                  <AppIcon name={locked ? 'lock' : 'chevronRight'} size={18} color="#94A3B8" />
                 </Pressable>
               );
             })}

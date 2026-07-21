@@ -33,6 +33,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Button, Card, TextField, SelectField, VideoCallModal } from './src/components';
 import { AppIcon } from './src/components/AppIcon';
+import { MetricTile, SectionHeader, StatusChip } from './src/components/ContentUI';
 import { TabBar, type TabId } from './src/components/TabBar';
 import { LegalLinks } from './src/components/LegalLinks';
 import { DateField, TimeField } from './src/components/DateTimeFields';
@@ -1534,7 +1535,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           accessibilityLabel="Bildirimler"
           hitSlop={10}
         >
-          <AppIcon name="bell" size={20} color="#FFFFFF" />
+          <AppIcon name="bellOutline" size={22} color="#FFFFFF" />
           {unreadNotifications > 0 ? (
             <View
               style={[
@@ -1725,37 +1726,37 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
 
                 <View style={styles.statGrid}>
                   <View style={styles.statRow}>
-                    <Pressable style={styles.statCard} onPress={() => setScreen('calendar')}>
-                      <Text style={styles.statIcon}>▦</Text>
-                      <Text style={styles.statValue}>{dashboardStats?.bugun_randevu ?? activeCount}</Text>
-                      <Text style={styles.statLabel}>Bugün aktif</Text>
-                      <Text style={styles.statHint}>
-                        {todayConfirmed} onaylı · {dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamam
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.statCard, styles.statCardAccent]}
+                    <MetricTile
+                      icon="calendar"
+                      value={dashboardStats?.bugun_randevu ?? activeCount}
+                      label="Bugün aktif"
+                      hint={`${todayConfirmed} onaylı · ${dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamam`}
+                      onPress={() => setScreen('calendar')}
+                    />
+                    <MetricTile
+                      icon="requests"
+                      value={dashboardStats?.bekleyen_talep ?? pendingCount}
+                      label="Bekleyen talep"
+                      hint="Onay için dokunun"
                       onPress={() => setScreen('requests')}
-                    >
-                      <Text style={styles.statIcon}>◷</Text>
-                      <Text style={styles.statValue}>{dashboardStats?.bekleyen_talep ?? pendingCount}</Text>
-                      <Text style={styles.statLabel}>Bekleyen talep</Text>
-                      <Text style={styles.statHint}>Onay için dokunun</Text>
-                    </Pressable>
+                      accent
+                    />
                   </View>
                   <View style={styles.statRow}>
-                    <Pressable style={styles.statCard} onPress={() => setScreen('patients')}>
-                      <Text style={styles.statIcon}>♙</Text>
-                      <Text style={styles.statValue}>{dashboardStats?.kayitli_hasta ?? '—'}</Text>
-                      <Text style={styles.statLabel}>Kayıtlı hasta</Text>
-                      <Text style={styles.statHint}>Hasta listesi</Text>
-                    </Pressable>
-                    <Pressable style={styles.statCard} onPress={() => setScreen('waitlist')}>
-                      <Text style={styles.statIcon}>◉</Text>
-                      <Text style={styles.statValue}>{dashboardStats?.bekleme_listesi ?? '—'}</Text>
-                      <Text style={styles.statLabel}>Bekleme listesi</Text>
-                      <Text style={styles.statHint}>Boş slot doldur</Text>
-                    </Pressable>
+                    <MetricTile
+                      icon="people"
+                      value={dashboardStats?.kayitli_hasta ?? '—'}
+                      label="Kayıtlı hasta"
+                      hint="Hasta listesi"
+                      onPress={() => setScreen('patients')}
+                    />
+                    <MetricTile
+                      icon="waitlist"
+                      value={dashboardStats?.bekleme_listesi ?? '—'}
+                      label="Bekleme listesi"
+                      hint="Boş slot doldur"
+                      onPress={() => setScreen('waitlist')}
+                    />
                   </View>
                 </View>
 
@@ -1888,21 +1889,20 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                   </View>
                 </View>
 
-                <View style={styles.quickSectionHeader}>
-                  <Text style={styles.quickSectionTitle}>Hızlı işlemler</Text>
-                  <Pressable onPress={() => setScreen('menu')}>
-                    <Text style={styles.quickSectionLink}>Tüm menü</Text>
-                  </Pressable>
-                </View>
+                <SectionHeader title="Hızlı işlemler" actionLabel="Tüm menü" onAction={() => setScreen('menu')} />
                 <View style={styles.quickActionGrid}>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('calendar')}>
-                    <Text style={styles.quickActionIcon}>▦</Text>
+                    <View style={styles.quickActionIconWrap}>
+                      <AppIcon name="calendar" size={20} color="#EE7D31" />
+                    </View>
                     <Text style={styles.quickActionTitle}>Takvimim</Text>
                     <Text style={styles.quickActionText}>Randevuları yönet</Text>
                   </Pressable>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('requests')}>
                     <View style={styles.quickActionTop}>
-                      <Text style={styles.quickActionIcon}>◷</Text>
+                      <View style={styles.quickActionIconWrap}>
+                        <AppIcon name="requests" size={20} color="#EE7D31" />
+                      </View>
                       {(dashboardStats?.bekleyen_talep ?? pendingCount) > 0 ? (
                         <View style={styles.quickBadge}>
                           <Text style={styles.quickBadgeText}>
@@ -1924,12 +1924,16 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                       setScreen('calendar');
                     }}
                   >
-                    <Text style={styles.quickActionIcon}>＋</Text>
+                    <View style={styles.quickActionIconWrap}>
+                      <AppIcon name="plus" size={22} color="#EE7D31" />
+                    </View>
                     <Text style={styles.quickActionTitle}>Yeni randevu</Text>
                     <Text style={styles.quickActionText}>Manuel ekle</Text>
                   </Pressable>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('patients')}>
-                    <Text style={styles.quickActionIcon}>♙</Text>
+                    <View style={styles.quickActionIconWrap}>
+                      <AppIcon name="people" size={20} color="#EE7D31" />
+                    </View>
                     <Text style={styles.quickActionTitle}>Hastalar</Text>
                     <Text style={styles.quickActionText}>
                       {dashboardStats?.kayitli_hasta != null
@@ -1941,7 +1945,9 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                 <View style={styles.quickActionGrid}>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('waitlist')}>
                     <View style={styles.quickActionTop}>
-                      <Text style={styles.quickActionIcon}>◉</Text>
+                      <View style={styles.quickActionIconWrap}>
+                        <AppIcon name="waitlist" size={20} color="#EE7D31" />
+                      </View>
                       {(dashboardStats?.bekleme_listesi ?? 0) > 0 ? (
                         <View style={styles.quickBadge}>
                           <Text style={styles.quickBadgeText}>{dashboardStats?.bekleme_listesi}</Text>
@@ -1952,32 +1958,33 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                     <Text style={styles.quickActionText}>Listeyi yönet</Text>
                   </Pressable>
                   <Pressable style={styles.quickAction} onPress={() => setScreen('finance')}>
-                    <Text style={styles.quickActionIcon}>₺</Text>
+                    <View style={styles.quickActionIconWrap}>
+                      <AppIcon name="finance" size={20} color="#EE7D31" />
+                    </View>
                     <Text style={styles.quickActionTitle}>Finans</Text>
                     <Text style={styles.quickActionText}>Gelir / gider</Text>
                   </Pressable>
                 </View>
                 {(dashboardStats?.yorum_bekleyen ?? 0) > 0 ? (
                   <Pressable style={styles.insightBanner} onPress={() => setScreen('reviews')}>
+                    <AppIcon name="star" size={16} color="#C96A2B" />
                     <Text style={styles.insightBannerText}>
-                      {dashboardStats?.yorum_bekleyen} yorum onay bekliyor · İncele →
+                      {dashboardStats?.yorum_bekleyen} yorum onay bekliyor
                     </Text>
+                    <AppIcon name="chevronRight" size={16} color="#C96A2B" />
                   </Pressable>
                 ) : null}
 
-                <View style={styles.sectionHeader}>
-                  <View>
-                    <Text style={styles.sectionTitle}>Bugünün programı</Text>
-                    <Text style={styles.sectionSubtitle}>
-                      {activeCount
-                        ? `${activeCount} aktif · ${dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamamlandı`
-                        : 'Programınız şu an müsait'}
-                    </Text>
-                  </View>
-                  <Pressable onPress={() => setScreen('calendar')}>
-                    <Text style={styles.quickSectionLink}>Takvim</Text>
-                  </Pressable>
-                </View>
+                <SectionHeader
+                  title="Bugünün programı"
+                  actionLabel="Takvim"
+                  onAction={() => setScreen('calendar')}
+                />
+                <Text style={styles.sectionSubtitle}>
+                  {activeCount
+                    ? `${activeCount} aktif · ${dashboardStats?.bugun_tamamlanan ?? todayCompleted} tamamlandı`
+                    : 'Programınız şu an müsait'}
+                </Text>
               </>
             )}
 
@@ -3753,7 +3760,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   nextApptTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  nextApptEyebrow: { color: '#C96A2B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  nextApptEyebrow: { color: '#C96A2B', fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  quickActionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: 'rgba(238,125,49,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
   nextApptStatus: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   nextApptStatusText: { fontSize: 11, fontWeight: '800' },
   nextApptTime: { color: '#102133', fontSize: 18, fontWeight: '700', marginTop: 6, letterSpacing: -0.3 },
@@ -3858,16 +3874,19 @@ const styles = StyleSheet.create({
   insightBanner: {
     marginTop: 14,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(124,166,224,0.35)',
-    backgroundColor: 'rgba(124,166,224,0.12)',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(238,125,49,0.12)',
     paddingHorizontal: 14,
     paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  insightBannerText: { color: '#1E4A7A', fontSize: 13, fontWeight: '700' },
+  insightBannerText: { color: '#C96A2B', fontSize: 13, fontWeight: '700', flex: 1 },
   sectionHeader: { marginTop: 16, marginBottom: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  sectionTitle: { color: '#102133', fontSize: 15, fontWeight: '700' },
-  sectionSubtitle: { color: '#7A8B9C', fontSize: 12, marginTop: 4 },
+  sectionTitle: { color: '#0F172A', fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  sectionSubtitle: { color: '#64748B', fontSize: 13, marginTop: 4, marginBottom: 4 },
   comingSoonCard: { borderWidth: 1, borderColor: '#E1E6ED', backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14, marginTop: 6 },
   comingSoonTitle: { color: '#102133', fontSize: 14, fontWeight: '800' },
   comingSoonText: { color: '#6D7D8E', fontSize: 14, lineHeight: 17, marginTop: 9 },
