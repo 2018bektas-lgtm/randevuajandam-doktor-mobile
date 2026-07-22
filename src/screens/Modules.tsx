@@ -25,6 +25,7 @@ import { SelectField } from '../components/SelectField';
 import { RichTextEditor } from '../components/RichTextEditor';
 
 import type { ModuleProps, ScreenId } from '../navigation/types';
+import { colors } from '../theme';
 import { AppIcon } from '../components/AppIcon';
 import {
   EmptyContent,
