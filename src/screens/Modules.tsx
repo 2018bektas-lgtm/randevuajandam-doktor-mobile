@@ -693,6 +693,7 @@ type PatientItem = {
 export function PatientsScreen({ onBack }: ModuleProps) {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -887,46 +888,53 @@ export function PatientsScreen({ onBack }: ModuleProps) {
       loading={loading}
       refreshing={refreshing}
       onRefresh={onRefresh}
-      rightAction={<HeaderIconButton name="plus" onPress={() => setModalOpen(true)} />}
+      rightAction={
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <HeaderIconButton name="search" color={searchOpen ? colors.brand.orange : '#0F172A'} onPress={() => setSearchOpen((prev) => !prev)} />
+          <HeaderIconButton name="plus" color="#0F172A" onPress={() => setModalOpen(true)} />
+        </View>
+      }
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <View style={{ flex: 1 }}>
-          <SearchField
-            value={query}
-            onChangeText={(txt) => {
-              setQuery(txt);
-              if (!txt.trim()) {
+      {searchOpen || search ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <View style={{ flex: 1 }}>
+            <SearchField
+              value={query}
+              onChangeText={(txt) => {
+                setQuery(txt);
+                if (!txt.trim()) {
+                  setPage(1);
+                  setSearch('');
+                }
+              }}
+              placeholder="Ad, telefon veya e-posta ara…"
+              onSubmit={() => {
                 setPage(1);
-                setSearch('');
-              }
-            }}
-            placeholder="Ad, telefon veya e-posta ara…"
-            onSubmit={() => {
+                setSearch(query.trim());
+              }}
+            />
+          </View>
+          <Pressable
+            style={({ pressed }) => [
+              {
+                height: 42,
+                paddingHorizontal: 14,
+                borderRadius: 12,
+                backgroundColor: colors.brand.orange,
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}
+            onPress={() => {
               setPage(1);
               setSearch(query.trim());
             }}
-          />
+          >
+            <AppIcon name="search" size={16} color="#FFFFFF" />
+          </Pressable>
         </View>
-        <Pressable
-          style={({ pressed }) => [
-            {
-              height: 42,
-              paddingHorizontal: 14,
-              borderRadius: 12,
-              backgroundColor: colors.brand.orange,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-            pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-          ]}
-          onPress={() => {
-            setPage(1);
-            setSearch(query.trim());
-          }}
-        >
-          <AppIcon name="search" size={16} color="#FFFFFF" />
-        </Pressable>
-      </View>
+      ) : null}
 
       {total > 0 ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
