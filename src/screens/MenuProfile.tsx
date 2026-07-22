@@ -1,20 +1,10 @@
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon, AppIconName } from '../components/AppIcon';
+import { HeaderIconButton } from '../components/ContentUI';
 import { apiGet } from '../api/client';
 import { useLayout } from '../layout';
 import type { ModuleProps, ScreenId } from '../navigation/types';
+import { colors } from '../theme';
 
 type MenuItem = {
   icon: AppIconName;
@@ -137,20 +127,24 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
 
   return (
     <View style={styles.safe}>
-      <StatusBar style="dark" />
-      <View style={[styles.tabHeader, { paddingTop: L.safeTop + 6 }]}>
-        <Text style={styles.tabTitle}>Menü</Text>
-        {paketAd ? (
-          <View style={styles.paketPill}>
-            <AppIcon name="package" size={12} color="#C96A2B" />
-            <Text style={styles.paketPillText} numberOfLines={1}>
-              {paketAd}
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={['#0F172A', '#1E293B']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: L.safeTop }]}
+      >
+        <View style={styles.headerNavRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitleDark}>Menü</Text>
+            <Text style={styles.headerSubDark}>
+              {paketAd ? `Paket: ${paketAd}` : 'Tüm işletme ve randevu modülleri'}
             </Text>
           </View>
-        ) : (
-          <Text style={styles.tabSub}>Modüller ve kısayollar</Text>
-        )}
-      </View>
+          <HeaderIconButton name="bell" onPress={() => onNavigate('notifications')} />
+        </View>
+        <View style={styles.brandStrip} />
+      </LinearGradient>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
@@ -235,22 +229,36 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
 
 export function ProfileChrome({
   onBack: _onBack,
+  onNavigate,
   children,
   loading,
 }: {
   onBack?: () => void;
+  onNavigate?: (screen: ScreenId) => void;
   children: React.ReactNode;
   loading?: boolean;
 }) {
   const L = useLayout();
-  // Tab kökü: geri/koyu header yok — sade ayarlar ekranı
   return (
     <View style={styles.safe}>
-      <StatusBar style="dark" />
-      <View style={[styles.tabHeader, { paddingTop: L.safeTop + 6 }]}>
-        <Text style={styles.tabTitle}>Profil</Text>
-        <Text style={styles.tabSub}>Hesap ve ayarlar</Text>
-      </View>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={['#0F172A', '#1E293B']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: L.safeTop }]}
+      >
+        <View style={styles.headerNavRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitleDark}>Profil & Hesap</Text>
+            <Text style={styles.headerSubDark}>Kişisel bilgiler, güvenlik ve klinik ayarları</Text>
+          </View>
+          {onNavigate ? (
+            <HeaderIconButton name="bell" onPress={() => onNavigate('notifications')} />
+          ) : null}
+        </View>
+        <View style={styles.brandStrip} />
+      </LinearGradient>
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
         showsVerticalScrollIndicator={false}
@@ -358,6 +366,38 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F2F4F7' },
 
   /** Tab kökleri: hafif başlık, geri butonu yok */
+  headerGradient: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+  },
+  headerNavRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleDark: {
+    marginTop: 4,
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerSubDark: {
+    marginTop: 2,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  brandStrip: {
+    marginTop: 12,
+    height: 3,
+    width: 42,
+    borderRadius: 2,
+    backgroundColor: colors.brand.orange,
+  },
   tabHeader: {
     backgroundColor: '#F2F4F7',
     paddingHorizontal: 16,

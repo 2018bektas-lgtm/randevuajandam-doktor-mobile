@@ -8090,8 +8090,9 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
   return (
     <ScreenShell
       title="Hızlı Kapat"
-      subtitle="Anahtar = anında kapat / aç"
+      subtitle="Tek dokunuşla saatleri randevuya kapatın veya açın"
       onBack={onBack}
+      onNotificationPress={() => onNavigate('notifications')}
     >
       {/* Gün şeridi */}
       <ScrollView
