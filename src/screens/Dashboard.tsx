@@ -106,16 +106,9 @@ export function DashboardOverview({
               {specialty || 'Bugünkü programınız'}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <HeaderIconButton
-              name="bell"
-              badge={pendingRequests + reviewsPending + pendingInvites.length}
-              onPress={() => onNavigate('notifications')}
-            />
-            <Pressable style={styles.addFab} onPress={onAddAppointment} accessibilityLabel="Yeni randevu">
-              <AppIcon name="plus" size={18} color="#FFFFFF" />
-            </Pressable>
-          </View>
+          <Pressable style={styles.addFab} onPress={onAddAppointment} accessibilityLabel="Yeni randevu">
+            <AppIcon name="plus" size={18} color="#FFFFFF" />
+          </Pressable>
         </View>
 
         <View style={styles.heroChips}>

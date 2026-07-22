@@ -1541,19 +1541,20 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           </Text>
         </Pressable>
       ) : null}
-      <LinearGradient
-        colors={['#0F172A', '#1E293B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <View
         style={[
           styles.dashboardHeader,
           {
-            paddingTop: L.safeTop + 2,
+            paddingTop: L.safeTop + 4,
             paddingHorizontal: L.padX,
-            paddingBottom: 10,
+            paddingBottom: 8,
+            backgroundColor: '#FFFFFF',
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: 'rgba(15,23,42,0.08)',
           },
         ]}
       >
+        <StatusBar style="dark" />
         <View style={styles.dashboardIdentity}>
           <View style={styles.dashboardLogoShell}>
             <Image
@@ -1563,7 +1564,6 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
             />
           </View>
           <View style={{ flexShrink: 1, justifyContent: 'center' }}>
-            <Text style={styles.uiVersionMini}>UI 1.1 · Native</Text>
             <Text style={styles.dashboardIdentityTitle} numberOfLines={1}>
               {isOverview ? 'Bugün' : isCalendar ? 'Takvim' : 'Panel'}
             </Text>
@@ -1573,21 +1573,9 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           </View>
         </View>
         <View style={styles.headerNotifyWrap}>
-          <HeaderIconButton name="bellOutline" onPress={() => setScreen('notifications')} />
-          {unreadNotifications > 0 ? (
-            <View
-              style={[
-                styles.headerNotifyBadge,
-                unreadNotifications > 9 && styles.headerNotifyBadgeWide,
-              ]}
-            >
-              <Text style={styles.headerNotifyBadgeText} numberOfLines={1}>
-                {unreadNotifications > 99 ? '99+' : String(unreadNotifications)}
-              </Text>
-            </View>
-          ) : null}
+          <HeaderIconButton name="bell" color="#0F172A" badge={unreadNotifications} onPress={() => setScreen('notifications')} />
         </View>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         style={styles.dashboardContent}
@@ -3482,14 +3470,14 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   dashboardIdentityTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: -0.25,
-    lineHeight: 18,
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    lineHeight: 19,
   },
   dashboardIdentitySubtitle: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#64748B',
     fontSize: 11,
     letterSpacing: -0.1,
     fontWeight: '500',
