@@ -8090,7 +8090,7 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
   return (
     <ScreenShell
       title="Hızlı Kapat"
-      subtitle="Tek dokunuşla saatleri randevuya kapatın veya açın"
+      subtitle="Dokunarak saatleri randevuya açın veya kapatın"
       onBack={onBack}
       onNotificationPress={() => onNavigate('notifications')}
     >
@@ -8108,7 +8108,11 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
           return (
             <Pressable
               key={key}
-              style={[qcStyles.dayChip, on && qcStyles.dayChipOn]}
+              style={({ pressed }) => [
+                qcStyles.dayChip,
+                on && qcStyles.dayChipOn,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
+              ]}
               onPress={() => setQcDate(key)}
             >
               <Text style={[qcStyles.dayChipWd, on && qcStyles.dayOnTxt]}>
@@ -8120,19 +8124,32 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
         })}
       </ScrollView>
 
-      {/* Özet + toplu */}
+      {/* Özet + toplu aksiyonlar */}
       <View style={qcStyles.bar}>
-        <Text style={qcStyles.barMeta}>
-          {qcLoading ? '…' : `${closedCount} kapalı · ${openCount} açık`}
-        </Text>
-        {flash ? <Text style={qcStyles.flash}>{flash}</Text> : null}
+        <View style={qcStyles.barInfo}>
+          <View style={[qcStyles.statBadge, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+            <Text style={[qcStyles.statBadgeText, { color: '#EF4444' }]}>{closedCount} Kapalı</Text>
+          </View>
+          <View style={[qcStyles.statBadge, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
+            <Text style={[qcStyles.statBadgeText, { color: '#16A34A' }]}>{openCount} Açık</Text>
+          </View>
+          {flash ? <Text style={qcStyles.flash}>{flash}</Text> : null}
+        </View>
+
         <View style={qcStyles.barActions}>
-          <Pressable onPress={closeAllAvailable} disabled={qcLoading || bulkBusy} hitSlop={6}>
-            <Text style={qcStyles.barLinkDanger}>Tümü kapat</Text>
+          <Pressable
+            style={({ pressed }) => [qcStyles.actionPill, qcStyles.actionPillDanger, pressed && { opacity: 0.8 }]}
+            onPress={closeAllAvailable}
+            disabled={qcLoading || bulkBusy}
+          >
+            <Text style={qcStyles.actionPillDangerText}>Tümünü Kapat</Text>
           </Pressable>
-          <Text style={qcStyles.barDot}>·</Text>
-          <Pressable onPress={openAll} disabled={qcLoading || bulkBusy} hitSlop={6}>
-            <Text style={qcStyles.barLink}>Tümü aç</Text>
+          <Pressable
+            style={({ pressed }) => [qcStyles.actionPill, qcStyles.actionPillSuccess, pressed && { opacity: 0.8 }]}
+            onPress={openAll}
+            disabled={qcLoading || bulkBusy}
+          >
+            <Text style={qcStyles.actionPillSuccessText}>Tümünü Aç</Text>
           </Pressable>
         </View>
       </View>
@@ -8140,11 +8157,11 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
       {qcMsg ? <Text style={qcStyles.warn}>{qcMsg}</Text> : null}
 
       {qcLoading || bulkBusy ? (
-        <ActivityIndicator color="#EE7D31" style={{ marginTop: 20 }} />
+        <ActivityIndicator color={colors.brand.orange} style={{ marginTop: 28 }} />
       ) : qcSlots.length === 0 ? (
         <EmptyState
-          title="Slot yok"
-          text="Bu günde çalışma saati yok. Çalışma saatlerinden tanımlayın."
+          title="Slot bulunamadı"
+          text="Bu tarih için tanımlı çalışma saati yok. Çalışma saatlerinizi düzenleyebilirsiniz."
         />
       ) : (
         <View style={qcStyles.list}>
@@ -8159,10 +8176,13 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
                 style={[qcStyles.row, idx === 0 && qcStyles.rowFirst]}
               >
                 <View style={qcStyles.rowLeft}>
-                  <Text style={[qcStyles.rowTime, locked && qcStyles.muted]}>
-                    {sl.saat_string}
-                    {end ? ` ${end}` : ''}
-                  </Text>
+                  <View style={qcStyles.timeBadge}>
+                    <AppIcon name="time" size={14} color={locked ? '#94A3B8' : closed ? '#EF4444' : '#16A34A'} />
+                    <Text style={[qcStyles.rowTime, locked && qcStyles.muted]}>
+                      {sl.saat_string}
+                      {end ? ` ${end}` : ''}
+                    </Text>
+                  </View>
                   <Text
                     style={[
                       qcStyles.rowStatus,
@@ -8172,26 +8192,26 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
                     ]}
                   >
                     {sl.dolu_mu
-                      ? 'Dolu'
+                      ? 'Dolu Randevu'
                       : sl.ogle_mi
-                        ? 'Öğle arası'
+                        ? 'Öğle Arası'
                         : closed
-                          ? 'Kapalı'
-                          : 'Açık'}
+                          ? 'Kapatıldı (Hasta Alınmaz)'
+                          : 'Müsait (Randevuya Açık)'}
                   </Text>
                 </View>
                 {busy ? (
-                  <ActivityIndicator size="small" color="#EE7D31" />
+                  <ActivityIndicator size="small" color={colors.brand.orange} />
                 ) : (
                   <Switch
                     value={locked ? false : closed}
                     disabled={locked || bulkBusy}
                     onValueChange={(v) => onToggle(sl.saat_string, v)}
-                    trackColor={{ false: '#E2E8F0', true: 'rgba(193,60,44,0.45)' }}
+                    trackColor={{ false: '#DCFCE7', true: '#FEE2E2' }}
                     thumbColor={
-                      locked ? '#CBD5E1' : closed ? '#C13C2C' : '#FFFFFF'
+                      locked ? '#CBD5E1' : closed ? '#EF4444' : '#16A34A'
                     }
-                    ios_backgroundColor="#E2E8F0"
+                    ios_backgroundColor="#DCFCE7"
                   />
                 )}
               </View>
@@ -8201,60 +8221,75 @@ export function QuickCloseScreen({ onBack, onNavigate }: ModuleProps) {
       )}
 
       <Text style={qcStyles.footHint}>
-        Anahtar kapalı = hasta o saati seçemez. Değişiklik anında kaydedilir.
+        Anahtar kapalı (kırmızı) olduğunda hastalar bu saati seçemez.
       </Text>
       <Pressable style={qcStyles.linkLeaves} onPress={() => onNavigate('leaves')}>
-        <Text style={qcStyles.linkLeavesTxt}>Uzun izin / tatil →</Text>
+        <Text style={qcStyles.linkLeavesTxt}>Uzun Süreli İzin / Tatil Planla →</Text>
       </Pressable>
     </ScreenShell>
   );
 }
 
-/** Plain styles (avoid StyleSheet.create crash in some web bundle paths) */
+/** Plain styles for QuickCloseScreen */
 const qcStyles: {
   [key: string]: ViewStyle | TextStyle;
 } = {
-  stripScroll: { marginHorizontal: -2, maxHeight: 64, marginTop: 2 },
-  strip: { paddingVertical: 2, gap: 6, flexDirection: 'row' },
+  stripScroll: { maxHeight: 68, marginTop: 4 },
+  strip: { paddingVertical: 4, gap: 8, flexDirection: 'row' },
   dayChip: {
-    minWidth: 48,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
+    minWidth: 54,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E8EDF3',
+    borderColor: 'rgba(15,23,42,0.08)',
     alignItems: 'center',
   },
   dayChipOn: {
-    backgroundColor: '#102133',
-    borderColor: '#102133',
+    backgroundColor: colors.brand.orange,
+    borderColor: colors.brand.orange,
   },
-  dayChipWd: { color: '#95A2B5', fontSize: 10, fontWeight: '600' },
-  dayChipNum: { color: '#102133', fontSize: 15, fontWeight: '700', marginTop: 1 },
+  dayChipWd: { color: '#64748B', fontSize: 11, fontWeight: '600' },
+  dayChipNum: { color: '#0F172A', fontSize: 16, fontWeight: '700', marginTop: 2 },
   dayOnTxt: { color: '#FFFFFF' },
   bar: {
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: 14,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.06)',
   },
-  barMeta: { color: '#6D7D8E', fontSize: 12, fontWeight: '600', flex: 1 },
+  barInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  statBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  statBadgeText: { fontSize: 11, fontWeight: '700' },
   flash: {
-    color: '#2E9E5B',
+    color: '#16A34A',
     fontSize: 11,
     fontWeight: '700',
+    marginLeft: 4,
   },
   barActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  barLink: { color: '#39495B', fontSize: 12, fontWeight: '600' },
-  barLinkDanger: { color: '#C13C2C', fontSize: 12, fontWeight: '600' },
-  barDot: { color: '#CBD5E1', fontSize: 12 },
+  actionPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  actionPillDanger: { backgroundColor: '#FEF2F2' },
+  actionPillDangerText: { color: '#EF4444', fontSize: 12, fontWeight: '700' },
+  actionPillSuccess: { backgroundColor: '#F0FDF4' },
+  actionPillSuccessText: { color: '#16A34A', fontSize: 12, fontWeight: '700' },
   warn: {
-    color: '#C96A2B',
+    color: colors.brand.orangeSoft,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     marginTop: 6,
     marginBottom: 4,
   },
@@ -8262,8 +8297,8 @@ const qcStyles: {
     marginTop: 8,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
     overflow: 'hidden',
   },
   row: {
@@ -8271,32 +8306,33 @@ const qcStyles: {
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderTopWidth: 1,
-    borderTopColor: '#EEF1F5',
-    minHeight: 48,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(15,23,42,0.07)',
+    minHeight: 52,
   },
   rowFirst: { borderTopWidth: 0 },
   rowLeft: { flex: 1, marginRight: 12 },
+  timeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowTime: {
-    color: '#102133',
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: -0.1,
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  rowStatus: { fontSize: 11, fontWeight: '600', marginTop: 2 },
-  statusOpen: { color: '#2E9E5B' },
-  statusClosed: { color: '#C13C2C' },
-  muted: { color: '#95A2B5' },
+  rowStatus: { fontSize: 12, fontWeight: '500', marginTop: 2 },
+  statusOpen: { color: '#16A34A' },
+  statusClosed: { color: '#EF4444' },
+  muted: { color: '#94A3B8' },
   footHint: {
-    color: '#95A2B5',
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 12,
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 14,
     textAlign: 'center',
   },
-  linkLeaves: { marginTop: 10, marginBottom: 6, alignItems: 'center' },
-  linkLeavesTxt: { color: '#C96A2B', fontSize: 12, fontWeight: '700' },
+  linkLeaves: { marginTop: 10, marginBottom: 8, alignItems: 'center' },
+  linkLeavesTxt: { color: colors.brand.orangeSoft, fontSize: 13, fontWeight: '700' },
 };
 
 // ── Module map ─────────────────────────────────────────────────────────────
