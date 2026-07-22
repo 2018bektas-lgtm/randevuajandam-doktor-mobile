@@ -889,29 +889,51 @@ export function PatientsScreen({ onBack }: ModuleProps) {
       onRefresh={onRefresh}
       rightAction={<HeaderIconButton name="plus" onPress={() => setModalOpen(true)} />}
     >
-      <SearchField
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Ad, telefon veya e-posta ara…"
-        onSubmit={() => {
-          setPage(1);
-          setSearch(query.trim());
-        }}
-      />
-      <View style={{ marginTop: 10 }}>
-        <SoftAction
-          label="Ara"
-          icon="search"
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <View style={{ flex: 1 }}>
+          <SearchField
+            value={query}
+            onChangeText={(txt) => {
+              setQuery(txt);
+              if (!txt.trim()) {
+                setPage(1);
+                setSearch('');
+              }
+            }}
+            placeholder="Ad, telefon veya e-posta ara…"
+            onSubmit={() => {
+              setPage(1);
+              setSearch(query.trim());
+            }}
+          />
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            {
+              height: 42,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: colors.brand.orange,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+          ]}
           onPress={() => {
             setPage(1);
             setSearch(query.trim());
           }}
-        />
+        >
+          <AppIcon name="search" size={16} color="#FFFFFF" />
+        </Pressable>
       </View>
+
       {total > 0 ? (
-        <Text style={s.hint}>
-          Toplam {total} · Sayfa {page}/{lastPage}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
+          <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+            Toplam {total} Danışan · Sayfa {page}/{lastPage}
+          </Text>
+        </View>
       ) : null}
 
       {items.length === 0 ? (
@@ -921,38 +943,131 @@ export function PatientsScreen({ onBack }: ModuleProps) {
           text="Arama kriterinizi değiştirin veya yeni danışan ekleyin."
         />
       ) : (
-        items.map((p) => (
-          <ListRow
-            key={p.id}
-            icon="people"
-            title={`${p.ad} ${p.soyad}`.trim()}
-            subtitle={p.telefon || p.e_posta || 'İletişim yok'}
-            meta={
-              typeof p.randevu_sayisi === 'number'
-                ? `${p.randevu_sayisi} randevu`
-                : 'Detay için dokunun'
-            }
-            onPress={() => void openDetail(p.id)}
-          />
-        ))
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            overflow: 'hidden',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: 'rgba(15,23,42,0.08)',
+            shadowColor: '#0F172A',
+            shadowOpacity: 0.03,
+            shadowRadius: 6,
+            elevation: 1,
+          }}
+        >
+          {items.map((p, idx) => {
+            const isLast = idx === items.length - 1;
+            return (
+              <Pressable
+                key={p.id}
+                style={({ pressed }) => [
+                  {
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                  },
+                  !isLast && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: 'rgba(15,23,42,0.08)',
+                  },
+                  pressed && { backgroundColor: '#F8FAFC' },
+                ]}
+                onPress={() => void openDetail(p.id)}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: 'rgba(59,130,246,0.12)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <AppIcon name="profile" size={18} color="#3B82F6" />
+                </View>
+
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
+                    {`${p.ad} ${p.soyad}`.trim()}
+                  </Text>
+                  <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 2 }} numberOfLines={1}>
+                    {p.telefon ? `📞 ${p.telefon}` : p.e_posta ? `✉️ ${p.e_posta}` : 'İletişim bilgisi yok'}
+                    {typeof p.randevu_sayisi === 'number' ? ` · ${p.randevu_sayisi} randevu` : ''}
+                  </Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {p.telefon ? (
+                    <Pressable
+                      style={({ pressed }) => [
+                        {
+                          width: 34,
+                          height: 34,
+                          borderRadius: 17,
+                          backgroundColor: '#F1F5F9',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        openPhone(p.telefon);
+                      }}
+                    >
+                      <AppIcon name="call" size={15} color="#475569" />
+                    </Pressable>
+                  ) : null}
+
+                  <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       )}
 
       {lastPage > 1 ? (
-        <View style={s.actions}>
-          <SoftAction
-            label="Önceki"
-            icon="chevronLeft"
-            tone="neutral"
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 14 }}>
+          <Pressable
+            style={({ pressed }) => [
+              {
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 10,
+                backgroundColor: page > 1 ? '#FFFFFF' : '#F1F5F9',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: 'rgba(15,23,42,0.1)',
+              },
+              pressed && page > 1 && { opacity: 0.7 },
+            ]}
             disabled={page <= 1}
             onPress={() => setPage((p) => Math.max(1, p - 1))}
-          />
-          <SoftAction
-            label="Sonraki"
-            icon="chevronRight"
-            tone="neutral"
+          >
+            <Text style={{ color: page > 1 ? '#0F172A' : '#94A3B8', fontSize: 12, fontWeight: '700' }}>Önceki</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              {
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 10,
+                backgroundColor: page < lastPage ? '#FFFFFF' : '#F1F5F9',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: 'rgba(15,23,42,0.1)',
+              },
+              pressed && page < lastPage && { opacity: 0.7 },
+            ]}
             disabled={page >= lastPage}
             onPress={() => setPage((p) => Math.min(lastPage, p + 1))}
-          />
+          >
+            <Text style={{ color: page < lastPage ? '#0F172A' : '#94A3B8', fontSize: 12, fontWeight: '700' }}>Sonraki</Text>
+          </Pressable>
         </View>
       ) : null}
 
