@@ -13,7 +13,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon, AppIconName } from '../components/AppIcon';
-import { HeaderIconButton } from '../components/ContentUI';
+import { HeaderIconButton, SearchField } from '../components/ContentUI';
 import { apiGet } from '../api/client';
 import { useLayout } from '../layout';
 import type { ModuleProps, ScreenId } from '../navigation/types';
@@ -100,6 +100,7 @@ function MenuRow({
 /** Alt sekme: iş modülleri — şık, sade, app menüsü */
 export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModuleProps) {
   const L = useLayout();
+  const [query, setQuery] = useState('');
   const [features, setFeatures] = useState<string[]>([]);
   const [restrict, setRestrict] = useState(false);
   const [paketAd, setPaketAd] = useState<string | null>(null);
@@ -138,18 +139,30 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
     onNavigate(item.screen);
   }
 
+  const filteredGroups = MENU_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter(
+      (i) =>
+        i.title.toLowerCase().includes(query.toLowerCase()) ||
+        i.description.toLowerCase().includes(query.toLowerCase()),
+    ),
+  })).filter((g) => g.items.length > 0);
+
   return (
     <View style={styles.safe}>
       <StatusBar style="dark" />
       <View style={[styles.compactHeader, { paddingTop: L.safeTop + 4 }]}>
         <View style={styles.headerNavRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitleText}>Menü</Text>
+            <Text style={styles.headerTitleText}>Tüm Modüller</Text>
             <Text style={styles.headerSubtitleText}>
-              {paketAd ? `Paket: ${paketAd}` : 'Tüm modüller ve araçlar'}
+              {paketAd ? `Paket: ${paketAd}` : 'İşletme ve randevu yönetimi'}
             </Text>
           </View>
           <HeaderIconButton name="bell" color="#0F172A" onPress={() => onNavigate('notifications')} />
+        </View>
+        <View style={{ marginTop: 10 }}>
+          <SearchField value={query} onChangeText={setQuery} placeholder="Modül veya özellik ara…" />
         </View>
       </View>
 
@@ -157,10 +170,58 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
         contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
         showsVerticalScrollIndicator={false}
       >
+        {!query ? (
+          <View style={styles.quickGrid}>
+            <Pressable
+              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FFF7ED' }, pressed && styles.pressed]}
+              onPress={() => onNavigate('calendar')}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: '#EE7D31' }]}>
+                <AppIcon name="calendar" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickTitle}>Takvim</Text>
+              <Text style={styles.quickSub}>Günlük plan</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF3C7' }, pressed && styles.pressed]}
+              onPress={() => onNavigate('requests')}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: '#F59E0B' }]}>
+                <AppIcon name="requests" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickTitle}>Talepler</Text>
+              <Text style={styles.quickSub}>Onay bekleyenler</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#EFF6FF' }, pressed && styles.pressed]}
+              onPress={() => onNavigate('patients')}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: '#3B82F6' }]}>
+                <AppIcon name="people" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickTitle}>Hastalar</Text>
+              <Text style={styles.quickSub}>Hasta listesi</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF2F2' }, pressed && styles.pressed]}
+              onPress={() => onNavigate('quickClose')}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: '#EF4444' }]}>
+                <AppIcon name="block" size={18} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickTitle}>Hızlı Kapat</Text>
+              <Text style={styles.quickSub}>Saat kapat/aç</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {loading ? (
-          <ActivityIndicator color="#EE7D31" style={{ marginTop: 40 }} />
+          <ActivityIndicator color={colors.brand.orange} style={{ marginTop: 40 }} />
         ) : (
-          MENU_GROUPS.map((group) => (
+          filteredGroups.map((group) => (
             <View key={group.title} style={styles.group}>
               <Text style={styles.groupLabel}>{group.title}</Text>
               <View style={styles.card}>
@@ -178,39 +239,43 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
           ))
         )}
 
-        <Pressable
-          style={({ pressed }) => [styles.profileCta, pressed && styles.pressed]}
-          onPress={() => onNavigate('notifications')}
-        >
-          <View style={[styles.iconBox, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-            <AppIcon name="bell" size={16} color="#3B82F6" />
-          </View>
-          <View style={styles.rowText}>
-            <Text style={styles.rowTitle}>Bildirimler</Text>
-            <Text style={styles.rowSub}>Talepler ve uyarılar</Text>
-          </View>
-          <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
-        </Pressable>
+        <View style={styles.group}>
+          <Text style={styles.groupLabel}>Hesap & Ayarlar</Text>
+          <View style={styles.card}>
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowBorder, pressed && styles.pressed]}
+              onPress={() => onNavigate('notifications')}
+            >
+              <View style={[styles.iconBox, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
+                <AppIcon name="bell" size={16} color="#3B82F6" />
+              </View>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Bildirimler</Text>
+                <Text style={styles.rowSub}>Talepler ve uyarılardan haberdar olun</Text>
+              </View>
+              <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
+            </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [styles.profileCta, pressed && styles.pressed]}
-          onPress={() => onNavigate('profile')}
-        >
-          <View style={[styles.iconBox, { backgroundColor: 'rgba(15,23,42,0.08)' }]}>
-            <AppIcon name="profile" size={16} color="#0F172A" />
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              onPress={() => onNavigate('profile')}
+            >
+              <View style={[styles.iconBox, { backgroundColor: 'rgba(15,23,42,0.08)' }]}>
+                <AppIcon name="profile" size={16} color="#0F172A" />
+              </View>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>Profil & Hesap Ayarları</Text>
+                <Text style={styles.rowSub}>Güvenlik, paket ve web sitesi düzenlemesi</Text>
+              </View>
+              <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
+            </Pressable>
           </View>
-          <View style={styles.rowText}>
-            <Text style={styles.rowTitle}>Profil & hesap</Text>
-            <Text style={styles.rowSub}>Güvenlik, paket, web sitesi</Text>
-          </View>
-          <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
-        </Pressable>
+        </View>
 
         {onSignOut ? (
           <Pressable
             style={({ pressed }) => [styles.logoutBtn, pressed && styles.pressed]}
             onPress={() => {
-              // Web'de Alert.alert butonları güvenilir değil
               if (Platform.OS === 'web' && typeof window !== 'undefined') {
                 if (window.confirm('Çıkış yap\n\nHesabınızdan çıkmak istiyor musunuz?')) {
                   void onSignOut();
@@ -404,7 +469,42 @@ const styles = StyleSheet.create({
   },
   paketPillText: { color: '#C96A2B', fontSize: 11, fontWeight: '700', maxWidth: 240 },
 
-  scroll: { paddingHorizontal: 14, paddingTop: 4 },
+  scroll: { paddingHorizontal: 14, paddingTop: 6 },
+  quickGrid: {
+    marginTop: 10,
+    marginBottom: 4,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  quickTile: {
+    width: '48%',
+    flexGrow: 1,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.06)',
+  },
+  quickIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quickTitle: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  quickSub: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
   group: { marginTop: 12 },
   groupLabel: {
     color: '#64748B',
