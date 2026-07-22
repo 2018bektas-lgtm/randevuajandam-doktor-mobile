@@ -213,6 +213,10 @@ export const moduleStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  btnPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
+  },
   searchInput: {
     borderWidth: 0,
     backgroundColor: colors.background.card,
