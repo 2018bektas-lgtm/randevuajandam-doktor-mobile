@@ -752,14 +752,19 @@ export function PatientsScreen({ onBack }: ModuleProps) {
     if (!detail?.id) return;
     setSavingPay(true);
     try {
-      await apiPost('/doctor/finance/income', {
+      const payload = {
         hasta_id: detail.id,
         tutar: amount,
         odenen_tutar: amount,
         odeme_yontemi: payMethod,
         odeme_tarihi: payDate || todayKey(),
         aciklama: payNote.trim() || 'Tahsilat kaydı',
-      });
+      };
+      try {
+        await apiPost('/doctor/finans/gelirler', payload);
+      } catch {
+        await apiPost('/doctor/finance/income', payload);
+      }
       setAddPaymentOpen(false);
       setPayAmount('');
       setPayNote('');
