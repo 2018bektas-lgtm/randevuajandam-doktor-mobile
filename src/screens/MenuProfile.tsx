@@ -140,24 +140,18 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
 
   return (
     <View style={styles.safe}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={['#0F172A', '#1E293B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerGradient, { paddingTop: L.safeTop }]}
-      >
+      <StatusBar style="dark" />
+      <View style={[styles.compactHeader, { paddingTop: L.safeTop + 4 }]}>
         <View style={styles.headerNavRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitleDark}>Menü</Text>
-            <Text style={styles.headerSubDark}>
-              {paketAd ? `Paket: ${paketAd}` : 'Tüm işletme ve randevu modülleri'}
+            <Text style={styles.headerTitleText}>Menü</Text>
+            <Text style={styles.headerSubtitleText}>
+              {paketAd ? `Paket: ${paketAd}` : 'Tüm modüller ve araçlar'}
             </Text>
           </View>
-          <HeaderIconButton name="bell" onPress={() => onNavigate('notifications')} />
+          <HeaderIconButton name="bell" color="#0F172A" onPress={() => onNavigate('notifications')} />
         </View>
-        <View style={styles.brandStrip} />
-      </LinearGradient>
+      </View>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
@@ -254,24 +248,18 @@ export function ProfileChrome({
   const L = useLayout();
   return (
     <View style={styles.safe}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={['#0F172A', '#1E293B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.headerGradient, { paddingTop: L.safeTop }]}
-      >
+      <StatusBar style="dark" />
+      <View style={[styles.compactHeader, { paddingTop: L.safeTop + 4 }]}>
         <View style={styles.headerNavRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitleDark}>Profil & Hesap</Text>
-            <Text style={styles.headerSubDark}>Kişisel bilgiler, güvenlik ve klinik ayarları</Text>
+            <Text style={styles.headerTitleText}>Profil & Hesap</Text>
+            <Text style={styles.headerSubtitleText}>Kişisel bilgiler, güvenlik ve klinik ayarları</Text>
           </View>
           {onNavigate ? (
-            <HeaderIconButton name="bell" onPress={() => onNavigate('notifications')} />
+            <HeaderIconButton name="bell" color="#0F172A" onPress={() => onNavigate('notifications')} />
           ) : null}
         </View>
-        <View style={styles.brandStrip} />
-      </LinearGradient>
+      </View>
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
         showsVerticalScrollIndicator={false}
@@ -379,50 +367,25 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F2F4F7' },
 
   /** Tab kökleri: hafif başlık, geri butonu yok */
-  headerGradient: {
+  compactHeader: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(15,23,42,0.08)',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  headerNavRow: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleDark: {
-    marginTop: 4,
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  headerSubDark: {
-    marginTop: 2,
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 13,
-    fontWeight: '400',
-  },
-  brandStrip: {
-    marginTop: 12,
-    height: 3,
-    width: 42,
-    borderRadius: 2,
-    backgroundColor: colors.brand.orange,
-  },
-  tabHeader: {
-    backgroundColor: '#F2F4F7',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  tabTitle: {
+  headerTitleText: {
     color: '#0F172A',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
-  tabSub: {
+  headerSubtitleText: {
     color: '#64748B',
     fontSize: 12,
     fontWeight: '500',

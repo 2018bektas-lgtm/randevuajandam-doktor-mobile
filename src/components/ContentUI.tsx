@@ -375,7 +375,11 @@ export function HeaderIconButton({
     <Pressable
       onPress={onPress}
       hitSlop={10}
-      style={({ pressed }) => [styles.headerIconBtn, pressed && { opacity: 0.75 }]}
+      style={({ pressed }) => [
+        styles.headerIconBtn,
+        color !== '#FFFFFF' && { backgroundColor: 'rgba(15,23,42,0.06)' },
+        pressed && { opacity: 0.75, transform: [{ scale: 0.95 }] },
+      ]}
       accessibilityRole="button"
     >
       <AppIcon name={name} size={20} color={color} />

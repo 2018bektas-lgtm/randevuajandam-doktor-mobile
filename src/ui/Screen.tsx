@@ -35,7 +35,7 @@ type ScreenShellProps = {
 };
 
 /**
- * Native module shell with bold brand header — clearly not a mobile website.
+ * Native module shell with compact, clean 48px top bar.
  */
 export function ScreenShell({
   title,
@@ -54,50 +54,47 @@ export function ScreenShell({
   const L = useLayout();
 
   const header = (
-    <LinearGradient
-      colors={['#0F172A', '#1E293B']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.header, { paddingTop: L.safeTop }]}
-    >
+    <View style={[styles.header, { paddingTop: L.safeTop + 4 }]}>
+      <StatusBar style="dark" />
       <View style={styles.navRow}>
         {onBack ? (
           <Pressable
-            style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [styles.backCircleBtn, pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }]}
             onPress={onBack}
-            hitSlop={12}
+            hitSlop={10}
             accessibilityRole="button"
             accessibilityLabel="Geri"
           >
-            <AppIcon name="chevronLeft" size={20} color="#FFFFFF" />
-            <Text style={styles.backText}>Geri</Text>
+            <AppIcon name="chevronLeft" size={20} color="#0F172A" />
           </Pressable>
         ) : (
-          <View style={styles.backBtn} />
+          <View style={styles.backCircleBtnPlaceholder} />
         )}
+
+        <View style={styles.titleCenterSlot}>
+          <Text style={styles.titleText} numberOfLines={1}>
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text style={styles.subtitleText} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+
         <View style={styles.rightSlot}>
           {rightAction ?? (onNotificationPress ? (
-            <HeaderIconButton name="bell" badge={unreadCount} onPress={onNotificationPress} />
+            <HeaderIconButton name="bell" color="#0F172A" badge={unreadCount} onPress={onNotificationPress} />
           ) : null)}
         </View>
       </View>
-      <Text style={styles.title} numberOfLines={2}>
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text style={styles.subtitle} numberOfLines={3}>
-          {subtitle}
-        </Text>
-      ) : null}
-      <View style={styles.brandStrip} />
-    </LinearGradient>
+    </View>
   );
 
   const bottomPad = L.scrollBottom + 16;
 
   return (
     <View style={styles.safe}>
-      <StatusBar style="light" />
       {header}
       {scroll ? (
         <ScrollView
@@ -143,57 +140,63 @@ export function ScreenShell({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: '#F8FAFC',
   },
   flex: { flex: 1, minHeight: 0 },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(15,23,42,0.08)',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   navRow: {
-    minHeight: 40,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
-  backBtn: {
-    minWidth: 76,
-    flexDirection: 'row',
+  backCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
-    gap: 2,
-    paddingVertical: 6,
+    justifyContent: 'center',
   },
-  backText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  backCircleBtnPlaceholder: {
+    width: 36,
+    height: 36,
+  },
+  titleCenterSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  titleText: {
+    color: '#0F172A',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+  },
+  subtitleText: {
+    color: '#64748B',
+    fontSize: 11,
     fontWeight: '500',
+    marginTop: 1,
+    textAlign: 'center',
   },
   rightSlot: {
-    minWidth: 76,
+    minWidth: 36,
     alignItems: 'flex-end',
-  },
-  title: {
-    marginTop: 6,
-    color: '#FFFFFF',
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: '700',
-    letterSpacing: -0.6,
-  },
-  subtitle: {
-    marginTop: 4,
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: '400',
-  },
-  brandStrip: {
-    marginTop: 14,
-    height: 3,
-    width: 42,
-    borderRadius: 2,
-    backgroundColor: colors.brand.orange,
+    justifyContent: 'center',
   },
 });
