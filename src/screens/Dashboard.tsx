@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { AppIcon, AppIconName } from '../components/AppIcon';
 import { MetricTile, SectionHeader, SoftAction, StatusChip } from '../components/ContentUI';
-import { colors } from '../theme';
 
 export type DashInvite = { id: number; klinik: string };
 
@@ -54,7 +53,7 @@ type Props = {
 };
 
 /**
- * Mobile doctor home dashboard — native app layout (not web responsive).
+ * Doctor home dashboard — native mobile layout (aligned with login / onboarding).
  */
 export function DashboardOverview({
   greeting,
@@ -86,24 +85,49 @@ export function DashboardOverview({
   onToggleBooking,
   onNavigate,
 }: Props) {
+  const patientInitial = nextAppt?.patient
+    ? nextAppt.patient
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() ?? '')
+        .join('')
+    : '?';
+
   return (
     <View style={styles.root}>
-      {/* Hero */}
+      {/* Header / greeting */}
       <View style={styles.hero}>
-        <Text style={styles.greeting}>{greeting}</Text>
-        <Text style={styles.dateTitle}>{todayLabel}</Text>
-        <Text style={styles.subtitle} numberOfLines={2}>
-          {specialty || 'Bugünkü programınız'}
-        </Text>
+        <View style={styles.heroTop}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.dateTitle}>{todayLabel}</Text>
+            <Text style={styles.subtitle} numberOfLines={2}>
+              {specialty || 'Bugünkü programınız'}
+            </Text>
+          </View>
+          <Pressable style={styles.addFab} onPress={onAddAppointment} accessibilityLabel="Yeni randevu">
+            <AppIcon name="plus" size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
         <View style={styles.heroChips}>
           <View style={[styles.liveChip, bookingOpen ? styles.liveOpen : styles.liveClosed]}>
             <View style={[styles.liveDot, bookingOpen ? styles.liveDotOpen : styles.liveDotClosed]} />
-            <Text style={styles.liveText}>{bookingOpen ? 'Randevu alımı açık' : 'Randevu alımı kapalı'}</Text>
+            <Text style={styles.liveText}>
+              {bookingOpen ? 'Randevu alımı açık' : 'Randevu alımı kapalı'}
+            </Text>
           </View>
-          {weekTotal > 0 ? (
-            <View style={styles.weekChip}>
-              <AppIcon name="calendar" size={13} color="#C96A2B" />
-              <Text style={styles.weekChipText}>Bu hafta {weekTotal}</Text>
+          <View style={styles.weekChip}>
+            <AppIcon name="calendar" size={11} color="#C96A2B" />
+            <Text style={styles.weekChipText}>Bu hafta {weekTotal}</Text>
+          </View>
+          {paketAd ? (
+            <View style={styles.metaChip}>
+              <AppIcon name="package" size={11} color="#64748B" />
+              <Text style={styles.metaChipText} numberOfLines={1}>
+                {paketAd}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -114,7 +138,7 @@ export function DashboardOverview({
         <View style={styles.inviteCard}>
           <View style={styles.inviteHead}>
             <View style={styles.inviteIcon}>
-              <AppIcon name="clinic" size={18} color="#EE7D31" />
+              <AppIcon name="clinic" size={15} color="#EE7D31" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.inviteTitle}>Klinik daveti</Text>
@@ -135,57 +159,72 @@ export function DashboardOverview({
         </View>
       ) : null}
 
-      {/* Next appointment */}
+      {/* Next appointment — hero card */}
       {nextAppt ? (
-        <Pressable style={styles.nextCard} onPress={onOpenNext}>
-          <View style={styles.nextAccent} />
-          <View style={styles.nextBody}>
-            <View style={styles.nextTop}>
-              <Text style={styles.nextEyebrow}>Sıradaki randevu</Text>
-              <StatusChip label={nextAppt.statusLabel} tone="brand" />
+        <Pressable
+          style={({ pressed }) => [styles.nextCard, pressed && styles.pressed]}
+          onPress={onOpenNext}
+        >
+          <View style={styles.nextTopRow}>
+            <Text style={styles.nextEyebrow}>Sıradaki randevu</Text>
+            <StatusChip label={nextAppt.statusLabel} tone="brand" />
+          </View>
+          <View style={styles.nextMain}>
+            <View style={styles.nextAvatar}>
+              <Text style={styles.nextAvatarTxt}>{patientInitial || '?'}</Text>
             </View>
-            <Text style={styles.nextTime}>
-              {nextAppt.time}
-              {nextAppt.endTime ? ` – ${nextAppt.endTime}` : ''}
-              <Text style={styles.nextDateHint}>  ·  {nextAppt.dateHint}</Text>
-            </Text>
-            <Text style={styles.nextPatient} numberOfLines={1}>
-              {nextAppt.patient}
-            </Text>
-            <View style={styles.nextMeta}>
-              {nextAppt.service ? (
-                <View style={styles.nextMetaItem}>
-                  <AppIcon name="list" size={13} color="#94A3B8" />
-                  <Text style={styles.nextMetaText} numberOfLines={1}>
-                    {nextAppt.service}
-                  </Text>
-                </View>
-              ) : null}
-              {nextAppt.online ? (
-                <View style={styles.nextMetaItem}>
-                  <AppIcon name="globe" size={13} color="#1F9D55" />
-                  <Text style={[styles.nextMetaText, { color: '#1F9D55' }]}>Online</Text>
-                </View>
-              ) : null}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.nextTime}>
+                {nextAppt.time}
+                {nextAppt.endTime ? ` – ${nextAppt.endTime}` : ''}
+              </Text>
+              <Text style={styles.nextDateHint}>{nextAppt.dateHint}</Text>
+              <Text style={styles.nextPatient} numberOfLines={1}>
+                {nextAppt.patient}
+              </Text>
             </View>
-            <View style={styles.nextCta}>
-              <Text style={styles.nextCtaText}>Detay ve işlemler</Text>
-              <AppIcon name="chevronRight" size={16} color="#EE7D31" />
-            </View>
+          </View>
+          <View style={styles.nextMeta}>
+            {nextAppt.service ? (
+              <View style={styles.nextMetaPill}>
+                <AppIcon name="list" size={11} color="#64748B" />
+                <Text style={styles.nextMetaText} numberOfLines={1}>
+                  {nextAppt.service}
+                </Text>
+              </View>
+            ) : null}
+            {nextAppt.online ? (
+              <View style={[styles.nextMetaPill, styles.nextOnlinePill]}>
+                <AppIcon name="globe" size={11} color="#1F9D55" />
+                <Text style={[styles.nextMetaText, { color: '#1F9D55' }]}>Online</Text>
+              </View>
+            ) : (
+              <View style={styles.nextMetaPill}>
+                <AppIcon name="clinic" size={11} color="#64748B" />
+                <Text style={styles.nextMetaText}>Yüz yüze</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.nextCta}>
+            <Text style={styles.nextCtaText}>Detay ve işlemler</Text>
+            <AppIcon name="chevronRight" size={14} color="#EE7D31" />
           </View>
         </Pressable>
       ) : (
         <View style={styles.nextEmpty}>
           <View style={styles.nextEmptyIcon}>
-            <AppIcon name="calendar" size={24} color="#EE7D31" />
+            <AppIcon name="calendar" size={20} color="#EE7D31" />
           </View>
           <Text style={styles.nextEmptyTitle}>Sıradaki randevu yok</Text>
-          <Text style={styles.nextEmptyText}>
-            Bugün için kalan aktif randevu bulunmuyor.
-          </Text>
+          <Text style={styles.nextEmptyText}>Bugün için kalan aktif randevu bulunmuyor.</Text>
           <View style={styles.nextEmptyActions}>
             <SoftAction label="Randevu ekle" icon="plus" onPress={onAddAppointment} />
-            <SoftAction label="Talepler" icon="requests" tone="neutral" onPress={() => onNavigate('requests')} />
+            <SoftAction
+              label="Talepler"
+              icon="requests"
+              tone="neutral"
+              onPress={() => onNavigate('requests')}
+            />
           </View>
         </View>
       )}
@@ -227,17 +266,17 @@ export function DashboardOverview({
         </View>
       </View>
 
-      {/* Today status strip */}
-      <View style={styles.statusCard}>
+      {/* Today status */}
+      <View style={styles.card}>
         <Text style={styles.blockTitle}>Bugünün durumu</Text>
         <View style={styles.statusRow}>
           {[
-            { label: 'Bekliyor', value: todayPending, color: '#E8A317' },
-            { label: 'Onaylı', value: todayConfirmed, color: '#2E9E5B' },
-            { label: 'Tamam', value: todayCompleted, color: '#2563EB' },
-            { label: 'İptal', value: todayCancelled, color: '#DC2626' },
+            { label: 'Bekliyor', value: todayPending, color: '#B45309', bg: '#FFF7ED' },
+            { label: 'Onaylı', value: todayConfirmed, color: '#1F9D55', bg: '#E6F6ED' },
+            { label: 'Tamam', value: todayCompleted, color: '#2563EB', bg: '#EFF6FF' },
+            { label: 'İptal', value: todayCancelled, color: '#DC2626', bg: '#FEF2F2' },
           ].map((item) => (
-            <View key={item.label} style={styles.statusItem}>
+            <View key={item.label} style={[styles.statusItem, { backgroundColor: item.bg }]}>
               <Text style={[styles.statusValue, { color: item.color }]}>{item.value}</Text>
               <Text style={styles.statusLabel}>{item.label}</Text>
             </View>
@@ -246,26 +285,22 @@ export function DashboardOverview({
       </View>
 
       {/* Week activity */}
-      <View style={styles.weekCard}>
+      <View style={styles.card}>
         <View style={styles.weekHead}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.blockTitle}>Haftalık yoğunluk</Text>
             <Text style={styles.blockSub}>Toplam {weekTotal} randevu</Text>
           </View>
           <Pressable style={styles.linkBtn} onPress={() => onNavigate('calendar')}>
             <Text style={styles.linkText}>Takvim</Text>
-            <AppIcon name="chevronRight" size={14} color="#EE7D31" />
+            <AppIcon name="chevronRight" size={12} color="#EE7D31" />
           </Pressable>
         </View>
         <View style={styles.bars}>
           {weekDays.map((d) => {
-            const h = d.count > 0 ? Math.max(12, Math.round((d.count / Math.max(weekMax, 1)) * 56)) : 6;
+            const h = d.count > 0 ? Math.max(10, Math.round((d.count / Math.max(weekMax, 1)) * 40)) : 6;
             return (
-              <Pressable
-                key={d.key}
-                style={styles.barCol}
-                onPress={() => onNavigate('calendar')}
-              >
+              <Pressable key={d.key} style={styles.barCol} onPress={() => onNavigate('calendar')}>
                 <View
                   style={[
                     styles.bar,
@@ -275,7 +310,9 @@ export function DashboardOverview({
                   ]}
                 />
                 <Text style={[styles.barDay, d.isToday && styles.barDayToday]}>{d.label}</Text>
-                <Text style={styles.barCount}>{d.count > 0 ? d.count : '·'}</Text>
+                <Text style={[styles.barCount, d.isToday && styles.barDayToday]}>
+                  {d.count > 0 ? d.count : '·'}
+                </Text>
               </Pressable>
             );
           })}
@@ -285,18 +322,26 @@ export function DashboardOverview({
       {/* Booking toggle */}
       <View style={styles.toggleCard}>
         <View style={styles.toggleLeft}>
-          <View style={styles.toggleIcon}>
-            <AppIcon name={bookingOpen ? 'check' : 'block'} size={18} color={bookingOpen ? '#1F9D55' : '#DC2626'} />
+          <View
+            style={[
+              styles.toggleIcon,
+              { backgroundColor: bookingOpen ? '#E6F6ED' : '#FEF2F2' },
+            ]}
+          >
+            <AppIcon
+              name={bookingOpen ? 'check' : 'block'}
+              size={15}
+              color={bookingOpen ? '#1F9D55' : '#DC2626'}
+            />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.toggleTitle}>Randevu alımı</Text>
             <Text style={styles.toggleSub}>
               {bookingOpen ? 'Hastalar randevu alabilir' : 'Yeni randevu kapalı'}
             </Text>
-            {paketAd ? <Text style={styles.toggleMeta}>Paket: {paketAd}</Text> : null}
             {klinikAd ? (
-              <Text style={styles.toggleMeta}>
-                Klinik: {klinikAd}
+              <Text style={styles.toggleMeta} numberOfLines={1}>
+                {klinikAd}
                 {klinikRol ? ` · ${klinikRol}` : ''}
               </Text>
             ) : null}
@@ -307,15 +352,16 @@ export function DashboardOverview({
           onValueChange={() => onToggleBooking()}
           trackColor={{ false: '#CBD5E1', true: '#FDBA8C' }}
           thumbColor={bookingOpen ? '#EE7D31' : '#F8FAFC'}
+          style={styles.toggleSwitch}
         />
       </View>
       <Pressable style={styles.settingsLink} onPress={() => onNavigate('settings')}>
-        <AppIcon name="settings" size={16} color="#64748B" />
+        <AppIcon name="settings" size={14} color="#64748B" />
         <Text style={styles.settingsLinkText}>Randevu ayarları</Text>
-        <AppIcon name="chevronRight" size={16} color="#94A3B8" />
+        <AppIcon name="chevronRight" size={14} color="#94A3B8" />
       </Pressable>
 
-      {/* Quick shortcuts — horizontal app grid */}
+      {/* Quick shortcuts */}
       <SectionHeader title="Hızlı erişim" actionLabel="Menü" onAction={() => onNavigate('menu')} />
       <View style={styles.shortcutGrid}>
         {(
@@ -356,7 +402,7 @@ export function DashboardOverview({
             }}
           >
             <View style={styles.shortcutIcon}>
-              <AppIcon name={item.icon} size={20} color="#EE7D31" />
+              <AppIcon name={item.icon} size={16} color="#EE7D31" />
               {'badge' in item && item.badge && item.badge > 0 ? (
                 <View style={styles.shortcutBadge}>
                   <Text style={styles.shortcutBadgeText}>
@@ -376,21 +422,42 @@ export function DashboardOverview({
       {reviewsPending > 0 ? (
         <Pressable style={styles.reviewBanner} onPress={() => onNavigate('reviews')}>
           <View style={styles.reviewIcon}>
-            <AppIcon name="star" size={18} color="#C96A2B" />
+            <AppIcon name="star" size={14} color="#C96A2B" />
           </View>
           <Text style={styles.reviewText}>{reviewsPending} yorum onay bekliyor</Text>
-          <AppIcon name="chevronRight" size={18} color="#C96A2B" />
+          <AppIcon name="chevronRight" size={14} color="#C96A2B" />
         </Pressable>
       ) : null}
 
       {/* Today's schedule */}
-      <SectionHeader title="Bugünün programı" actionLabel="Takvim" onAction={() => onNavigate('calendar')} />
+      <SectionHeader
+        title="Bugünün programı"
+        actionLabel="Takvim"
+        onAction={() => onNavigate('calendar')}
+      />
       <Text style={styles.scheduleHint}>
         {todayActive > 0
           ? `${todayActive} aktif · ${todayCompleted} tamamlandı`
           : 'Programınız şu an müsait'}
       </Text>
-      {todayList}
+      {todayList ? (
+        <View style={styles.scheduleList}>{todayList}</View>
+      ) : (
+        <View style={styles.scheduleEmpty}>
+          <View style={styles.scheduleEmptyIcon}>
+            <AppIcon name="calendar" size={16} color="#EE7D31" />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.scheduleEmptyTitle}>Bugün için randevu yok</Text>
+            <Text style={styles.scheduleEmptyText}>
+              Yeni randevu ekleyin veya talepleri kontrol edin.
+            </Text>
+          </View>
+          <Pressable style={styles.scheduleEmptyBtn} onPress={onAddAppointment}>
+            <AppIcon name="plus" size={14} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -398,7 +465,7 @@ export function DashboardOverview({
 const cardShadow = Platform.select({
   ios: {
     shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
   },
@@ -408,300 +475,394 @@ const cardShadow = Platform.select({
 
 const styles = StyleSheet.create({
   root: { paddingBottom: 8 },
-  pressed: { opacity: 0.88 },
-  hero: { paddingTop: 4, paddingBottom: 6 },
+  pressed: { opacity: 0.9 },
+
+  hero: { paddingTop: 0, paddingBottom: 2 },
+  heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   greeting: {
     color: '#64748B',
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
   dateTitle: {
-    marginTop: 2,
+    marginTop: 1,
     color: '#0F172A',
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-    letterSpacing: -0.7,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   subtitle: {
-    marginTop: 4,
+    marginTop: 2,
     color: '#64748B',
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  addFab: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#EE7D31',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
   },
   heroChips: {
-    marginTop: 12,
+    marginTop: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   liveChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
   },
   liveOpen: { backgroundColor: '#E6F6ED' },
   liveClosed: { backgroundColor: '#FEF2F2' },
-  liveDot: { width: 7, height: 7, borderRadius: 4 },
+  liveDot: { width: 5, height: 5, borderRadius: 3 },
   liveDotOpen: { backgroundColor: '#1F9D55' },
   liveDotClosed: { backgroundColor: '#DC2626' },
-  liveText: { color: '#0F172A', fontSize: 12, fontWeight: '600' },
+  liveText: { color: '#0F172A', fontSize: 10, fontWeight: '600' },
   weekChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
     backgroundColor: 'rgba(238,125,49,0.12)',
   },
-  weekChipText: { color: '#C96A2B', fontSize: 12, fontWeight: '700' },
+  weekChipText: { color: '#C96A2B', fontSize: 10, fontWeight: '700' },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+    maxWidth: '100%',
+  },
+  metaChipText: { color: '#64748B', fontSize: 10, fontWeight: '600', maxWidth: 120 },
 
   inviteCard: {
-    marginTop: 12,
+    marginTop: 8,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
     ...cardShadow,
   },
-  inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inviteHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inviteIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: 'rgba(238,125,49,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  inviteTitle: { color: '#0F172A', fontSize: 15, fontWeight: '700' },
-  inviteSub: { color: '#64748B', fontSize: 12, marginTop: 1 },
-  inviteRow: { marginTop: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(15,23,42,0.08)' },
-  inviteKlinik: { color: '#0F172A', fontSize: 15, fontWeight: '600', marginBottom: 8 },
-  inviteActions: { flexDirection: 'row', gap: 8 },
+  inviteTitle: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+  inviteSub: { color: '#64748B', fontSize: 11, marginTop: 0 },
+  inviteRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(15,23,42,0.08)',
+  },
+  inviteKlinik: { color: '#0F172A', fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  inviteActions: { flexDirection: 'row', gap: 6 },
 
   nextCard: {
-    marginTop: 12,
-    flexDirection: 'row',
+    marginTop: 8,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    overflow: 'hidden',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#EE7D31',
     ...cardShadow,
   },
-  nextAccent: { width: 5, backgroundColor: colors.brand.orange },
-  nextBody: { flex: 1, padding: 16 },
-  nextTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  nextTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   nextEyebrow: {
     color: '#C96A2B',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
-  nextTime: {
-    marginTop: 10,
-    color: '#0F172A',
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+  nextMain: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nextAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(238,125,49,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  nextDateHint: { color: '#94A3B8', fontSize: 14, fontWeight: '600' },
-  nextPatient: {
-    marginTop: 6,
+  nextAvatarTxt: { color: '#C96A2B', fontSize: 12, fontWeight: '800' },
+  nextTime: {
     color: '#0F172A',
-    fontSize: 17,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  nextDateHint: { color: '#94A3B8', fontSize: 10, fontWeight: '600', marginTop: 0 },
+  nextPatient: {
+    marginTop: 1,
+    color: '#0F172A',
+    fontSize: 13,
     fontWeight: '600',
   },
-  nextMeta: { marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  nextMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  nextMetaText: { color: '#64748B', fontSize: 12, fontWeight: '500' },
-  nextCta: {
-    marginTop: 14,
+  nextMeta: { marginTop: 6, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  nextMetaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
   },
-  nextCtaText: { color: '#EE7D31', fontSize: 13, fontWeight: '700' },
+  nextOnlinePill: { backgroundColor: '#E6F6ED' },
+  nextMetaText: { color: '#64748B', fontSize: 10, fontWeight: '600', maxWidth: 140 },
+  nextCta: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(15,23,42,0.06)',
+  },
+  nextCtaText: { color: '#EE7D31', fontSize: 11, fontWeight: '700' },
 
   nextEmpty: {
-    marginTop: 12,
+    marginTop: 8,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
     ...cardShadow,
   },
   nextEmptyIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: 'rgba(238,125,49,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  nextEmptyTitle: { color: '#0F172A', fontSize: 16, fontWeight: '700' },
+  nextEmptyTitle: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
   nextEmptyText: {
     color: '#64748B',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 12,
+    marginTop: 2,
+    marginBottom: 8,
   },
-  nextEmptyActions: { flexDirection: 'row', gap: 8, width: '100%' },
+  nextEmptyActions: { flexDirection: 'row', gap: 6, width: '100%' },
 
-  kpiGrid: { marginTop: 14, gap: 12 },
-  kpiRow: { flexDirection: 'row', gap: 12 },
+  kpiGrid: { marginTop: 8, gap: 6 },
+  kpiRow: { flexDirection: 'row', gap: 6 },
 
-  statusCard: {
-    marginTop: 14,
+  card: {
+    marginTop: 8,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
     ...cardShadow,
   },
-  blockTitle: { color: '#0F172A', fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
-  blockSub: { color: '#64748B', fontSize: 12, marginTop: 2 },
-  statusRow: { marginTop: 14, flexDirection: 'row' },
-  statusItem: { flex: 1, alignItems: 'center' },
-  statusValue: { fontSize: 20, fontWeight: '700', letterSpacing: -0.4 },
-  statusLabel: { color: '#64748B', fontSize: 11, fontWeight: '600', marginTop: 4 },
-
-  weekCard: {
-    marginTop: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    ...cardShadow,
+  blockTitle: { color: '#0F172A', fontSize: 13, fontWeight: '700', letterSpacing: -0.15 },
+  blockSub: { color: '#64748B', fontSize: 10, marginTop: 1, fontWeight: '500' },
+  statusRow: { marginTop: 8, flexDirection: 'row', gap: 5 },
+  statusItem: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 2,
   },
+  statusValue: { fontSize: 14, fontWeight: '800', letterSpacing: -0.3 },
+  statusLabel: { color: '#64748B', fontSize: 9, fontWeight: '700', marginTop: 2 },
+
   weekHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  linkText: { color: '#EE7D31', fontSize: 13, fontWeight: '700' },
+  linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 1 },
+  linkText: { color: '#EE7D31', fontSize: 11, fontWeight: '700' },
   bars: {
-    marginTop: 16,
+    marginTop: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    gap: 4,
-    minHeight: 72,
+    gap: 3,
+    minHeight: 52,
   },
   barCol: { flex: 1, alignItems: 'center' },
   bar: {
-    width: '58%',
-    maxWidth: 24,
+    width: '55%',
+    maxWidth: 18,
     minHeight: 6,
-    borderRadius: 8,
+    borderRadius: 5,
     backgroundColor: '#E8EDF3',
   },
-  barFilled: { backgroundColor: 'rgba(238,125,49,0.45)' },
+  barFilled: { backgroundColor: 'rgba(238,125,49,0.4)' },
   barToday: { backgroundColor: '#EE7D31' },
-  barDay: { color: '#94A3B8', fontSize: 10, fontWeight: '700', marginTop: 8 },
+  barDay: { color: '#94A3B8', fontSize: 9, fontWeight: '700', marginTop: 4 },
   barDayToday: { color: '#C96A2B' },
-  barCount: { color: '#64748B', fontSize: 10, fontWeight: '600', marginTop: 2 },
+  barCount: { color: '#64748B', fontSize: 9, fontWeight: '600', marginTop: 1 },
 
   toggleCard: {
-    marginTop: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    ...cardShadow,
-  },
-  toggleLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  toggleIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleTitle: { color: '#0F172A', fontSize: 15, fontWeight: '700' },
-  toggleSub: { color: '#64748B', fontSize: 12, marginTop: 2 },
-  toggleMeta: { color: '#94A3B8', fontSize: 11, marginTop: 3 },
-  settingsLink: {
     marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
+    ...cardShadow,
   },
-  settingsLinkText: { flex: 1, color: '#64748B', fontSize: 14, fontWeight: '600' },
+  toggleLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  toggleIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleTitle: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+  toggleSub: { color: '#64748B', fontSize: 10, marginTop: 1 },
+  toggleMeta: { color: '#94A3B8', fontSize: 9, marginTop: 1 },
+  toggleSwitch: { transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] },
+  settingsLink: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  settingsLinkText: { flex: 1, color: '#64748B', fontSize: 12, fontWeight: '600' },
 
   shortcutGrid: {
-    marginTop: 8,
+    marginTop: 4,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: 6,
   },
   shortcut: {
-    width: '23%',
-    flexGrow: 1,
-    minWidth: '22%',
-    maxWidth: '25%',
+    width: '23.5%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.06)',
     ...cardShadow,
   },
   shortcutIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: 'rgba(238,125,49,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   shortcutBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
+    top: -3,
+    right: -3,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
+    paddingHorizontal: 3,
     backgroundColor: '#EE7D31',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#FFFFFF',
   },
-  shortcutBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
-  shortcutTitle: { color: '#0F172A', fontSize: 12, fontWeight: '700', textAlign: 'center' },
-  shortcutSub: { color: '#94A3B8', fontSize: 10, marginTop: 2, textAlign: 'center' },
+  shortcutBadgeText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
+  shortcutTitle: { color: '#0F172A', fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  shortcutSub: { color: '#94A3B8', fontSize: 8, marginTop: 1, textAlign: 'center' },
 
   reviewBanner: {
-    marginTop: 14,
+    marginTop: 8,
     backgroundColor: 'rgba(238,125,49,0.12)',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 10,
+    padding: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   reviewIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: 'rgba(238,125,49,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  reviewText: { flex: 1, color: '#C96A2B', fontSize: 14, fontWeight: '700' },
+  reviewText: { flex: 1, color: '#C96A2B', fontSize: 12, fontWeight: '700' },
 
   scheduleHint: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 11,
     marginBottom: 4,
+    fontWeight: '500',
+  },
+  scheduleList: { gap: 0 },
+  scheduleEmpty: {
+    marginTop: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
+    ...cardShadow,
+  },
+  scheduleEmptyIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(238,125,49,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scheduleEmptyTitle: { color: '#0F172A', fontSize: 12, fontWeight: '700' },
+  scheduleEmptyText: { color: '#64748B', fontSize: 10, marginTop: 1, lineHeight: 13 },
+  scheduleEmptyBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#EE7D31',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

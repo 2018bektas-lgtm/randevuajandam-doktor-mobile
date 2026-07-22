@@ -110,7 +110,7 @@ export function TabGlyph({
       : active
         ? '#FFFFFF'
         : 'rgba(255,255,255,0.55)');
-  return <AppIcon name={name} size={22} color={color} />;
+  return <AppIcon name={name} size={18} color={color} />;
 }
 
 /** Circular icon badge used inside content cards / rows */

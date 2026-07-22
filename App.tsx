@@ -53,10 +53,7 @@ import {
 import { ScreenId } from './src/navigation/types';
 import { AuthFlows, AuthMode } from './src/screens/AuthFlows';
 import { MODULE_SCREENS } from './src/screens/Modules';
-import {
-  isOnboardingDone,
-  OnboardingScreen,
-} from './src/screens/Onboarding';
+import { OnboardingScreen } from './src/screens/Onboarding';
 import { StaffApp, StaffUser } from './src/screens/StaffApp';
 import {
   addNotificationResponseListener,
@@ -108,23 +105,15 @@ export default function App() {
 
   useEffect(() => {
     if (!introComplete || isRestoring) return;
-    // Gerçek oturum varsa tanıtım yok
+    // Oturum açıksa tanıtım yok
     if (doctor || staff) {
       setShowOnboarding(false);
       setOnboardingReady(true);
       return;
     }
-    void (async () => {
-      try {
-        const done = await isOnboardingDone();
-        // Misafir + tur bitmemiş → tanıtım (Başla / Zaten hesabım var)
-        setShowOnboarding(!done);
-      } catch {
-        setShowOnboarding(true);
-      } finally {
-        setOnboardingReady(true);
-      }
-    })();
+    // Misafir: her girişte tanıtım (Başlayalım / Zaten hesabım var)
+    setShowOnboarding(true);
+    setOnboardingReady(true);
   }, [introComplete, isRestoring, doctor, staff]);
 
   /** Phone OS notification tray push (not in-app list). Silent if already OK. */
@@ -189,13 +178,33 @@ export default function App() {
   }, []);
 
   const handleRegistered = useCallback(
-    async (token: string, doktor: Doctor) => {
-      await tokenStore.set(token, 'doctor');
+    async (result: {
+      token: string;
+      doktor: Doctor;
+      next_step?: string;
+      meslek_dogrulama_durumu?: string;
+      message?: string;
+    }) => {
+      await tokenStore.set(result.token, 'doctor');
       setStaff(null);
-      setDoctor(doktor);
+      setDoctor(result.doktor);
       setAuthMode('login');
       void ensurePhonePush(true);
-      void applyPendingPackage(doktor.id);
+      // Site akışı: meslek onayı sonrası paket; beklemede ise ödeme zorlanmaz
+      if (result.next_step === 'payment') {
+        void applyPendingPackage(result.doktor.id);
+        Alert.alert(
+          'Kayıt tamam',
+          result.message ??
+            'Meslek doğrulaması başarılı. Paket / ödeme adımına geçebilirsiniz (Menü → Paketler).',
+        );
+      } else {
+        Alert.alert(
+          'Kayıt alındı',
+          result.message ??
+            'Meslek belgeniz incelenecek. Onay sonrası seçtiğiniz paketi aktifleştirebilirsiniz.',
+        );
+      }
     },
     [applyPendingPackage, ensurePhonePush],
   );
@@ -392,25 +401,32 @@ export default function App() {
     try {
       if (token) {
         const path = role === 'staff' ? '/staff/auth/logout' : '/doctor/auth/logout';
-        await fetch(`${API_URL}${path}`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            ...(role === 'staff' ? { 'X-Personel-Token': token } : {}),
-          },
-        });
+        // Kısa timeout: API yavaş/kapalı olsa da yerel oturum kapanmalı
+        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = setTimeout(() => ctrl?.abort(), 4000);
+        try {
+          await fetch(`${API_URL}${path}`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
+              ...(role === 'staff' ? { 'X-Personel-Token': token } : {}),
+            },
+            signal: ctrl?.signal,
+          });
+        } catch {
+          // Ağ hatası / timeout — yerel temizlik yine yapılacak
+        } finally {
+          clearTimeout(timer);
+        }
       }
     } finally {
       await tokenStore.clearAll();
       setDoctor(null);
       setStaff(null);
-      // Çıkış sonrası misafir: tanıtım bitmişse login, bitmemişse tur
-      try {
-        const done = await isOnboardingDone();
-        setShowOnboarding(!done);
-      } catch {
-        setShowOnboarding(true);
-      }
+      // Çıkış sonrası misafir → yine tanıtım (Zaten hesabım var ile giriş)
+      setShowOnboarding(true);
+      setOnboardingReady(true);
     }
   }
 
@@ -460,77 +476,71 @@ export default function App() {
     );
   }
 
-  const heroTitle =
-    twoFactorToken
-      ? 'Doğrulama'
-      : authMode === 'forgot'
-        ? 'Şifre sıfırlama'
-        : authMode === 'register'
-          ? 'Hekim kayıt'
-          : authMode === 'reset'
-            ? 'Yeni şifre'
-            : 'İyi çalışmalar.';
-  const heroDesc =
-    twoFactorToken
-      ? 'Authenticator uygulamanızdaki 6 haneli kodu veya yedek kodunuzu girin.'
-      : authMode === 'login'
-        ? 'Takviminiz, hastalarınız ve kliniğiniz avucunuzda.'
-        : 'Tüm adımlar uygulama içinde tamamlanır; site sayfası açılmaz.';
+  const isLoginShell = authMode === 'login' || !!twoFactorToken;
+  const heroTitle = twoFactorToken
+    ? 'Doğrulama'
+    : authMode === 'forgot'
+      ? 'Şifre sıfırlama'
+      : authMode === 'register'
+        ? 'Hekim kayıt'
+        : authMode === 'reset'
+          ? 'Yeni şifre'
+          : loginRole === 'staff'
+            ? 'Personel girişi'
+            : 'Hoş geldiniz';
+  const heroDesc = twoFactorToken
+    ? 'Authenticator kodunuzu girin.'
+    : authMode === 'login'
+      ? loginRole === 'staff'
+        ? 'Klinik hesabınızla paneline erişin.'
+        : 'E-posta ve şifrenizle hekim paneline girin.'
+      : 'Tüm adımlar uygulama içinde tamamlanır.';
 
   return (
     <View style={styles.safeArea}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={['#0F172A', '#1E293B', '#EE7D31']}
-        locations={[0, 0.55, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.authHeroBg, { paddingTop: L.safeTop + 8 }]}
-      >
-        <View style={styles.uiVersionPill}>
-          <Text style={styles.uiVersionText}>UI 1.1 · Native</Text>
-        </View>
-        <View style={styles.brandRow}>
-          <View style={styles.logoShell}>
-            <Image
-              source={require('./assets/logo.png')}
-              style={styles.logoImage}
-              accessibilityLabel="Randevu Ajandam"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.brandName}>Randevu Ajandam</Text>
-            <Text style={styles.brandSubtitle}>Hekim mobil uygulaması</Text>
-          </View>
-        </View>
-        <Text style={styles.welcome}>{heroTitle}</Text>
-        <Text style={styles.heroDescription}>{heroDesc}</Text>
-      </LinearGradient>
+      <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.flex}
       >
         <ScrollView
           contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: L.footerPad + 28, marginTop: -28 },
+            styles.authScroll,
+            { paddingTop: L.safeTop + 12, paddingBottom: L.footerPad + 20 },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.authTop} />
+          {/* Brand header — light native */}
+          <View style={styles.authHeader}>
+            <View style={styles.authLogoMark}>
+              <Image
+                source={require('./assets/logo.png')}
+                style={styles.authLogoImage}
+                accessibilityLabel="Randevu Ajandam"
+              />
+            </View>
+            <Text style={styles.authBrand}>Randevu Ajandam</Text>
+            <Text style={styles.authBrandSub}>Hekim mobil uygulaması</Text>
+          </View>
+
+          <Text style={styles.authHeadline}>{heroTitle}</Text>
+          <Text style={styles.authSubhead}>{heroDesc}</Text>
 
           {authMode !== 'login' && !twoFactorToken && loginRole === 'doctor' ? (
             <AuthFlows mode={authMode} onChangeMode={setAuthMode} onRegistered={handleRegistered} />
           ) : (
-            <Card style={styles.formCard} elevated>
+            <View style={styles.authCard}>
               {twoFactorToken ? (
                 <>
                   <View style={styles.authBadge}>
+                    <AppIcon name="lock" size={14} color="#C96A2B" />
                     <Text style={styles.authBadgeTxt}>2FA</Text>
                   </View>
                   <Text style={styles.formTitle}>İki adımlı doğrulama</Text>
-                  <Text style={styles.formDescription}>Authenticator uygulamanızdaki kodu girin.</Text>
+                  <Text style={styles.formDescription}>
+                    Authenticator uygulamanızdaki 6 haneli kodu veya yedek kodunuzu girin.
+                  </Text>
                   <TextField
                     autoCapitalize="none"
                     keyboardType="default"
@@ -554,6 +564,7 @@ export default function App() {
                       setTwoFactorCode('');
                       setErrorMessage(null);
                     }}
+                    style={styles.authSecondaryHit}
                   >
                     <Text style={styles.forgotPassword}>Geri dön</Text>
                   </Pressable>
@@ -569,7 +580,17 @@ export default function App() {
                         setAuthMode('login');
                       }}
                     >
-                      <Text style={[styles.loginRoleText, loginRole === 'doctor' && styles.loginRoleTextOn]}>
+                      <AppIcon
+                        name="profile"
+                        size={16}
+                        color={loginRole === 'doctor' ? '#EE7D31' : '#94A3B8'}
+                      />
+                      <Text
+                        style={[
+                          styles.loginRoleText,
+                          loginRole === 'doctor' && styles.loginRoleTextOn,
+                        ]}
+                      >
                         Hekim
                       </Text>
                     </Pressable>
@@ -582,20 +603,21 @@ export default function App() {
                         setTwoFactorToken(null);
                       }}
                     >
-                      <Text style={[styles.loginRoleText, loginRole === 'staff' && styles.loginRoleTextOn]}>
+                      <AppIcon
+                        name="people"
+                        size={16}
+                        color={loginRole === 'staff' ? '#EE7D31' : '#94A3B8'}
+                      />
+                      <Text
+                        style={[
+                          styles.loginRoleText,
+                          loginRole === 'staff' && styles.loginRoleTextOn,
+                        ]}
+                      >
                         Personel
                       </Text>
                     </Pressable>
                   </View>
-
-                  <Text style={styles.formTitle}>
-                    {loginRole === 'staff' ? 'Personel girişi' : 'Hoş geldiniz'}
-                  </Text>
-                  <Text style={styles.formDescription}>
-                    {loginRole === 'staff'
-                      ? 'Klinik sekreter / resepsiyon hesabınızla giriş yapın.'
-                      : 'E-posta ve şifrenizle hekim paneline güvenle erişin.'}
-                  </Text>
 
                   <TextField
                     autoCapitalize="none"
@@ -619,6 +641,16 @@ export default function App() {
                     value={password}
                   />
 
+                  {loginRole === 'doctor' ? (
+                    <Pressable
+                      onPress={() => setAuthMode('forgot')}
+                      hitSlop={8}
+                      style={styles.forgotRow}
+                    >
+                      <Text style={styles.forgotInline}>Şifremi unuttum</Text>
+                    </Pressable>
+                  ) : null}
+
                   {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
 
                   <Button
@@ -630,27 +662,34 @@ export default function App() {
                   />
 
                   {loginRole === 'doctor' ? (
-                    <View style={styles.authLinks}>
-                      <Pressable onPress={() => setAuthMode('forgot')} hitSlop={8}>
-                        <Text style={styles.forgotPassword}>Şifremi unuttum</Text>
-                      </Pressable>
-                      <View style={styles.authDivider} />
+                    <View style={styles.authFooterCta}>
+                      <Text style={styles.authFooterMuted}>Hesabınız yok mu?</Text>
                       <Pressable onPress={() => setAuthMode('register')} hitSlop={8}>
                         <Text style={styles.registerLink}>Hekim olarak kayıt ol</Text>
                       </Pressable>
                     </View>
                   ) : (
-                    <Text style={[styles.forgotPassword, { marginTop: 16 }]}>
+                    <Text style={styles.staffHint}>
                       Personel hesabı klinik yöneticiniz tarafından oluşturulur.
                     </Text>
                   )}
                 </>
               )}
-            </Card>
+            </View>
           )}
 
-          <Text style={styles.footerText}>Kliniğiniz her zaman yanınızda.</Text>
-          <LegalLinks tone="light" showKvkk style={{ marginBottom: 12, marginTop: 4 }} />
+          {isLoginShell ? (
+            <Pressable
+              onPress={() => setShowOnboarding(true)}
+              hitSlop={10}
+              style={styles.backToTour}
+            >
+              <AppIcon name="chevronLeft" size={16} color="#64748B" />
+              <Text style={styles.backToTourTxt}>Tanıtıma dön</Text>
+            </Pressable>
+          ) : null}
+
+          <LegalLinks tone="light" showKvkk style={{ marginBottom: 8, marginTop: 16 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -1066,6 +1105,8 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
     || screen === 'about'
     || screen === 'website'
     || screen === 'packages'
+    || screen === 'notifications'
+    || screen === 'referral'
   );
   const isMenuTab = screen === 'menu';
   const isCoreHome = isOverview || isCalendar;
@@ -1118,12 +1159,12 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
     if (
       screen === 'menu'
       || screen === 'profile'
-      || screen === 'notifications'
       || screen === 'quickClose'
     ) {
       setScreen('overview');
       return;
     }
+    // Profil alt sayfaları (bildirimler, şifre, paket…) → profile
     if (isProfileTab) {
       setScreen('profile');
       return;
@@ -1443,8 +1484,6 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
     }
   }
 
-  const listToRender = isOverview ? overviewList : dayAppointments;
-
   const activeTab: TabId = isOverview
     ? 'overview'
     : isCalendar
@@ -1509,9 +1548,9 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         style={[
           styles.dashboardHeader,
           {
-            paddingTop: L.safeTop + 4,
+            paddingTop: L.safeTop + 2,
             paddingHorizontal: L.padX,
-            paddingBottom: 14,
+            paddingBottom: 10,
           },
         ]}
       >
@@ -1616,7 +1655,27 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                       }
                     : null
                 }
-                todayList={null}
+                todayList={
+                  overviewList.length === 0 ? null : (
+                    <>
+                      {overviewList.map((appointment) => (
+                        <AppointmentCard
+                          key={appointment.id}
+                          appointment={appointment}
+                          busy={updatingId === appointment.id}
+                          compact={false}
+                          onUpdateStatus={(durum) => void updateStatus(appointment.id, durum)}
+                          onReschedule={() => setRescheduleTarget(appointment)}
+                          onOpenDetail={() => {
+                            setScreen('calendar');
+                            setSelectedDate(appointment.tarih || todayKey);
+                            setDetailTarget(appointment);
+                          }}
+                        />
+                      ))}
+                    </>
+                  )
+                }
                 onAcceptInvite={(id) => {
                   void (async () => {
                     try {
@@ -1921,66 +1980,47 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
               </View>
             ) : null}
 
-            {isLoading && isCalendar ? (
-              <ActivityIndicator color="#F58A45" style={styles.appointmentsLoading} />
-            ) : loadError && isCalendar ? (
-              <View style={styles.comingSoonCard}>
-                <Text style={styles.comingSoonTitle}>Bir sorun oluştu</Text>
-                <Text style={styles.comingSoonText}>{loadError}</Text>
-                <Pressable style={styles.retryButton} onPress={() => void refreshAll(true)}>
-                  <Text style={styles.retryButtonText}>Tekrar dene</Text>
-                </Pressable>
-              </View>
-            ) : listToRender.length === 0 ? (
-              <View style={isCalendar ? styles.calEmpty : styles.comingSoonCard}>
-                <Text style={isCalendar ? styles.calEmptyIcon : undefined}>{isCalendar ? '📅' : null}</Text>
-                <Text style={isCalendar ? styles.calEmptyTitle : styles.comingSoonTitle}>Randevu yok</Text>
-                <Text style={isCalendar ? styles.calEmptyText : styles.comingSoonText}>
-                  {isOverview
-                    ? 'Bugün için planlanmış bir randevunuz bulunmuyor.'
-                    : selectedDate === todayKey
+            {/* Calendar day list only — overview appointments live inside DashboardOverview */}
+            {isCalendar ? (
+              isLoading ? (
+                <ActivityIndicator color="#F58A45" style={styles.appointmentsLoading} />
+              ) : loadError ? (
+                <View style={styles.comingSoonCard}>
+                  <Text style={styles.comingSoonTitle}>Bir sorun oluştu</Text>
+                  <Text style={styles.comingSoonText}>{loadError}</Text>
+                  <Pressable style={styles.retryButton} onPress={() => void refreshAll(true)}>
+                    <Text style={styles.retryButtonText}>Tekrar dene</Text>
+                  </Pressable>
+                </View>
+              ) : dayAppointments.length === 0 ? (
+                <View style={styles.calEmpty}>
+                  <Text style={styles.calEmptyIcon}>📅</Text>
+                  <Text style={styles.calEmptyTitle}>Randevu yok</Text>
+                  <Text style={styles.calEmptyText}>
+                    {selectedDate === todayKey
                       ? 'Bugün için planlanmış randevu yok. Yeni ekleyebilirsiniz.'
                       : 'Bu gün için planlanmış randevu yok.'}
-                </Text>
-                {isCalendar ? (
+                  </Text>
                   <Pressable style={styles.calEmptyBtn} onPress={() => setCreateOpen(true)}>
                     <Text style={styles.calEmptyBtnTxt}>Yeni randevu</Text>
                   </Pressable>
-                ) : null}
-              </View>
-            ) : isCalendar ? (
-              <View style={styles.timeline}>
-                {listToRender.map((appointment, idx) => (
-                  <TimelineAppointmentRow
-                    key={appointment.id}
-                    appointment={appointment}
-                    isLast={idx === listToRender.length - 1}
-                    busy={updatingId === appointment.id}
-                    onUpdateStatus={(durum) => void updateStatus(appointment.id, durum)}
-                    onReschedule={() => setRescheduleTarget(appointment)}
-                    onOpenDetail={() => setDetailTarget(appointment)}
-                  />
-                ))}
-              </View>
-            ) : (
-              listToRender.map((appointment) => (
-                <AppointmentCard
-                  key={appointment.id}
-                  appointment={appointment}
-                  busy={updatingId === appointment.id}
-                  compact={false}
-                  onUpdateStatus={(durum) => void updateStatus(appointment.id, durum)}
-                  onReschedule={() => setRescheduleTarget(appointment)}
-                  onOpenDetail={() => {
-                    if (isOverview) {
-                      setScreen('calendar');
-                      setSelectedDate(appointment.tarih);
-                    }
-                    setDetailTarget(appointment);
-                  }}
-                />
-              ))
-            )}
+                </View>
+              ) : (
+                <View style={styles.timeline}>
+                  {dayAppointments.map((appointment, idx) => (
+                    <TimelineAppointmentRow
+                      key={appointment.id}
+                      appointment={appointment}
+                      isLast={idx === dayAppointments.length - 1}
+                      busy={updatingId === appointment.id}
+                      onUpdateStatus={(durum) => void updateStatus(appointment.id, durum)}
+                      onReschedule={() => setRescheduleTarget(appointment)}
+                      onOpenDetail={() => setDetailTarget(appointment)}
+                    />
+                  ))}
+                </View>
+              )
+            ) : null}
           </>
       </ScrollView>
 
@@ -3072,9 +3112,108 @@ function RescheduleAppointmentModal({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { flex: 1, backgroundColor: '#EEF2F7' },
+  safeArea: { flex: 1, backgroundColor: '#F2F4F7' },
   loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A' },
   introScreen: { flex: 1, overflow: 'hidden', backgroundColor: '#0F172A' },
+  authScroll: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    backgroundColor: '#F2F4F7',
+  },
+  authHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  authLogoMark: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+    marginBottom: 12,
+  },
+  authLogoImage: { width: 40, height: 40, resizeMode: 'contain' },
+  authBrand: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  authBrandSub: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  authHeadline: {
+    color: '#0F172A',
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+  },
+  authSubhead: {
+    color: '#64748B',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+    paddingHorizontal: 12,
+  },
+  authCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 20,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  authSecondaryHit: { marginTop: 14, alignItems: 'center' },
+  forgotRow: { alignSelf: 'flex-end', marginTop: -4, marginBottom: 4 },
+  forgotInline: { color: '#EE7D31', fontSize: 13, fontWeight: '700' },
+  authFooterCta: {
+    marginTop: 18,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  authFooterMuted: { color: '#94A3B8', fontSize: 13, fontWeight: '500' },
+  staffHint: {
+    marginTop: 16,
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  backToTour: {
+    marginTop: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+  },
+  backToTourTxt: { color: '#64748B', fontSize: 13, fontWeight: '600' },
   authHeroBg: {
     paddingHorizontal: 20,
     paddingBottom: 36,
@@ -3223,43 +3362,60 @@ const styles = StyleSheet.create({
   },
   authBadge: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#FFF7ED',
     borderWidth: 1,
     borderColor: '#FED7AA',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginBottom: 12,
   },
   authBadgeTxt: { color: '#C96A2B', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
   loginRoleRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 6,
-    backgroundColor: '#EEF2F7',
-    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
     padding: 4,
   },
   loginRoleBtn: {
     flex: 1,
-    paddingVertical: 11,
-    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   loginRoleBtnOn: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#102133',
+    shadowColor: '#0F172A',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  loginRoleText: { color: '#6D7D8E', fontSize: 13, fontWeight: '600' },
-  loginRoleTextOn: { color: '#102133' },
-  formTitle: { color: '#102133', fontSize: 16, fontWeight: '700', letterSpacing: -0.25 },
-  formDescription: { color: '#6D7D8E', fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 6 },
-  signInButton: { marginTop: 8 },
-  errorMessage: { color: '#C13C2C', fontSize: 13, lineHeight: 19, marginTop: 10 },
+  loginRoleText: { color: '#94A3B8', fontSize: 14, fontWeight: '600' },
+  loginRoleTextOn: { color: '#0F172A', fontWeight: '700' },
+  formTitle: { color: '#0F172A', fontSize: 17, fontWeight: '700', letterSpacing: -0.25 },
+  formDescription: { color: '#64748B', fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 12 },
+  signInButton: { marginTop: 10, minHeight: 48 },
+  errorMessage: {
+    color: '#DC2626',
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8,
+    marginBottom: 4,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   authLinks: { marginTop: 6, alignItems: 'center', gap: 0 },
   authDivider: {
     width: 28,
@@ -3267,8 +3423,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E1E6ED',
     marginVertical: 10,
   },
-  forgotPassword: { color: '#6D7D8E', fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  registerLink: { color: '#C96A2B', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  forgotPassword: { color: '#64748B', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  registerLink: { color: '#EE7D31', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   footerText: {
     color: '#95A2B5',
     fontSize: 12,
@@ -3295,50 +3451,50 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#0F172A',
-    minHeight: 56,
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
+    minHeight: 48,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   dashboardIdentity: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
     minWidth: 0,
-    paddingRight: 8,
+    paddingRight: 6,
   },
   dashboardLogoShell: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 0,
   },
-  dashboardLogo: { width: 26, height: 26, resizeMode: 'contain' },
+  dashboardLogo: { width: 20, height: 20, resizeMode: 'contain' },
   uiVersionMini: {
     color: '#FDBA74',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.3,
-    marginBottom: 2,
+    letterSpacing: 0.2,
+    marginBottom: 1,
   },
   dashboardIdentityTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: -0.35,
-    lineHeight: 22,
+    letterSpacing: -0.25,
+    lineHeight: 18,
   },
   dashboardIdentitySubtitle: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: -0.1,
     fontWeight: '500',
-    marginTop: 1,
-    lineHeight: 15,
+    marginTop: 0,
+    lineHeight: 13,
   },
   dashboardAvatar: {
     width: 28,

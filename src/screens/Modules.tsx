@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   Share,
+  StyleSheet,
   Switch,
   Text,
   TextInput,
@@ -4240,10 +4241,18 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
         : `${SITE_URL}/storage/${form.profil_resmi.replace(/^storage\//, '')}`
       : null);
 
+  const inboxLinks = [
+    {
+      icon: 'bell' as const,
+      title: 'Bildirimler',
+      description: 'Randevu talepleri ve uyarılar',
+      screen: 'notifications' as ScreenId,
+      tint: '#3B82F6',
+    },
+  ];
   const securityLinks = [
     { icon: 'lock' as const, title: 'Şifre Değiştir', description: 'Hesap güvenliği', screen: 'password' as ScreenId, tint: '#EF4444' },
     { icon: 'lock' as const, title: 'İki Adımlı Doğrulama', description: 'Authenticator 2FA', screen: 'twoFactor' as ScreenId, tint: '#F59E0B' },
-    { icon: 'bell' as const, title: 'Bildirimler', description: 'Push bildirimleri', screen: 'notifications' as ScreenId, tint: '#3B82F6' },
   ];
   const membershipLinks = [
     { icon: 'package' as const, title: 'Paket & Abonelik', description: 'Plan ve ödeme', screen: 'packages' as ScreenId, tint: '#EE7D31' },
@@ -4256,26 +4265,39 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
 
   return (
     <ProfileChrome onBack={onBack} loading={loading}>
+      {/* Menü linkleri form yüklenmese de görünsün */}
+      {form ? (
+        <ProfileHeroCard
+          photoUri={photoUri}
+          name={[form.unvan, form.ad_soyad].filter(Boolean).join(' ')}
+          email={form.e_posta}
+          specialty={form.uzmanlik_alani}
+          phone={form.telefon}
+          onPickPhoto={() => void pickPhoto()}
+        />
+      ) : null}
+
+      <ProfileLinkGroup title="Bildirimler" items={inboxLinks} onNavigate={onNavigate} />
+      <ProfileLinkGroup title="Güvenlik" items={securityLinks} onNavigate={onNavigate} />
+      <ProfileLinkGroup title="Abonelik" items={membershipLinks} onNavigate={onNavigate} />
+      <ProfileLinkGroup title="Herkese açık" items={publicLinks} onNavigate={onNavigate} />
+
       {form ? (
         <>
-          <ProfileHeroCard
-            photoUri={photoUri}
-            name={[form.unvan, form.ad_soyad].filter(Boolean).join(' ')}
-            email={form.e_posta}
-            specialty={form.uzmanlik_alani}
-            phone={form.telefon}
-            onPickPhoto={() => void pickPhoto()}
-          />
-
-          <ProfileLinkGroup title="Güvenlik" items={securityLinks} onNavigate={onNavigate} />
-          <ProfileLinkGroup title="Abonelik" items={membershipLinks} onNavigate={onNavigate} />
-          <ProfileLinkGroup title="Herkese açık" items={publicLinks} onNavigate={onNavigate} />
-
           <Pressable
-            style={[s.secondaryButton, { marginTop: 18, backgroundColor: '#FFFFFF', borderWidth: 0 }]}
+            style={[
+              s.secondaryButton,
+              {
+                marginTop: 12,
+                backgroundColor: '#FFFFFF',
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: 'rgba(15,23,42,0.08)',
+                minHeight: 40,
+              },
+            ]}
             onPress={() => setShowDetails((v) => !v)}
           >
-            <Text style={s.secondaryButtonText}>
+            <Text style={[s.secondaryButtonText, { fontSize: 13 }]}>
               {showDetails ? 'Formu gizle' : 'Profil bilgilerini düzenle'}
             </Text>
           </Pressable>
@@ -4447,26 +4469,25 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
             </>
           ) : null}
 
-          {onSignOut ? (
-            <Pressable
-              style={[s.menuSignOut, { marginTop: 22, marginBottom: 8 }]}
-              onPress={() => {
-                Alert.alert('Çıkış yap', 'Hesabınızdan çıkmak istiyor musunuz?', [
-                  { text: 'Vazgeç', style: 'cancel' },
-                  {
-                    text: 'Çıkış yap',
-                    style: 'destructive',
-                    onPress: () => {
-                      void onSignOut();
-                    },
-                  },
-                ]);
-              }}
-            >
-              <Text style={s.menuSignOutText}>Oturumu kapat</Text>
-            </Pressable>
-          ) : null}
         </>
+      ) : null}
+
+      {onSignOut ? (
+        <Pressable
+          style={[s.menuSignOut, { marginTop: 12, marginBottom: 4, minHeight: 42 }]}
+          onPress={() => {
+            confirmDestructive(
+              'Çıkış yap',
+              'Hesabınızdan çıkmak istiyor musunuz?',
+              'Çıkış yap',
+              () => {
+                void onSignOut();
+              },
+            );
+          }}
+        >
+          <Text style={[s.menuSignOutText, { fontSize: 14 }]}>Oturumu kapat</Text>
+        </Pressable>
       ) : null}
     </ProfileChrome>
   );

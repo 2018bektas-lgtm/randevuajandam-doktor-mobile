@@ -34,8 +34,11 @@ import { requestNotificationPermission } from '../services/push';
 import { purchasePackageInApp, type IapPeriod } from '../services/iap';
 import { appVersion, storeReviewUrl } from '../config/store';
 import { LegalLinks } from '../components/LegalLinks';
+import { AppIcon } from '../components/AppIcon';
+import { colors } from '../theme';
+import { IntroSceneRouter } from './IntroPreviews';
 
-export const ONBOARDING_KEY = 'randevuajandam.onboarding.done.v13';
+export const ONBOARDING_KEY = 'randevuajandam.onboarding.done.v15';
 export const ONBOARDING_ANSWERS_KEY = 'randevuajandam.onboarding.answers.v3';
 
 const LOGO = require('../../assets/logo.png');
@@ -138,39 +141,31 @@ type Stage =
 type VisualKind = 'brand' | 'calendar' | 'modules' | 'video' | 'team' | 'reviews' | 'ready' | 'security';
 
 const STAGES: Stage[] = [
-  // ── A) PROJE TANITIMI (premium cinematic) ─────────────────
+  // ── A) TANITIM (welcome + feature cards) ─────────────────
   {
     kind: 'story',
     key: 's1',
     stepLabel: '01',
     phase: 'intro',
-    eyebrow: 'HEKİM İÇİN TASARLANDI',
-    title: 'Kliniğinizi cebinizde yönetin',
-    body: 'Randevu Ajandam; muayenehane ve kliniklerin operasyonunu tek mobil panelde toplayan premium hekim platformudur.',
-    accent: '#F59E55',
+    eyebrow: 'HEKİM UYGULAMASI',
+    title: 'Kliniğiniz,\ncebinizde',
+    body: 'Randevu, hasta ve finansı tek yerden yönetin.',
+    accent: '#EE7D31',
     visual: 'brand',
-    bullets: [
-      'Takvim · talep · hasta · finans',
-      'Online görüşme ve web sitesi',
-      'Size özel paket önerisi',
-    ],
-    cta: 'Deneyimi başlat',
+    bullets: ['Takvim & talepler', 'Online görüşme', 'Size özel paket'],
+    cta: 'Başlayalım',
   },
   {
     kind: 'story',
     key: 's_cal',
     stepLabel: '02',
     phase: 'intro',
-    eyebrow: 'RANDEVU OPERASYONU',
+    eyebrow: 'RANDEVU',
     title: 'Her slot kontrolünüzde',
-    body: 'Defter ve WhatsApp karmaşası biter. Hasta talebi gelir, siz onaylarsınız — sekreter aynı ekrandan çalışır.',
-    accent: '#60A5FA',
+    body: 'Hasta talep eder, siz onaylarsınız.',
+    accent: '#3B82F6',
     visual: 'calendar',
-    bullets: [
-      'Gün / hafta takvim + boş slotlar',
-      'Misafir talep & onay',
-      'İzin ve hızlı slot kapatma',
-    ],
+    bullets: ['Gün / hafta takvim', 'Talep onayı', 'Slot kapatma'],
     cta: 'Devam',
   },
   {
@@ -178,16 +173,12 @@ const STAGES: Stage[] = [
     key: 's_mod',
     stepLabel: '03',
     phase: 'intro',
-    eyebrow: 'TAM PANEL',
-    title: 'Sadece takvim değil, tam işletme',
-    body: 'Web paneliyle aynı altyapı. Mobilde hizmet, içerik, yorum ve finans — muayene aralarında bile yönetin.',
-    accent: '#34D399',
+    eyebrow: 'PANEL',
+    title: 'Tam işletme yönetimi',
+    body: 'Hasta, hizmet, finans ve içerik — tek panelde.',
+    accent: '#10B981',
     visual: 'modules',
-    bullets: [
-      'Hasta kartı & randevu geçmişi',
-      'Hizmet / fiyat tanımları',
-      'Gelir–gider · hasta bakiyesi',
-    ],
+    bullets: ['Hasta kartı', 'Hizmet & fiyat', 'Gelir–gider'],
     cta: 'Devam',
   },
   {
@@ -195,16 +186,12 @@ const STAGES: Stage[] = [
     key: 's_online',
     stepLabel: '04',
     phase: 'intro',
-    eyebrow: 'ONLINE SEANS',
+    eyebrow: 'ONLINE',
     title: 'Görüşme odası tek dokunuş',
-    body: 'Paketinizde online görüşme açıksa onaylı randevuda oda hazır. Zoom linki peşinde koşmayın.',
-    accent: '#A78BFA',
+    body: 'Onaylı randevuda oda hazır. Zoom peşinde koşmayın.',
+    accent: '#8B5CF6',
     visual: 'video',
-    bullets: [
-      'Yüz yüze veya online randevu tipi',
-      'Onay sonrası otomatik oda',
-      'Hasta & hekim aynı platform',
-    ],
+    bullets: ['Yüz yüze / online', 'Otomatik oda', 'Aynı platform'],
     cta: 'Devam',
   },
   {
@@ -212,16 +199,12 @@ const STAGES: Stage[] = [
     key: 's_team',
     stepLabel: '05',
     phase: 'intro',
-    eyebrow: 'KLİNİK & EKİP',
-    title: 'Büyüyen kliniklere hazır altyapı',
-    body: 'Tek hekimden çok hekimli merkeze. Ortak hasta havuzu, personel yetkileri, hakediş ve klinik web sitesi üst paketlerde.',
-    accent: '#38BDF8',
+    eyebrow: 'EKİP',
+    title: 'Tek hekimden kliniğe',
+    body: 'Ortak hasta havuzu, sekreter yetkileri, klinik vitrin.',
+    accent: '#0EA5E9',
     visual: 'team',
-    bullets: [
-      'Hekim davet & ortak takvim',
-      'Sekreter paneli (yetki bazlı)',
-      'Merkezi finans & klinik site',
-    ],
+    bullets: ['Hekim davet', 'Personel paneli', 'Merkezi finans'],
     cta: 'Profilime geç',
   },
 
@@ -787,17 +770,17 @@ const PACKAGES: Pkg[] = [
     dbId: 8,
     tur: 'klinik',
     ad: 'Klinik Kurumsal',
-    tagline: 'Sınırsız + klinik web sitesi',
+    tagline: '20 hekime kadar + klinik web sitesi',
     aciklama:
-      'Sınırsız hekim/personel + özel klinik web sitesi: kurumsal domain, çok hekimli vitrin, CMS ve online randevu.',
+      '20 hekime kadar, 10 personele kadar + özel klinik web sitesi: kurumsal domain, çok hekimli vitrin, CMS ve online randevu.',
     aylik: 5499,
     yillik: 54990,
     aylikIndirimli: 3999,
     yillikIndirimli: 39990,
     features: [
       'Klinik Profesyonel özelliklerinin tümü',
-      'Sınırsız hekim ekleme',
-      'Sınırsız personel tanımlama',
+      '20 hekime kadar aktif hekim',
+      '10 personele kadar tanımlama',
       'Merkezi finans & PDF rapor çıktıları',
       'Şubeler için ortak hasta havuzu',
       'Özel klinik web sitesi (domain + CMS + hosting + SSL)',
@@ -805,9 +788,9 @@ const PACKAGES: Pkg[] = [
       'Öncelikli destek & sekreterya eğitimi',
     ],
     ideal: 'Büyük klinik / tıp merkezi veya klinik marka sitesi isteyenler',
-    limit: 'Sınırsız hekim · sınırsız personel',
-    maxDoktor: 999,
-    maxPersonel: 999,
+    limit: '≤20 hekim · ≤10 personel',
+    maxDoktor: 20,
+    maxPersonel: 10,
   },
 ];
 
@@ -1833,7 +1816,11 @@ export function OnboardingScreen({ onFinish }: Props) {
   const [footerReady, setFooterReady] = useState(false);
 
   const stage = STAGES[index] ?? STAGES[0];
-  const progress = (index + 1) / TOTAL;
+  /** Welcome (index 0) tur adımı sayılmaz */
+  const isWelcome = index === 0;
+  const tourTotal = Math.max(TOTAL - 1, 1);
+  const tourStep = Math.max(index, 1);
+  const progress = isWelcome ? 0 : tourStep / tourTotal;
   const recommendation = useMemo(() => recommendPackage(answers), [answers]);
   const recommended = recommendation.pkg;
   const otherPackages = useMemo(
@@ -1853,27 +1840,13 @@ export function OnboardingScreen({ onFinish }: Props) {
 
   const progressSV = useSharedValue(progress);
   const footerReveal = useSharedValue(0);
-
-  /** İçerik satır sayısı kadar gecikme — Devam butonu en sonda belirir */
-  const footerDelayMs = useMemo(() => {
-    if (stage.kind === 'story') {
-      const n = Math.min(stage.bullets?.length ?? 0, 3);
-      // mock + title + 3 bullets — then CTA (no scroll page)
-      return 520 + n * 100 + 320;
-    }
-    if (stage.kind === 'question') {
-      const n = Math.min(stage.choices.length, 8);
-      return 320 + 140 + n * 85 + 220;
-    }
-    if (stage.kind === 'permission') return 700;
-    if (stage.kind === 'package') return 480;
-    return 500;
-  }, [stage]);
+  /** CTA gecikmesi yok — anında kullanılabilir */
+  const footerDelayMs = 80;
 
   const isIntro = stage.phase === 'intro';
 
   useEffect(() => {
-    progressSV.value = withTiming(progress, { duration: 320, easing: Easing.out(Easing.cubic) });
+    progressSV.value = withTiming(progress, { duration: 280, easing: Easing.out(Easing.cubic) });
   }, [progress, progressSV]);
 
   useEffect(() => {
@@ -1881,11 +1854,11 @@ export function OnboardingScreen({ onFinish }: Props) {
     footerReveal.value = 0;
     footerReveal.value = withDelay(
       footerDelayMs,
-      withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }),
+      withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) }),
     );
-    const t = setTimeout(() => setFooterReady(true), footerDelayMs + 80);
+    const t = setTimeout(() => setFooterReady(true), footerDelayMs + 40);
     return () => clearTimeout(t);
-  }, [index, footerDelayMs, footerReveal]);
+  }, [index, footerReveal]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: interpolate(progressSV.value, [0, 1], [0, progressMax], Extrapolation.CLAMP),
@@ -2037,13 +2010,13 @@ export function OnboardingScreen({ onFinish }: Props) {
         if (pkg.tur === 'klinik') {
           Alert.alert(
             'Klinik paket tercihi',
-            `${pkg.ad} kaydedildi.\n\nKlinik paketleri mobilden abone edilemez. Kayıt/giriş sonrası tercihiniz hatırlatılır; klinik kaydı ve paket bağlama web panelinden yapılır.\n\nAlttan “Kayıt ol” veya “Giriş yap” ile devam edin.`,
+            `${pkg.ad} kaydedildi.\n\nSitedeki gibi: kayıt → meslek/e-Devlet → ödeme/aktivasyon. Klinik paket aktivasyonu web panelinden de tamamlanabilir.\n\nAlttan “Kayıt ol” ile devam edin.`,
           );
           return;
         }
         Alert.alert(
           'Paket seçildi',
-          `${pkg.ad} kaydedildi.\n\n${res.message}\n\nAlttan “Kayıt ol” veya “Giriş yap” ile devam edin — ücretsiz paket otomatik aktifleşir.`,
+          `${pkg.ad} tercihiniz kaydedildi.\n\nSitedeki akış: Kayıt ol → T.C. + e-Devlet/diploma → meslek onayı → paket ödeme/aktivasyon.\n\nDoğrudan üyelik açılmaz. Alttan “Kayıt ol” ile devam edin.`,
         );
       } finally {
         setBusy(false);
@@ -2070,71 +2043,105 @@ export function OnboardingScreen({ onFinish }: Props) {
   const accent = stage.accent;
   const phaseLabel =
     stage.phase === 'intro' ? 'Tanıtım' : stage.phase === 'profile' ? 'Profil' : 'Paket';
-  const phaseIndex = STAGES.filter((x) => x.phase === stage.phase).findIndex(
-    (x) => x.key === stage.key,
+  const phaseOrder: Array<'intro' | 'profile' | 'offer'> = ['intro', 'profile', 'offer'];
+  const phaseActiveIdx = phaseOrder.indexOf(stage.phase);
+  const phaseStages = STAGES.filter(
+    (x) => x.phase === stage.phase && !(x.phase === 'intro' && x.key === 's1'),
   );
-  const phaseTotal = STAGES.filter((x) => x.phase === stage.phase).length;
+  const phaseIndex = phaseStages.findIndex((x) => x.key === stage.key);
+  const phaseTotal = Math.max(phaseStages.length, 1);
+  const phasePct = phaseIndex < 0 ? 0 : (phaseIndex + 1) / phaseTotal;
 
   return (
     <View style={s.root}>
       <StatusBar style="dark" />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#F4F6F9' }]} pointerEvents="none" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background.primary }]} pointerEvents="none" />
 
-      {/* Header */}
+      {/* Header — welcome boş; turda geri + adım (welcome sayılmaz) */}
       <View
         style={[
           s.header,
           {
-            paddingTop: L.safeTop + 4,
+            paddingTop: L.safeTop + 6,
             paddingHorizontal: L.padX,
-            paddingBottom: 8,
+            paddingBottom: isWelcome ? 4 : 10,
           },
         ]}
       >
-        <View style={s.headerLeft}>
-          {index > 0 ? (
-            <Pressable onPress={goBack} hitSlop={12} style={s.headerBackBtn}>
-              <Text style={s.headerBackTxt}>‹</Text>
-            </Pressable>
-          ) : (
-            <View style={s.headerLogo}>
-              <Image source={LOGO} style={s.headerLogoImg} />
+        {isWelcome ? (
+          <View style={{ height: 8, flex: 1 }} />
+        ) : (
+          <>
+            <View style={s.headerLeft}>
+              <Pressable
+                onPress={goBack}
+                hitSlop={12}
+                style={s.headerBackBtn}
+                accessibilityLabel="Geri"
+              >
+                <AppIcon name="chevronLeft" size={20} color={colors.text.heading} />
+              </Pressable>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[s.headerBrand, { fontSize: 16 }]} numberOfLines={1}>
+                  {phaseLabel}
+                </Text>
+                <Text style={[s.headerMeta, { fontSize: 12 }]} numberOfLines={1}>
+                  Adım {tourStep} / {tourTotal}
+                </Text>
+              </View>
             </View>
-          )}
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[s.headerBrand, { fontSize: 15 }]} numberOfLines={1}>
-              Randevu Ajandam
-            </Text>
-            <Text style={[s.headerMeta, { fontSize: 11 }]} numberOfLines={1}>
-              {phaseLabel} · {phaseIndex + 1}/{phaseTotal}
-            </Text>
-          </View>
-        </View>
-        <View style={s.stepChip}>
-          <Text style={s.stepChipTxt}>
-            {index + 1}/{TOTAL}
-          </Text>
-        </View>
+            <View style={s.stepChip}>
+              <Text style={s.stepChipTxt}>{Math.round(progress * 100)}%</Text>
+            </View>
+          </>
+        )}
       </View>
 
-      {/* Progress */}
-      <View style={[s.progressTrack, { marginHorizontal: L.padX }]}>
-        <Animated.View style={[s.progressFill, progressStyle, { backgroundColor: accent }]} />
-      </View>
+      {/* 3 fazlı segment — welcome'da gizli */}
+      {!isWelcome ? (
+        <View style={[s.phaseRow, { paddingHorizontal: L.padX, marginBottom: 6 }]}>
+          {phaseOrder.map((ph, i) => {
+            const done = i < phaseActiveIdx;
+            const active = i === phaseActiveIdx;
+            return (
+              <View key={ph} style={s.phaseSegWrap}>
+                <View style={s.phaseSegTrack}>
+                  <View
+                    style={[
+                      s.phaseSegFill,
+                      {
+                        width: done ? '100%' : active ? `${Math.round(phasePct * 100)}%` : '0%',
+                        backgroundColor: done || active ? accent : 'transparent',
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    s.phaseSegLabel,
+                    (done || active) && { color: colors.text.heading, fontWeight: '700' },
+                  ]}
+                >
+                  {ph === 'intro' ? 'Tanıtım' : ph === 'profile' ? 'Profil' : 'Paket'}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
 
       {/* Content */}
       <View style={[s.stage, isIntro && s.stageIntro]} key={stage.key}>
         {isIntro && stage.kind === 'story' ? (
           <View style={s.introFixed} pointerEvents="box-none">
-            <PremiumIntroScene
-              sceneKey={stage.key}
-              visual={stage.visual}
+            <IntroSceneRouter
+              visual={stage.visual as import('./IntroPreviews').IntroVisual}
               accent={accent}
               eyebrow={stage.eyebrow}
               title={stage.title}
               body={stage.body}
               bullets={stage.bullets}
-              isFirst={index === 0}
+              isWelcome={isWelcome}
             />
           </View>
         ) : (
@@ -2643,26 +2650,26 @@ export function OnboardingScreen({ onFinish }: Props) {
         ]}
         pointerEvents={footerReady ? 'auto' : 'none'}
       >
-        {index === 0 && stage.kind === 'story' ? (
-          <View style={[s.ctaStack, { gap: 8 }]} pointerEvents="auto">
-            <GlowButton label="Deneyimi başlat" arrow onPress={goNext} height={52} />
+        {isWelcome && stage.kind === 'story' ? (
+          <View style={[s.ctaStack, { gap: 10 }]} pointerEvents="auto">
+            <GlowButton label="Başlayalım" arrow onPress={goNext} height={54} />
             <GlowButton
-              label="Zaten hesabım var — giriş"
+              label="Zaten hesabım var"
               muted
               onPress={() => void persistAndFinish('login')}
-              height={46}
+              height={48}
             />
-            <LegalLinks tone="light" style={{ marginTop: 4 }} />
+            <LegalLinks tone="light" style={{ marginTop: 2 }} />
           </View>
         ) : null}
 
-        {index > 0 && stage.kind === 'story' ? (
+        {!isWelcome && stage.kind === 'story' ? (
           <View pointerEvents="auto">
             <GlowButton
               label={stage.cta ?? 'Devam'}
               arrow
               onPress={goNext}
-              height={52}
+              height={54}
             />
           </View>
         ) : null}
@@ -2702,9 +2709,12 @@ export function OnboardingScreen({ onFinish }: Props) {
 
         {stage.kind === 'package' ? (
           <View style={[s.ctaStack, { gap: 8 }]} pointerEvents="auto">
+            <Text style={s.footerHint}>
+              Sitedeki gibi: paket → kayıt (TC + e-Devlet) → meslek onayı → ödeme
+            </Text>
             <LegalLinks tone="dark" showKvkk style={{ marginBottom: 2 }} />
             <GlowButton
-              label="Kayıt ol"
+              label="Kayıt ol — TC & e-Devlet"
               arrow
               onPress={() => void persistAndFinish('register')}
               height={48}
@@ -2813,12 +2823,28 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFill: { height: 3, borderRadius: 2, overflow: 'hidden' },
+  phaseRow: { flexDirection: 'row', gap: 8 },
+  phaseSegWrap: { flex: 1, gap: 5 },
+  phaseSegTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  phaseSegFill: { height: 4, borderRadius: 2 },
+  phaseSegLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textAlign: 'center',
+  },
   stage: { flex: 1, minHeight: 0 },
-  stageIntro: { overflow: 'hidden' },
+  stageIntro: { overflow: 'hidden', minHeight: 0 },
   introFixed: {
     flex: 1,
     overflow: 'hidden',
     justifyContent: 'flex-start',
+    minHeight: 0,
   },
 
   artStage: {

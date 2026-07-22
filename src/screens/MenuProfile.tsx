@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,12 +11,10 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon, AppIconName } from '../components/AppIcon';
 import { apiGet } from '../api/client';
 import { useLayout } from '../layout';
 import type { ModuleProps, ScreenId } from '../navigation/types';
-import { colors } from '../theme';
 
 type MenuItem = {
   icon: AppIconName;
@@ -80,7 +79,7 @@ function MenuRow({
       style={({ pressed }) => [styles.row, !last && styles.rowBorder, pressed && styles.pressed, locked && styles.rowLocked]}
     >
       <View style={[styles.iconBox, { backgroundColor: `${item.tint}18` }]}>
-        <AppIcon name={item.icon} size={20} color={item.tint} />
+        <AppIcon name={item.icon} size={16} color={item.tint} />
       </View>
       <View style={styles.rowText}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -90,13 +89,13 @@ function MenuRow({
           {locked ? 'Paket yükseltme gerekli' : item.description}
         </Text>
       </View>
-      <AppIcon name={locked ? 'lock' : 'chevronRight'} size={18} color={locked ? '#F59E0B' : '#CBD5E1'} />
+      <AppIcon name={locked ? 'lock' : 'chevronRight'} size={16} color={locked ? '#F59E0B' : '#CBD5E1'} />
     </Pressable>
   );
 }
 
 /** Alt sekme: iş modülleri — şık, sade, app menüsü */
-export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
+export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModuleProps) {
   const L = useLayout();
   const [features, setFeatures] = useState<string[]>([]);
   const [restrict, setRestrict] = useState(false);
@@ -139,26 +138,22 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
   return (
     <View style={styles.safe}>
       <StatusBar style="dark" />
-      <View style={[styles.topBar, { paddingTop: L.safeTop + 8 }]}>
-        <View style={styles.topBarRow}>
-          <Pressable onPress={onBack} hitSlop={12} style={styles.backChip}>
-            <AppIcon name="chevronLeft" size={20} color="#0F172A" />
-          </Pressable>
-          <Text style={styles.topTitle}>Menü</Text>
-          <View style={styles.backChip} />
-        </View>
+      <View style={[styles.tabHeader, { paddingTop: L.safeTop + 6 }]}>
+        <Text style={styles.tabTitle}>Menü</Text>
         {paketAd ? (
           <View style={styles.paketPill}>
-            <AppIcon name="package" size={14} color="#C96A2B" />
+            <AppIcon name="package" size={12} color="#C96A2B" />
             <Text style={styles.paketPillText} numberOfLines={1}>
               {paketAd}
             </Text>
           </View>
-        ) : null}
+        ) : (
+          <Text style={styles.tabSub}>Modüller ve kısayollar</Text>
+        )}
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 24 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
@@ -184,24 +179,50 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
 
         <Pressable
           style={({ pressed }) => [styles.profileCta, pressed && styles.pressed]}
+          onPress={() => onNavigate('notifications')}
+        >
+          <View style={[styles.iconBox, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
+            <AppIcon name="bell" size={16} color="#3B82F6" />
+          </View>
+          <View style={styles.rowText}>
+            <Text style={styles.rowTitle}>Bildirimler</Text>
+            <Text style={styles.rowSub}>Talepler ve uyarılar</Text>
+          </View>
+          <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.profileCta, pressed && styles.pressed]}
           onPress={() => onNavigate('profile')}
         >
           <View style={[styles.iconBox, { backgroundColor: 'rgba(15,23,42,0.08)' }]}>
-            <AppIcon name="profile" size={20} color="#0F172A" />
+            <AppIcon name="profile" size={16} color="#0F172A" />
           </View>
           <View style={styles.rowText}>
             <Text style={styles.rowTitle}>Profil & hesap</Text>
             <Text style={styles.rowSub}>Güvenlik, paket, web sitesi</Text>
           </View>
-          <AppIcon name="chevronRight" size={18} color="#CBD5E1" />
+          <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
         </Pressable>
 
         {onSignOut ? (
           <Pressable
             style={({ pressed }) => [styles.logoutBtn, pressed && styles.pressed]}
-            onPress={() => void onSignOut()}
+            onPress={() => {
+              // Web'de Alert.alert butonları güvenilir değil
+              if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                if (window.confirm('Çıkış yap\n\nHesabınızdan çıkmak istiyor musunuz?')) {
+                  void onSignOut();
+                }
+                return;
+              }
+              Alert.alert('Çıkış yap', 'Hesabınızdan çıkmak istiyor musunuz?', [
+                { text: 'Vazgeç', style: 'cancel' },
+                { text: 'Çıkış yap', style: 'destructive', onPress: () => void onSignOut() },
+              ]);
+            }}
           >
-            <AppIcon name="close" size={18} color="#DC2626" />
+            <AppIcon name="close" size={16} color="#DC2626" />
             <Text style={styles.logoutText}>Oturumu kapat</Text>
           </Pressable>
         ) : null}
@@ -213,7 +234,7 @@ export function MenuScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
 // ── Profile shell helpers (used by Modules ProfileScreen redesign) ──────────
 
 export function ProfileChrome({
-  onBack,
+  onBack: _onBack,
   children,
   loading,
 }: {
@@ -222,32 +243,20 @@ export function ProfileChrome({
   loading?: boolean;
 }) {
   const L = useLayout();
+  // Tab kökü: geri/koyu header yok — sade ayarlar ekranı
   return (
     <View style={styles.safe}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={['#0F172A', '#1E293B', '#334155']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.profileHeader, { paddingTop: L.safeTop + 6 }]}
-      >
-        <View style={styles.topBarRow}>
-          {onBack ? (
-            <Pressable onPress={onBack} hitSlop={12} style={styles.backChipLight}>
-              <AppIcon name="chevronLeft" size={20} color="#FFFFFF" />
-            </Pressable>
-          ) : (
-            <View style={styles.backChipLight} />
-          )}
-          <Text style={styles.topTitleLight}>Profil</Text>
-          <View style={styles.backChipLight} />
-        </View>
-      </LinearGradient>
+      <StatusBar style="dark" />
+      <View style={[styles.tabHeader, { paddingTop: L.safeTop + 6 }]}>
+        <Text style={styles.tabTitle}>Profil</Text>
+        <Text style={styles.tabSub}>Hesap ve ayarlar</Text>
+      </View>
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 28, marginTop: -28 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {loading ? <ActivityIndicator color="#EE7D31" style={{ marginTop: 48 }} /> : children}
+        {loading ? <ActivityIndicator color="#EE7D31" style={{ marginTop: 32 }} /> : children}
       </ScrollView>
     </View>
   );
@@ -279,26 +288,30 @@ export function ProfileHeroCard({
           </View>
         )}
         <View style={styles.cameraBadge}>
-          <AppIcon name="camera" size={14} color="#FFFFFF" />
+          <AppIcon name="camera" size={11} color="#FFFFFF" />
         </View>
       </Pressable>
-      <Text style={styles.heroName} numberOfLines={2}>
-        {name}
-      </Text>
-      <Text style={styles.heroEmail} numberOfLines={1}>
-        {email}
-      </Text>
-      {specialty ? (
-        <Text style={styles.heroMeta} numberOfLines={2}>
-          {specialty}
+      <View style={styles.heroCopy}>
+        <Text style={styles.heroName} numberOfLines={1}>
+          {name}
         </Text>
-      ) : null}
-      {phone ? (
-        <View style={styles.phoneRow}>
-          <AppIcon name="call" size={13} color="#64748B" />
-          <Text style={styles.heroMeta}>{phone}</Text>
-        </View>
-      ) : null}
+        <Text style={styles.heroEmail} numberOfLines={1}>
+          {email}
+        </Text>
+        {specialty ? (
+          <Text style={styles.heroMeta} numberOfLines={1}>
+            {specialty}
+          </Text>
+        ) : null}
+        {phone ? (
+          <View style={styles.phoneRow}>
+            <AppIcon name="call" size={11} color="#64748B" />
+            <Text style={styles.heroMeta} numberOfLines={1}>
+              {phone}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -327,13 +340,13 @@ export function ProfileLinkGroup({
             ]}
           >
             <View style={[styles.iconBox, { backgroundColor: `${item.tint}18` }]}>
-              <AppIcon name={item.icon} size={20} color={item.tint} />
+              <AppIcon name={item.icon} size={16} color={item.tint} />
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>{item.title}</Text>
               <Text style={styles.rowSub}>{item.description}</Text>
             </View>
-            <AppIcon name="chevronRight" size={18} color="#CBD5E1" />
+            <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
           </Pressable>
         ))}
       </View>
@@ -342,85 +355,64 @@ export function ProfileLinkGroup({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F5F9' },
-  topBar: {
-    backgroundColor: '#F1F5F9',
+  safe: { flex: 1, backgroundColor: '#F2F4F7' },
+
+  /** Tab kökleri: hafif başlık, geri butonu yok */
+  tabHeader: {
+    backgroundColor: '#F2F4F7',
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
-  topBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 40,
-  },
-  backChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backChipLight: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topTitle: {
+  tabTitle: {
     color: '#0F172A',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  topTitleLight: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+  tabSub: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
   },
   paketPill: {
-    marginTop: 10,
+    marginTop: 6,
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: 'rgba(238,125,49,0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 999,
   },
-  paketPillText: { color: '#C96A2B', fontSize: 12, fontWeight: '700', maxWidth: 260 },
-  scroll: { paddingHorizontal: 16, paddingTop: 8 },
-  group: { marginTop: 18 },
+  paketPillText: { color: '#C96A2B', fontSize: 11, fontWeight: '700', maxWidth: 240 },
+
+  scroll: { paddingHorizontal: 14, paddingTop: 4 },
+  group: { marginTop: 12 },
   groupLabel: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
-    marginBottom: 8,
-    marginLeft: 4,
+    marginBottom: 5,
+    marginLeft: 2,
     letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.06)',
   },
   row: {
-    minHeight: 64,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    minHeight: 48,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -429,108 +421,99 @@ const styles = StyleSheet.create({
   rowLocked: { opacity: 0.55 },
   pressed: { opacity: 0.88 },
   iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    letterSpacing: -0.2,
+    letterSpacing: -0.15,
   },
   rowSub: {
     color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
     fontWeight: '500',
   },
   profileCta: {
-    marginTop: 20,
+    marginTop: 12,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.06)',
   },
   logoutBtn: {
-    marginTop: 14,
-    marginBottom: 8,
-    minHeight: 52,
-    borderRadius: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    minHeight: 42,
+    borderRadius: 12,
     backgroundColor: '#FEF2F2',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
-  logoutText: { color: '#DC2626', fontSize: 16, fontWeight: '700' },
+  logoutText: { color: '#DC2626', fontSize: 14, fontWeight: '700' },
 
-  profileHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 48,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
+  /** Kompakt yatay kimlik kartı */
   heroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingVertical: 22,
-    paddingHorizontal: 18,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.06)',
   },
-  avatarWrap: { position: 'relative', marginBottom: 12 },
+  avatarWrap: { position: 'relative' },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: '#E2E8F0',
   },
   avatarFallback: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: 'rgba(238,125,49,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarLetter: { color: '#EE7D31', fontSize: 36, fontWeight: '700' },
+  avatarLetter: { color: '#EE7D31', fontSize: 22, fontWeight: '700' },
   cameraBadge: {
     position: 'absolute',
-    right: 0,
-    bottom: 2,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#EE7D31',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
+  heroCopy: { flex: 1, minWidth: 0 },
   heroName: {
     color: '#0F172A',
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: -0.4,
-    textAlign: 'center',
+    letterSpacing: -0.25,
   },
-  heroEmail: { color: '#64748B', fontSize: 14, marginTop: 4, textAlign: 'center' },
-  heroMeta: { color: '#94A3B8', fontSize: 13, marginTop: 4, textAlign: 'center' },
-  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  heroEmail: { color: '#64748B', fontSize: 12, marginTop: 2 },
+  heroMeta: { color: '#94A3B8', fontSize: 11, marginTop: 2 },
+  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
 });
