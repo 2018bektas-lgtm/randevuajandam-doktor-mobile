@@ -5737,6 +5737,9 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                   <Pressable style={[s.primaryButton, { marginTop: 12 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void invite()}>
                     <Text style={s.primaryButtonText}>Davetiye gönder</Text>
                   </Pressable>
+                  <Pressable style={[s.secondaryButton, { marginTop: 8 }]} onPress={() => void Linking.openURL(`${SITE_URL}/hekim/klinik/ek-koltuk`)}>
+                    <Text style={s.secondaryButtonText}>+ Ek Hekim Koltuğu Al (Web)</Text>
+                  </Pressable>
                 </View>
               ) : null}
               {doctorsPack.davetiyeler.map((i) => (
