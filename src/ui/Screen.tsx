@@ -15,12 +15,16 @@ import { AppIcon } from '../components/AppIcon';
 import { useLayout } from '../layout';
 import { colors } from '../theme';
 
+import { HeaderIconButton } from '../components/ContentUI';
+
 type ScreenShellProps = {
   title: string;
   subtitle?: string;
   onBack?: () => void;
   backLabel?: string;
   rightAction?: ReactNode;
+  onNotificationPress?: () => void;
+  unreadCount?: number;
   children: ReactNode;
   loading?: boolean;
   refreshing?: boolean;
@@ -38,6 +42,8 @@ export function ScreenShell({
   subtitle,
   onBack,
   rightAction,
+  onNotificationPress,
+  unreadCount,
   children,
   loading = false,
   refreshing = false,
@@ -69,7 +75,11 @@ export function ScreenShell({
         ) : (
           <View style={styles.backBtn} />
         )}
-        <View style={styles.rightSlot}>{rightAction}</View>
+        <View style={styles.rightSlot}>
+          {rightAction ?? (onNotificationPress ? (
+            <HeaderIconButton name="bell" badge={unreadCount} onPress={onNotificationPress} />
+          ) : null)}
+        </View>
       </View>
       <Text style={styles.title} numberOfLines={2}>
         {title}

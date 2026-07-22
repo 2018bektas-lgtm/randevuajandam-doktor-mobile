@@ -364,14 +364,28 @@ export function HeaderIconButton({
   name,
   onPress,
   color = '#FFFFFF',
+  badge,
 }: {
   name: AppIconName;
   onPress: () => void;
   color?: string;
+  badge?: number | boolean;
 }) {
   return (
-    <Pressable onPress={onPress} hitSlop={10} style={styles.headerIconBtn}>
-      <AppIcon name={name} size={22} color={color} />
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      style={({ pressed }) => [styles.headerIconBtn, pressed && { opacity: 0.75 }]}
+      accessibilityRole="button"
+    >
+      <AppIcon name={name} size={20} color={color} />
+      {badge ? (
+        <View style={styles.headerBadge}>
+          {typeof badge === 'number' && badge > 0 ? (
+            <Text style={styles.headerBadgeText}>{badge > 9 ? '9+' : badge}</Text>
+          ) : null}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -652,11 +666,32 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 12 : 10,
   },
   headerIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.12)',
+    position: 'relative',
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.brand.orange,
+    borderWidth: 1.5,
+    borderColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  headerBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '800',
+    textAlign: 'center',
   },
 });

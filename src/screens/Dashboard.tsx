@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { AppIcon, AppIconName } from '../components/AppIcon';
-import { MetricTile, SectionHeader, SoftAction, StatusChip } from '../components/ContentUI';
+import { HeaderIconButton, MetricTile, SectionHeader, SoftAction, StatusChip } from '../components/ContentUI';
 
 export type DashInvite = { id: number; klinik: string };
 
@@ -106,9 +106,16 @@ export function DashboardOverview({
               {specialty || 'Bugünkü programınız'}
             </Text>
           </View>
-          <Pressable style={styles.addFab} onPress={onAddAppointment} accessibilityLabel="Yeni randevu">
-            <AppIcon name="plus" size={18} color="#FFFFFF" />
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <HeaderIconButton
+              name="bell"
+              badge={pendingRequests + reviewsPending + pendingInvites.length}
+              onPress={() => onNavigate('notifications')}
+            />
+            <Pressable style={styles.addFab} onPress={onAddAppointment} accessibilityLabel="Yeni randevu">
+              <AppIcon name="plus" size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.heroChips}>
