@@ -184,22 +184,71 @@ function resolveUrl(path: string): string {
   return `${API_URL}${normalized}`;
 }
 
-async function parseJsonResponse<T>(response: Response): Promise<ApiResponse<T>> {
-  let payload: ApiResponse<T> = { success: false };
+function networkError(url: string, cause?: unknown): ApiError {
+  const detail =
+    cause instanceof Error && cause.message
+      ? cause.message
+      : typeof cause === 'string'
+        ? cause
+        : 'Failed to fetch';
+  return new ApiError(
+    `Mobil API’ye ulaşılamadı (${detail}).\n${url}\n\nLocal API çalışıyor mu? php artisan serve — ${API_URL}`,
+    0,
+  );
+}
+
+async function safeFetch(url: string, init: RequestInit): Promise<Response> {
   try {
-    payload = (await response.json()) as ApiResponse<T>;
-  } catch {
-    throw new ApiError(
-      response.ok ? 'Geçersiz sunucu yanıtı.' : `İstek başarısız (${response.status}).`,
-      response.status,
-    );
+    return await fetch(url, init);
+  } catch (e) {
+    // Tarayıcı TypeError: Failed to fetch → client.ts:fetch satırına düşmesin
+    throw networkError(url, e);
+  }
+}
+
+function extractApiMessage(payload: Record<string, unknown>, status: number): string {
+  if (typeof payload.message === 'string' && payload.message.trim()) {
+    return payload.message;
+  }
+  const errors = payload.errors;
+  if (errors && typeof errors === 'object') {
+    const first = Object.values(errors as Record<string, string[]>)[0];
+    if (Array.isArray(first) && first[0]) return String(first[0]);
+  }
+  if (status === 404) {
+    return 'Endpoint bulunamadı (404). Mobil API path’ini kontrol edin.';
+  }
+  if (status === 401 || status === 403) {
+    return 'Oturum geçersiz veya yetkiniz yok. Tekrar giriş yapın.';
+  }
+  if (status === 422) {
+    return 'Gönderilen bilgiler geçersiz.';
+  }
+  return `İstek başarısız (${status}).`;
+}
+
+async function parseJsonResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  const text = await response.text();
+  let payload: ApiResponse<T> & Record<string, unknown> = { success: false };
+
+  if (text && text.trim()) {
+    try {
+      payload = JSON.parse(text) as ApiResponse<T> & Record<string, unknown>;
+    } catch {
+      throw new ApiError(
+        response.ok
+          ? 'Geçersiz sunucu yanıtı (JSON değil).'
+          : `İstek başarısız (${response.status}).`,
+        response.status,
+      );
+    }
+  } else if (!response.ok) {
+    throw new ApiError(extractApiMessage({}, response.status), response.status);
   }
 
+  // HTTP hata veya API success:false → kontrollü ApiError (konsolda raw TypeError olmasın)
   if (!response.ok || payload.success === false) {
-    throw new ApiError(
-      payload.message ?? `İstek başarısız (${response.status}).`,
-      response.status,
-    );
+    throw new ApiError(extractApiMessage(payload, response.status), response.status);
   }
 
   return payload;
@@ -227,7 +276,7 @@ export async function apiGet<T = unknown>(
   const cacheKey = cacheKeyFromUrl(url);
 
   try {
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       method: 'GET',
       headers: await authHeaders(),
     });
@@ -242,9 +291,7 @@ export async function apiGet<T = unknown>(
       return { ...cached, fromCache: true, message: cached.message ?? 'Çevrimdışı önbellek' };
     }
     setOffline(true);
-    throw e instanceof ApiError
-      ? e
-      : new ApiError('Sunucuya ulaşılamadı (çevrimdışı ve önbellek yok).', 0);
+    throw e instanceof ApiError ? e : networkError(url, e);
   }
 }
 
@@ -254,8 +301,9 @@ async function mutateJson<T>(
   body?: Record<string, unknown> | null,
   queueable = true,
 ): Promise<ApiResponse<T>> {
+  const url = resolveUrl(path);
   try {
-    const response = await fetch(resolveUrl(path), {
+    const response = await safeFetch(url, {
       method,
       headers: await authHeaders(
         method === 'DELETE' ? {} : { 'Content-Type': 'application/json' },
@@ -268,9 +316,10 @@ async function mutateJson<T>(
     void flushMutationQueue();
     return payload;
   } catch (e) {
+    const err = e instanceof ApiError ? e : networkError(url, e);
     if (!queueable) {
       setOffline(true);
-      throw e instanceof ApiError ? e : new ApiError('Sunucuya ulaşılamadı.', 0);
+      throw err;
     }
     // Don't queue auth-critical or file-ish paths
     const skipQueue =
@@ -279,7 +328,7 @@ async function mutateJson<T>(
       path.includes('/device');
     if (skipQueue) {
       setOffline(true);
-      throw e instanceof ApiError ? e : new ApiError('Sunucuya ulaşılamadı.', 0);
+      throw err;
     }
     await enqueueMutation({ method, path, body: body ?? null });
     setOffline(true);
@@ -305,7 +354,7 @@ export async function flushMutationQueue(): Promise<number> {
     const remaining = [];
     for (const item of queue) {
       try {
-        const response = await fetch(resolveUrl(item.path), {
+        const response = await safeFetch(resolveUrl(item.path), {
           method: item.method,
           headers: await authHeaders(
             item.method === 'DELETE' ? {} : { 'Content-Type': 'application/json' },
@@ -315,8 +364,14 @@ export async function flushMutationQueue(): Promise<number> {
               ? undefined
               : JSON.stringify(item.body),
         });
-        await parseJsonResponse(response);
-        sent += 1;
+        if (response.ok) {
+          await parseJsonResponse(response);
+          sent += 1;
+        } else if (response.status >= 400 && response.status < 500) {
+          // Permanently invalid request (404/422/400); remove from retry queue
+        } else {
+          remaining.push(item);
+        }
       } catch {
         remaining.push(item);
       }
@@ -362,7 +417,8 @@ export async function apiUpload<T = unknown>(
     formData.append('_method', 'PUT');
     httpMethod = 'POST';
   }
-  const response = await fetch(resolveUrl(path), {
+  const url = resolveUrl(path);
+  const response = await safeFetch(url, {
     method: httpMethod,
     headers: await authHeaders(),
     body: formData,

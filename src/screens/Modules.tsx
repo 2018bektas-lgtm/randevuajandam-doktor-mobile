@@ -744,31 +744,45 @@ export function PatientsScreen({ onBack }: ModuleProps) {
   }
 
   async function addPatientIncome() {
-    const amount = Number(payAmount);
+    // TR tutar: "1.250,50" / "1250,50" / "1250.50"
+    const normalizeMoney = (raw: string): number => {
+      let t = raw.trim().replace(/[₺\sTL]/gi, '');
+      if (t.includes(',') && t.includes('.')) {
+        t = t.replace(/\./g, '').replace(',', '.');
+      } else if (t.includes(',')) {
+        t = t.replace(',', '.');
+      }
+      const n = Number(t);
+      return Number.isFinite(n) ? n : NaN;
+    };
+    const amount = normalizeMoney(payAmount);
     if (!amount || amount <= 0) {
-      Alert.alert('Eksik Bilgi', 'Lütfen geçerli bir ödeme tutarı girin.');
+      Alert.alert('Eksik Bilgi', 'Lütfen geçerli bir ödeme tutarı girin (örn. 500 veya 1.250,00).');
       return;
     }
-    if (!detail?.id) return;
+    const hastaId = Number(detail?.id ?? detail?.hasta_id);
+    if (!hastaId) {
+      Alert.alert('Hata', 'Hasta kaydı bulunamadı. Detayı kapatıp yeniden açın.');
+      return;
+    }
     setSavingPay(true);
     try {
-      const payload = {
-        hasta_id: detail.id,
+      // Mobil API: POST /doctor/finance/incomes
+      await apiPost('/doctor/finance/incomes', {
+        hasta_id: hastaId,
         tutar: amount,
+        ilk_odeme_tutar: amount,
+        ilk_odeme_yontemi: payMethod || 'nakit',
+        odeme_yontemi: payMethod || 'nakit',
         odenen_tutar: amount,
-        odeme_yontemi: payMethod,
-        odeme_tarihi: payDate || todayKey(),
+        odeme_tarihi: (payDate || todayKey()).slice(0, 10),
         aciklama: payNote.trim() || 'Tahsilat kaydı',
-      };
-      try {
-        await apiPost('/doctor/finans/gelirler', payload);
-      } catch {
-        await apiPost('/doctor/finance/income', payload);
-      }
+        tam_tahsilat: true,
+      });
       setAddPaymentOpen(false);
       setPayAmount('');
       setPayNote('');
-      await openDetail(detail.id);
+      await openDetail(hastaId);
       Alert.alert('Başarılı', 'Ödeme kaydı hasta hesabına işlendi.');
     } catch (e) {
       alertError(e, 'Ödeme kaydı eklenemedi.');
@@ -2896,6 +2910,15 @@ type FinanceOverview = {
   bu_ay_gider: number;
   bu_ay_net: number;
   toplam_borc: number;
+  son_odemeler?: {
+    id: number;
+    tutar: number;
+    odenen_tutar?: number;
+    hasta_adi?: string | null;
+    odeme_tarihi?: string;
+    durum?: string;
+  }[];
+  son_giderler?: { id: number; tutar: number; baslik?: string; tarih?: string; aciklama?: string | null }[];
 };
 
 export function FinanceScreen({ onBack, onNavigate }: ModuleProps) {
@@ -3025,6 +3048,22 @@ export function FinanceScreen({ onBack, onNavigate }: ModuleProps) {
         </View>
       ) : null}
 
+      {(data?.son_odemeler?.length || data?.son_giderler?.length) ? (
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Son hareketler</Text>
+          {(data?.son_odemeler ?? []).slice(0, 5).map((o) => (
+            <Text key={`i-${o.id}`} style={s.cardMeta}>
+              + {money(o.odenen_tutar ?? o.tutar)} · {o.hasta_adi || 'Gelir'} · {o.odeme_tarihi || '—'}
+            </Text>
+          ))}
+          {(data?.son_giderler ?? []).slice(0, 4).map((g) => (
+            <Text key={`e-${g.id}`} style={[s.cardMeta, { color: '#DC2626' }]}>
+              − {money(g.tutar)} · {g.baslik || g.aciklama || 'Gider'} · {g.tarih || '—'}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
       <Text style={s.sectionTitle}>Modüller</Text>
       {links.map((link) => (
         <Pressable key={link.id} style={s.navLinkCard} onPress={() => onNavigate(link.id)}>
@@ -3078,6 +3117,25 @@ export function FinanceIncomesScreen({ onBack }: ModuleProps) {
   const [kalemTutar, setKalemTutar] = useState('');
   const [kalemTarih, setKalemTarih] = useState(todayKey());
   const [kalemYontem, setKalemYontem] = useState<'nakit' | 'kredi_karti' | 'havale' | 'online'>('nakit');
+  const [patients, setPatients] = useState<{ id: number; ad: string; soyad: string }[]>([]);
+  const [gelirKategoriler, setGelirKategoriler] = useState<{ id: number; ad: string }[]>([]);
+  const [hastaId, setHastaId] = useState<number | null>(null);
+  const [kategoriId, setKategoriId] = useState<number | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [p, c] = await Promise.all([
+          apiGet<{ id: number; ad: string; soyad: string }[]>('/doctor/patients', { per_page: 100 }),
+          apiGet<{ id: number; ad: string; tur: string }[]>('/doctor/finance/categories'),
+        ]);
+        setPatients(p.data ?? []);
+        setGelirKategoriler((c.data ?? []).filter((x) => x.tur === 'gelir' || !x.tur));
+      } catch {
+        // soft
+      }
+    })();
+  }, []);
 
   async function openDetail(id: number) {
     try {
@@ -3124,11 +3182,15 @@ export function FinanceIncomesScreen({ onBack }: ModuleProps) {
         ilk_odeme_tutar: Number(ilkOdeme) || 0,
         ilk_odeme_yontemi: yontem,
         aciklama: aciklama.trim() || null,
+        hasta_id: hastaId || null,
+        finans_kategori_id: kategoriId || null,
       });
       setModalOpen(false);
       setTutar('');
       setIlkOdeme('');
       setAciklama('');
+      setHastaId(null);
+      setKategoriId(null);
       await reload(false);
     } catch (e) {
       setFormError(errMessage(e, 'Gelir eklenemedi.'));

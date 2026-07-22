@@ -43,6 +43,7 @@ import { DateField, TimeField } from './src/components/DateTimeFields';
 import { DashboardOverview } from './src/screens/Dashboard';
 import {
   API_URL,
+  ApiError,
   apiGet,
   apiPost,
   flushMutationQueue,
@@ -50,6 +51,16 @@ import {
   subscribeOffline,
   tokenStore,
 } from './src/api/client';
+import {
+  doctorLogin,
+  doctorLogout,
+  doctorMe,
+  doctorVerifyTwoFactor,
+  mobileApiBase,
+  staffLogin,
+  staffLogout,
+  staffMe,
+} from './src/api/auth';
 import { ScreenId } from './src/navigation/types';
 import { AuthFlows, AuthMode } from './src/screens/AuthFlows';
 import { MODULE_SCREENS } from './src/screens/Modules';
@@ -72,17 +83,6 @@ type Doctor = {
   profil_resmi: string | null;
   uzmanlik_alani: string | null;
   branslar: string[];
-};
-
-type LoginResponse = {
-  success: boolean;
-  message?: string;
-  data?: {
-    requires_two_factor: boolean;
-    challenge_token?: string;
-    token?: string;
-    doktor?: Doctor;
-  };
 };
 
 export default function App() {
@@ -228,49 +228,38 @@ export default function App() {
 
       if (role === 'staff') {
         try {
-          const response = await fetch(`${API_URL}/staff/auth/me`, {
-            headers: { Authorization: `Bearer ${token}`, 'X-Personel-Token': token },
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (response.ok && payload.success && payload.data?.id) {
-            setStaff(payload.data as StaffUser);
+          const me = await staffMe(token);
+          if (me) {
+            setStaff(me as StaffUser);
             setDoctor(null);
             void ensurePhonePush(false);
             return;
           }
-          // Only clear on explicit auth failure (401/403), not network/JSON glitches
-          if (response.status === 401 || response.status === 403) {
-            await tokenStore.clearAll();
-            setStaff(null);
-            setDoctor(null);
-          }
+          // Geçersiz personel token — sil
+          await tokenStore.clearAll();
+          setStaff(null);
+          setDoctor(null);
           return;
         } catch {
-          // Network offline — keep token, stay logged-out UI only for this session attempt
+          // Ağ hatası: token saklı kalsın
           return;
         }
       }
 
-      // role doctor veya eski kurulum (role yok ama doctor token var)
+      // Hekim (klinik sahibi dahil) — yalnızca /doctor/auth/me
       try {
-        const response = await fetch(`${API_URL}/doctor/auth/me`, {
-          headers: { Authorization: `Bearer ${token}`, 'X-Doktor-Token': token },
-        });
-        const payload = await response.json().catch(() => ({}));
-
-        if (response.ok && payload.success && payload.data?.id && payload.data?.e_posta) {
-          setDoctor(payload.data as Doctor);
+        const me = await doctorMe(token);
+        if (me) {
+          setDoctor(me as Doctor);
           setStaff(null);
           void ensurePhonePush(false);
           return;
         }
-        if (response.status === 401 || response.status === 403) {
-          await tokenStore.clearAll();
-          setDoctor(null);
-          setStaff(null);
-        }
+        await tokenStore.clearAll();
+        setDoctor(null);
+        setStaff(null);
       } catch {
-        // Offline: do not wipe SecureStore tokens
+        // Offline: token silme
       }
     } catch {
       // Unexpected — do not clear session on generic errors
@@ -290,67 +279,44 @@ export default function App() {
 
     try {
       if (loginRole === 'staff') {
-        const response = await fetch(`${API_URL}/staff/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({
-            e_posta: email.trim().toLowerCase(),
-            sifre: password,
-            device: `Randevu Ajandam Personel (${Platform.OS})`,
-          }),
-        });
-        const payload = await response.json();
-        if (!response.ok || !payload.success || !payload.data?.token || !payload.data?.personel) {
-          setErrorMessage(payload.message ?? 'Personel girişi yapılamadı.');
-          return;
-        }
-        await tokenStore.set(payload.data.token, 'staff');
-        setStaff(payload.data.personel as StaffUser);
+        // Ayrı API: /staff/auth/login — hekim hesabı burada çalışmaz
+        const result = await staffLogin(email, password);
+        await tokenStore.set(result.token, 'staff');
+        setStaff(result.personel as StaffUser);
         setDoctor(null);
         setPassword('');
         void ensurePhonePush(true);
         return;
       }
 
-      const response = await fetch(`${API_URL}/doctor/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          e_posta: email.trim().toLowerCase(),
-          sifre: password,
-          device: `Randevu Ajandam Doktor (${Platform.OS})`,
-        }),
-      });
-      const payload = (await response.json()) as LoginResponse;
-
-      if (!response.ok || !payload.success || !payload.data) {
-        setErrorMessage(payload.message ?? 'Giriş yapılamadı. Lütfen tekrar deneyin.');
-        return;
-      }
-      if (payload.data.requires_two_factor) {
-        if (!payload.data.challenge_token) {
-          setErrorMessage('Doğrulama oturumu başlatılamadı.');
-          return;
-        }
-        setTwoFactorToken(payload.data.challenge_token);
+      // Hekim + klinik sahibi: /doctor/auth/login (web /hekim session değil)
+      const result = await doctorLogin(email, password);
+      if (result.kind === 'two_factor') {
+        setTwoFactorToken(result.challenge_token);
         setTwoFactorCode('');
         setPassword('');
         return;
       }
-      if (!payload.data.token || !payload.data.doktor) {
-        setErrorMessage('Oturum başlatılamadı. Lütfen tekrar deneyin.');
-        return;
-      }
 
-      await tokenStore.set(payload.data.token, 'doctor');
-      setDoctor(payload.data.doktor);
+      await tokenStore.set(result.token, 'doctor');
+      setDoctor(result.doktor as Doctor);
       setStaff(null);
       setPassword('');
       setTwoFactorToken(null);
       void ensurePhonePush(true);
-      void applyPendingPackage(payload.data.doktor.id);
-    } catch {
-      setErrorMessage('Sunucuya ulaşılamadı. İnternet bağlantınızı ve uygulama ayarını kontrol edin.');
+      void applyPendingPackage(result.doktor.id);
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'Giriş yapılamadı.';
+      setErrorMessage(
+        msg.includes('Ağ') || msg.includes('API')
+          ? `${msg}\n\nAktif mobil API: ${mobileApiBase()}`
+          : msg,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -368,28 +334,22 @@ export default function App() {
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      const response = await fetch(`${API_URL}/doctor/auth/two-factor`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          challenge_token: twoFactorToken,
-          code: twoFactorCode.trim(),
-        }),
-      });
-      const payload = (await response.json()) as LoginResponse;
-      if (!response.ok || !payload.success || !payload.data?.token || !payload.data.doktor) {
-        setErrorMessage(payload.message ?? 'Doğrulama kodu hatalı.');
-        return;
-      }
-      await tokenStore.set(payload.data.token, 'doctor');
-      setDoctor(payload.data.doktor);
+      const result = await doctorVerifyTwoFactor(twoFactorToken, twoFactorCode);
+      await tokenStore.set(result.token, 'doctor');
+      setDoctor(result.doktor as Doctor);
       setStaff(null);
       setTwoFactorToken(null);
       setTwoFactorCode('');
       void ensurePhonePush(true);
-      void applyPendingPackage(payload.data.doktor.id);
-    } catch {
-      setErrorMessage('Sunucuya ulaşılamadı.');
+      void applyPendingPackage(result.doktor.id);
+    } catch (e) {
+      setErrorMessage(
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'Doğrulama başarısız.',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -399,26 +359,10 @@ export default function App() {
     const token = await tokenStore.get();
     const role = await getAuthRole();
     try {
-      if (token) {
-        const path = role === 'staff' ? '/staff/auth/logout' : '/doctor/auth/logout';
-        // Kısa timeout: API yavaş/kapalı olsa da yerel oturum kapanmalı
-        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timer = setTimeout(() => ctrl?.abort(), 4000);
-        try {
-          await fetch(`${API_URL}${path}`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/json',
-              ...(role === 'staff' ? { 'X-Personel-Token': token } : {}),
-            },
-            signal: ctrl?.signal,
-          });
-        } catch {
-          // Ağ hatası / timeout — yerel temizlik yine yapılacak
-        } finally {
-          clearTimeout(timer);
-        }
+      if (role === 'staff') {
+        await staffLogout(token);
+      } else {
+        await doctorLogout(token);
       }
     } finally {
       await tokenStore.clearAll();
@@ -521,7 +465,9 @@ export default function App() {
               />
             </View>
             <Text style={styles.authBrand}>Randevu Ajandam</Text>
-            <Text style={styles.authBrandSub}>Hekim mobil uygulaması</Text>
+            <Text style={styles.authBrandSub}>
+              {loginRole === 'staff' ? 'Personel mobil girişi' : 'Hekim / klinik sahibi mobil girişi'}
+            </Text>
           </View>
 
           <Text style={styles.authHeadline}>{heroTitle}</Text>
