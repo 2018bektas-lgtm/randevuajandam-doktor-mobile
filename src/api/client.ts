@@ -21,8 +21,15 @@ export const API_URL = (() => {
   return envApi.replace(/\/+$/, '');
 })();
 
-/** Public website origin (legal pages, marketing). Always production host for legal. */
-export const SITE_URL = 'https://randevuajandam.com';
+/** Public website origin (legal pages, marketing). Dynamic in local dev. */
+export const SITE_URL = (() => {
+  const envSite = (process.env.EXPO_PUBLIC_SITE_URL ?? '').trim();
+  if (envSite) return envSite.replace(/\/+$/, '');
+  if (useLocal && envApi) {
+    return envApi.replace(/\/api\/mobile\/v\d+.*$/, '').replace(/\/+$/, '');
+  }
+  return 'https://randevuajandam.com';
+})();
 
 const DOCTOR_TOKEN_KEY = 'randevuajandam.doctor.token';
 const STAFF_TOKEN_KEY = 'randevuajandam.staff.token';

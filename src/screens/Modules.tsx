@@ -4238,7 +4238,7 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
     || (form?.profil_resmi
       ? form.profil_resmi.startsWith('http')
         ? form.profil_resmi
-        : `${SITE_URL}/storage/${form.profil_resmi.replace(/^storage\//, '')}`
+        : `${SITE_URL}/${form.profil_resmi.replace(/^storage\//, '').replace(/^\/+/, '')}`
       : null);
 
   const inboxLinks = [
