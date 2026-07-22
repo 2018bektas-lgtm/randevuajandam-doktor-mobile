@@ -724,6 +724,13 @@ export function PatientsScreen({ onBack }: ModuleProps) {
   const [editTel, setEditTel] = useState('');
   const [editMail, setEditMail] = useState('');
 
+  const [addPaymentOpen, setAddPaymentOpen] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState<'nakit' | 'kredi_karti' | 'havale'>('nakit');
+  const [payDate, setPayDate] = useState(todayKey());
+  const [payNote, setPayNote] = useState('');
+  const [savingPay, setSavingPay] = useState(false);
+
   async function openDetail(id: number) {
     setDetailLoading(true);
     try {
@@ -733,6 +740,35 @@ export function PatientsScreen({ onBack }: ModuleProps) {
       alertError(e, 'Hasta detayı yüklenemedi.');
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  async function addPatientIncome() {
+    const amount = Number(payAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Eksik Bilgi', 'Lütfen geçerli bir ödeme tutarı girin.');
+      return;
+    }
+    if (!detail?.id) return;
+    setSavingPay(true);
+    try {
+      await apiPost('/doctor/finance/income', {
+        hasta_id: detail.id,
+        tutar: amount,
+        odenen_tutar: amount,
+        odeme_yontemi: payMethod,
+        odeme_tarihi: payDate || todayKey(),
+        aciklama: payNote.trim() || 'Tahsilat kaydı',
+      });
+      setAddPaymentOpen(false);
+      setPayAmount('');
+      setPayNote('');
+      await openDetail(detail.id);
+      Alert.alert('Başarılı', 'Ödeme kaydı hasta hesabına işlendi.');
+    } catch (e) {
+      alertError(e, 'Ödeme kaydı eklenemedi.');
+    } finally {
+      setSavingPay(false);
     }
   }
 
@@ -1065,6 +1101,96 @@ export function PatientsScreen({ onBack }: ModuleProps) {
                     <Text style={{ color: kalanBakiye > 0 ? '#DC2626' : '#0F172A', fontSize: 18, fontWeight: '800', marginTop: 4 }}>{money(kalanBakiye)}</Text>
                   </View>
                 </View>
+
+                {/* Ödeme Ekle Butonu */}
+                <Pressable
+                  style={({ pressed }) => [
+                    {
+                      marginTop: 12,
+                      height: 38,
+                      borderRadius: 10,
+                      backgroundColor: addPaymentOpen ? '#F1F5F9' : 'rgba(16,185,129,0.12)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                    },
+                    pressed && { opacity: 0.8 },
+                  ]}
+                  onPress={() => setAddPaymentOpen((prev) => !prev)}
+                >
+                  <AppIcon name={addPaymentOpen ? 'close' : 'plus'} size={15} color={addPaymentOpen ? '#475569' : '#059669'} />
+                  <Text style={{ color: addPaymentOpen ? '#475569' : '#059669', fontSize: 13, fontWeight: '700' }}>
+                    {addPaymentOpen ? 'Formu Kapat' : '➕ Ödeme / Tahsilat Ekle'}
+                  </Text>
+                </Pressable>
+
+                {/* Inline Ödeme Formu */}
+                {addPaymentOpen ? (
+                  <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(15,23,42,0.08)' }}>
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Ödeme Tutarı (₺)</Text>
+                    <TextInput
+                      style={[s.input, { height: 42, marginBottom: 8 }]}
+                      placeholder="Örn: 500"
+                      keyboardType="numeric"
+                      value={payAmount}
+                      onChangeText={setPayAmount}
+                      placeholderTextColor="#94A3B8"
+                    />
+
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Ödeme Yöntemi</Text>
+                    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                      {(['nakit', 'kredi_karti', 'havale'] as const).map((method) => {
+                        const active = payMethod === method;
+                        const label = method === 'nakit' ? 'Nakit' : method === 'kredi_karti' ? 'Kredi Kartı' : 'Havale/EFT';
+                        return (
+                          <Pressable
+                            key={method}
+                            style={{
+                              flex: 1,
+                              height: 34,
+                              borderRadius: 8,
+                              backgroundColor: active ? colors.brand.orange : '#F1F5F9',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            onPress={() => setPayMethod(method)}
+                          >
+                            <Text style={{ color: active ? '#FFFFFF' : '#475569', fontSize: 12, fontWeight: '700' }}>{label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Açıklama / Not</Text>
+                    <TextInput
+                      style={[s.input, { height: 42, marginBottom: 10 }]}
+                      placeholder="Örn: Seans ödemesi tahsil edildi"
+                      value={payNote}
+                      onChangeText={setPayNote}
+                      placeholderTextColor="#94A3B8"
+                    />
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        {
+                          height: 40,
+                          borderRadius: 10,
+                          backgroundColor: colors.brand.orange,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                        (pressed || savingPay) && { opacity: 0.7 },
+                      ]}
+                      disabled={savingPay}
+                      onPress={() => void addPatientIncome()}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+                        {savingPay ? 'Kaydediliyor…' : 'Ödemeyi Kaydet'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
 
               {/* Hesap Hareketleri Listesi */}
