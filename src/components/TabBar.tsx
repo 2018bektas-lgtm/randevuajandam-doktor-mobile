@@ -24,16 +24,17 @@ const TABS: {
 ];
 
 /**
- * High-contrast floating dock tab bar — unmistakably native, not web.
+ * Clean native bottom tab navigation bar.
  */
 export function TabBar({ active, onChange }: Props) {
   const L = useLayout();
 
   return (
-    <View style={[styles.outer, { paddingBottom: Math.max(L.footerPad - 4, 8) }]}>
-      <View style={styles.dock}>
+    <View style={[styles.outer, { paddingBottom: Math.max(L.footerPad, 6) }]}>
+      <View style={styles.tabContainer}>
         {TABS.map((tab) => {
           const isActive = active === tab.id;
+          const isDanger = tab.danger;
           return (
             <Pressable
               key={tab.id}
@@ -41,19 +42,31 @@ export function TabBar({ active, onChange }: Props) {
               accessibilityState={{ selected: isActive }}
               onPress={() => onChange(tab.id)}
               style={({ pressed }) => [
-                styles.item,
-                isActive && (tab.danger ? styles.itemActiveDanger : styles.itemActive),
-                pressed && styles.itemPressed,
+                styles.tabItem,
+                isActive && (isDanger ? styles.tabItemActiveDanger : styles.tabItemActive),
+                pressed && styles.tabItemPressed,
               ]}
             >
               <TabGlyph
                 name={tab.icon}
                 active={isActive}
-                danger={tab.danger}
-                forceColor={isActive ? '#FFFFFF' : tab.danger ? '#FCA5A5' : 'rgba(255,255,255,0.55)'}
+                danger={isDanger}
+                forceColor={
+                  isActive
+                    ? isDanger
+                      ? '#DC2626'
+                      : colors.brand.orange
+                    : isDanger
+                      ? '#EF4444'
+                      : '#64748B'
+                }
               />
               <Text
-                style={[styles.label, isActive && styles.labelActive, !isActive && tab.danger && styles.labelDangerIdle]}
+                style={[
+                  styles.label,
+                  isActive && (isDanger ? styles.labelDangerActive : styles.labelActive),
+                  !isActive && isDanger && styles.labelDangerIdle,
+                ]}
                 numberOfLines={1}
               >
                 {tab.label}
@@ -68,59 +81,58 @@ export function TabBar({ active, onChange }: Props) {
 
 const styles = StyleSheet.create({
   outer: {
-    paddingHorizontal: 10,
-    paddingTop: 4,
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(15,23,42,0.08)',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 8,
   },
-  dock: {
+  tabContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    minHeight: 52,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOpacity: 0.22,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-      },
-      android: { elevation: 12 },
-      default: {},
-    }),
+    justifyContent: 'space-around',
+    paddingHorizontal: 6,
+    paddingTop: 6,
+    paddingBottom: 2,
+    minHeight: 50,
   },
-  item: {
+  tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    minHeight: 44,
+    gap: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
     borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 2,
   },
-  itemActive: {
-    backgroundColor: colors.brand.orange,
+  tabItemActive: {
+    backgroundColor: 'rgba(238,125,49,0.1)',
   },
-  itemActiveDanger: {
-    backgroundColor: '#DC2626',
+  tabItemActiveDanger: {
+    backgroundColor: '#FEF2F2',
   },
-  itemPressed: {
-    opacity: 0.88,
+  tabItemPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
   },
   label: {
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.5)',
+    color: '#64748B',
     letterSpacing: -0.1,
   },
   labelActive: {
-    color: '#FFFFFF',
+    color: colors.brand.orangeSoft,
+    fontWeight: '700',
+  },
+  labelDangerActive: {
+    color: '#DC2626',
     fontWeight: '700',
   },
   labelDangerIdle: {
-    color: 'rgba(252,165,165,0.85)',
+    color: '#EF4444',
   },
 });
