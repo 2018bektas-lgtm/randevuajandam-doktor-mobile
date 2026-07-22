@@ -782,10 +782,18 @@ export function PatientsScreen({ onBack }: ModuleProps) {
   }
 
   if (detail) {
+    const fullName = `${detail.ad ?? ''} ${detail.soyad ?? ''}`.trim() || 'Danışan';
+    const initials = (detail.ad?.[0] ?? '') + (detail.soyad?.[0] ?? '');
+    const finans = detail.finans || {};
+    const odemelerList = finans.odemeler || [];
+    const toplamOdenen = Number(finans.toplam_odenen ?? 0);
+    const kalanBakiye = Number(finans.kalan_bakiye ?? 0);
+    const randevuSayisi = (detail.randevular || []).length;
+
     return (
       <ScreenShell
-        title={`${detail.ad ?? ''} ${detail.soyad ?? ''}`.trim() || 'Hasta'}
-        subtitle={detail.telefon || detail.e_posta || 'Detay ve randevu geçmişi'}
+        title={fullName}
+        subtitle="Danışan profili & hesap geçmişi"
         onBack={() => setDetail(null)}
         loading={detailLoading}
         rightAction={
@@ -798,49 +806,203 @@ export function PatientsScreen({ onBack }: ModuleProps) {
               setEditOpen(true);
             }}
           >
-            <Text style={s.modalClose}>Düzenle</Text>
+            <Text style={{ color: colors.brand.orange, fontSize: 14, fontWeight: '700' }}>Düzenle</Text>
           </Pressable>
         }
       >
-        <View style={s.card}>
-          <Text style={s.cardTitle}>İletişim</Text>
-          <Text style={s.cardBody}>{detail.telefon || 'Telefon yok'}</Text>
-          {detail.e_posta ? <Text style={s.cardMeta}>{detail.e_posta}</Text> : null}
-          <View style={s.actions}>
-            <Pressable style={[s.actionBtn, s.actionBtnSuccess]} onPress={() => openPhone(detail.telefon)}>
-              <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Ara</Text>
-            </Pressable>
-            <Pressable style={s.actionBtn} onPress={() => openSms(detail.telefon)}>
-              <Text style={s.actionBtnText}>SMS</Text>
-            </Pressable>
-            <Pressable style={[s.actionBtn, s.actionBtnMuted]} onPress={() => openEmail(detail.e_posta)}>
-              <Text style={[s.actionBtnText, s.actionBtnMutedText]}>E-posta</Text>
-            </Pressable>
-            <Pressable
-              style={[s.actionBtn, s.actionBtnDanger]}
-              onPress={() => {
-                Alert.alert('Danışanı kaldır', 'Listeden kaldırılsın / pasifleştirilsin mi?', [
-                  { text: 'Vazgeç', style: 'cancel' },
+        {/* Danışan Profil Hero Kartı */}
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 12,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: 'rgba(15,23,42,0.08)',
+            shadowColor: '#0F172A',
+            shadowOpacity: 0.03,
+            shadowRadius: 6,
+            elevation: 1,
+            alignItems: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: 'rgba(238,125,49,0.12)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 8,
+            }}
+          >
+            <Text style={{ color: colors.brand.orange, fontSize: 20, fontWeight: '800' }}>
+              {initials ? initials.toUpperCase() : '👤'}
+            </Text>
+          </View>
+          <Text style={{ color: '#0F172A', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 }}>
+            {fullName}
+          </Text>
+          <Text style={{ color: '#64748B', fontSize: 13, marginTop: 2 }}>
+            {detail.telefon || detail.e_posta || 'İletişim bilgisi yok'}
+          </Text>
+
+          {/* İletişim Butonları */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, width: '100%' }}>
+            {detail.telefon ? (
+              <Pressable
+                style={({ pressed }) => [
                   {
-                    text: 'Kaldır',
-                    style: 'destructive',
-                    onPress: () => {
-                      void apiDelete(`/doctor/patients/${detail.id}`)
-                        .then(async () => {
-                          setDetail(null);
-                          await reload(false);
-                          Alert.alert('Tamam', 'Danışan listeden kaldırıldı.');
-                        })
-                        .catch(alertError);
-                    },
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    height: 38,
+                    borderRadius: 10,
+                    backgroundColor: '#EFF6FF',
                   },
-                ]);
-              }}
-            >
-              <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Kaldır</Text>
-            </Pressable>
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => openPhone(detail.telefon)}
+              >
+                <AppIcon name="call" size={14} color="#3B82F6" />
+                <Text style={{ color: '#3B82F6', fontSize: 12, fontWeight: '700' }}>Ara</Text>
+              </Pressable>
+            ) : null}
+
+            {detail.telefon ? (
+              <Pressable
+                style={({ pressed }) => [
+                  {
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    height: 38,
+                    borderRadius: 10,
+                    backgroundColor: '#F8FAFC',
+                    borderWidth: 1,
+                    borderColor: 'rgba(15,23,42,0.08)',
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => openSms(detail.telefon)}
+              >
+                <AppIcon name="mail" size={14} color="#475569" />
+                <Text style={{ color: '#475569', fontSize: 12, fontWeight: '700' }}>SMS</Text>
+              </Pressable>
+            ) : null}
+
+            {detail.e_posta ? (
+              <Pressable
+                style={({ pressed }) => [
+                  {
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    height: 38,
+                    borderRadius: 10,
+                    backgroundColor: '#F8FAFC',
+                    borderWidth: 1,
+                    borderColor: 'rgba(15,23,42,0.08)',
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => openEmail(detail.e_posta)}
+              >
+                <AppIcon name="mail" size={14} color="#475569" />
+                <Text style={{ color: '#475569', fontSize: 12, fontWeight: '700' }}>E-posta</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
+
+        {/* 💳 Hasta Hesabı & Bakiye Durumu Kartı */}
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            padding: 14,
+            marginBottom: 12,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: 'rgba(15,23,42,0.08)',
+            shadowColor: '#0F172A',
+            shadowOpacity: 0.03,
+            shadowRadius: 6,
+            elevation: 1,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="finance" size={16} color={colors.brand.orange} />
+              <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>
+                Hasta Hesabı & Cari
+              </Text>
+            </View>
+            {kalanBakiye > 0 ? (
+              <View style={{ backgroundColor: '#FEF2F2', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
+                <Text style={{ color: '#DC2626', fontSize: 10, fontWeight: '700' }}>Borcu Var</Text>
+              </View>
+            ) : (
+              <View style={{ backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
+                <Text style={{ color: '#059669', fontSize: 10, fontWeight: '700' }}>Bakiye Temiz</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Bakiye kutucukları */}
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1, backgroundColor: '#ECFDF5', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(16,185,129,0.15)' }}>
+              <Text style={{ color: '#047857', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Tahsil Edilen</Text>
+              <Text style={{ color: '#059669', fontSize: 16, fontWeight: '800', marginTop: 2 }}>{money(toplamOdenen)}</Text>
+            </View>
+
+            <View style={{ flex: 1, backgroundColor: kalanBakiye > 0 ? '#FEF2F2' : '#F8FAFC', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: kalanBakiye > 0 ? 'rgba(239,68,68,0.2)' : 'rgba(15,23,42,0.08)' }}>
+              <Text style={{ color: kalanBakiye > 0 ? '#B91C1C' : '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Kalan Borç</Text>
+              <Text style={{ color: kalanBakiye > 0 ? '#DC2626' : '#0F172A', fontSize: 16, fontWeight: '800', marginTop: 2 }}>{money(kalanBakiye)}</Text>
+            </View>
+
+            <View style={{ width: 70, backgroundColor: '#F1F5F9', padding: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Seans</Text>
+              <Text style={{ color: '#0F172A', fontSize: 16, fontWeight: '800', marginTop: 2 }}>{randevuSayisi}</Text>
+            </View>
+          </View>
+
+          {/* Hesabı Gör / Tahsilat Butonu */}
+          <Pressable
+            style={({ pressed }) => [
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                height: 40,
+                borderRadius: 10,
+                backgroundColor: colors.brand.orange,
+              },
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}
+            onPress={() => {
+              Alert.alert(
+                'Hasta Hesabı & Ödemeler',
+                `Tahsil Edilen: ${money(toplamOdenen)}\nKalan Borç: ${money(kalanBakiye)}\nToplam Seans: ${randevuSayisi}\n\nÖdeme kaydı oluşturmak veya detaylı hesap incelemek için Finans sekmesini kullanabilirsiniz.`,
+                [{ text: 'Tamam', style: 'cancel' }],
+              );
+            }}
+          >
+            <AppIcon name="finance" size={15} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+              Hesabı Gör / Detay İncele
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Düzenleme Modalı */}
         <FormModal
           visible={editOpen}
           title="Danışanı düzenle"
@@ -857,24 +1019,66 @@ export function PatientsScreen({ onBack }: ModuleProps) {
           <Text style={s.label}>E-posta</Text>
           <TextInput style={s.input} value={editMail} onChangeText={setEditMail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="#6B7F93" />
         </FormModal>
-        <Text style={s.sectionTitle}>Randevu geçmişi</Text>
+
+        {/* Seans / Randevu Geçmişi */}
+        <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700', marginBottom: 8, marginTop: 4 }}>
+          Randevu & Seans Geçmişi ({randevuSayisi})
+        </Text>
         {(detail.randevular || []).length === 0 ? (
           <EmptyState title="Randevu yok" text="Bu danışanla randevu kaydı bulunamadı." />
         ) : (
-          (detail.randevular as any[]).map((r) => (
-            <View key={r.id} style={s.card}>
-              <View style={s.cardHeader}>
-                <Text style={s.cardTitle}>
-                  {r.tarih} · {String(r.saat || '').slice(0, 5)}
-                </Text>
-                <View style={s.pill}>
-                  <Text style={s.pillText}>{r.durum}</Text>
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 16,
+              overflow: 'hidden',
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: 'rgba(15,23,42,0.08)',
+              shadowColor: '#0F172A',
+              shadowOpacity: 0.03,
+              shadowRadius: 6,
+              elevation: 1,
+            }}
+          >
+            {(detail.randevular as any[]).map((r, idx) => {
+              const isLast = idx === detail.randevular.length - 1;
+              return (
+                <View
+                  key={r.id}
+                  style={[
+                    {
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                    },
+                    !isLast && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: 'rgba(15,23,42,0.08)',
+                    },
+                  ]}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700' }}>
+                      📅 {r.tarih} · 🕒 {String(r.saat || '').slice(0, 5)}
+                    </Text>
+                    <StatusChip
+                      label={r.durum === 'onaylandi' ? 'Onaylı' : r.durum === 'tamamlandi' ? 'Tamamlandı' : r.durum === 'iptal' ? 'İptal' : 'Bekliyor'}
+                      tone={r.durum === 'onaylandi' ? 'success' : r.durum === 'tamamlandi' ? 'info' : r.durum === 'iptal' ? 'danger' : 'warning'}
+                    />
+                  </View>
+                  {r.hizmet ? (
+                    <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
+                      Hizmet: {r.hizmet}
+                    </Text>
+                  ) : null}
+                  {r.hekim_notu ? (
+                    <Text style={{ color: '#475569', fontSize: 11, fontStyle: 'italic', marginTop: 2 }}>
+                      Hekim Notu: "{r.hekim_notu}"
+                    </Text>
+                  ) : null}
                 </View>
-              </View>
-              {r.hizmet ? <Text style={s.cardMeta}>{r.hizmet}</Text> : null}
-              {r.hekim_notu ? <Text style={s.cardBody}>Not: {r.hekim_notu}</Text> : null}
-            </View>
-          ))
+              );
+            })}
+          </View>
         )}
       </ScreenShell>
     );
