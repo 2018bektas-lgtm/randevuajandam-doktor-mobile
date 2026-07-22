@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -101,6 +102,7 @@ function MenuRow({
 export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModuleProps) {
   const L = useLayout();
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [features, setFeatures] = useState<string[]>([]);
   const [restrict, setRestrict] = useState(false);
   const [paketAd, setPaketAd] = useState<string | null>(null);
@@ -139,14 +141,14 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
     onNavigate(item.screen);
   }
 
-  const filteredGroups = MENU_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.filter(
-      (i) =>
-        i.title.toLowerCase().includes(query.toLowerCase()) ||
-        i.description.toLowerCase().includes(query.toLowerCase()),
-    ),
-  })).filter((g) => g.items.length > 0);
+  const allItems = MENU_GROUPS.flatMap((g) => g.items);
+  const searchResults = query.trim()
+    ? allItems.filter(
+        (i) =>
+          i.title.toLowerCase().includes(query.toLowerCase()) ||
+          i.description.toLowerCase().includes(query.toLowerCase()),
+      )
+    : [];
 
   return (
     <View style={styles.safe}>
@@ -159,69 +161,130 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
               {paketAd ? `Paket: ${paketAd}` : 'İşletme ve randevu yönetimi'}
             </Text>
           </View>
-          <HeaderIconButton name="bell" color="#0F172A" onPress={() => onNavigate('notifications')} />
-        </View>
-        <View style={{ marginTop: 10 }}>
-          <SearchField value={query} onChangeText={setQuery} placeholder="Modül veya özellik ara…" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <HeaderIconButton name="search" color="#0F172A" onPress={() => setSearchOpen(true)} />
+            <HeaderIconButton name="bell" color="#0F172A" onPress={() => onNavigate('notifications')} />
+          </View>
         </View>
       </View>
+
+      {/* Arama Modalı */}
+      <Modal visible={searchOpen} animationType="fade" transparent={false} onRequestClose={() => setSearchOpen(false)}>
+        <View style={[styles.safe, { paddingTop: L.safeTop + 4 }]}>
+          <StatusBar style="dark" />
+          <View style={styles.searchModalTop}>
+            <View style={{ flex: 1 }}>
+              <SearchField
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Modül veya özellik ara…"
+                autoFocus
+              />
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.searchCancelBtn, pressed && { opacity: 0.7 }]}
+              onPress={() => {
+                setQuery('');
+                setSearchOpen(false);
+              }}
+            >
+              <Text style={styles.searchCancelTxt}>Vazgeç</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {!query.trim() ? (
+              <View style={{ marginTop: 24, alignItems: 'center' }}>
+                <Text style={{ color: '#94A3B8', fontSize: 13, textAlign: 'center' }}>
+                  Aramak istediğiniz modül veya sayfa adını yazın.
+                </Text>
+              </View>
+            ) : searchResults.length === 0 ? (
+              <View style={{ alignItems: 'center', marginTop: 36 }}>
+                <Text style={{ fontSize: 32, marginBottom: 8 }}>🔍</Text>
+                <Text style={{ color: '#0F172A', fontSize: 16, fontWeight: '700' }}>Sonuç Bulunamadı</Text>
+                <Text style={{ color: '#64748B', fontSize: 13, marginTop: 4, textAlign: 'center' }}>
+                  "{query}" ile eşleşen bir modül veya özellik bulunamadı.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                {searchResults.map((item, i) => (
+                  <MenuRow
+                    key={item.screen}
+                    item={item}
+                    locked={isLocked(item)}
+                    last={i === searchResults.length - 1}
+                    onPress={() => {
+                      setSearchOpen(false);
+                      setQuery('');
+                      openItem(item);
+                    }}
+                  />
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: L.scrollBottom + 16 }]}
         showsVerticalScrollIndicator={false}
       >
-        {!query ? (
-          <View style={styles.quickGrid}>
-            <Pressable
-              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FFF7ED' }, pressed && styles.pressed]}
-              onPress={() => onNavigate('calendar')}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: '#EE7D31' }]}>
-                <AppIcon name="calendar" size={18} color="#FFFFFF" />
-              </View>
-              <Text style={styles.quickTitle}>Takvim</Text>
-              <Text style={styles.quickSub}>Günlük plan</Text>
-            </Pressable>
+        <View style={styles.quickGrid}>
+          <Pressable
+            style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FFF7ED' }, pressed && styles.pressed]}
+            onPress={() => onNavigate('calendar')}
+          >
+            <View style={[styles.quickIcon, { backgroundColor: '#EE7D31' }]}>
+              <AppIcon name="calendar" size={18} color="#FFFFFF" />
+            </View>
+            <Text style={styles.quickTitle}>Takvim</Text>
+            <Text style={styles.quickSub}>Günlük plan</Text>
+          </Pressable>
 
-            <Pressable
-              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF3C7' }, pressed && styles.pressed]}
-              onPress={() => onNavigate('requests')}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: '#F59E0B' }]}>
-                <AppIcon name="requests" size={18} color="#FFFFFF" />
-              </View>
-              <Text style={styles.quickTitle}>Talepler</Text>
-              <Text style={styles.quickSub}>Onay bekleyenler</Text>
-            </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF3C7' }, pressed && styles.pressed]}
+            onPress={() => onNavigate('requests')}
+          >
+            <View style={[styles.quickIcon, { backgroundColor: '#F59E0B' }]}>
+              <AppIcon name="requests" size={18} color="#FFFFFF" />
+            </View>
+            <Text style={styles.quickTitle}>Talepler</Text>
+            <Text style={styles.quickSub}>Onay bekleyenler</Text>
+          </Pressable>
 
-            <Pressable
-              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#EFF6FF' }, pressed && styles.pressed]}
-              onPress={() => onNavigate('patients')}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: '#3B82F6' }]}>
-                <AppIcon name="people" size={18} color="#FFFFFF" />
-              </View>
-              <Text style={styles.quickTitle}>Hastalar</Text>
-              <Text style={styles.quickSub}>Hasta listesi</Text>
-            </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.quickTile, { backgroundColor: '#EFF6FF' }, pressed && styles.pressed]}
+            onPress={() => onNavigate('patients')}
+          >
+            <View style={[styles.quickIcon, { backgroundColor: '#3B82F6' }]}>
+              <AppIcon name="people" size={18} color="#FFFFFF" />
+            </View>
+            <Text style={styles.quickTitle}>Hastalar</Text>
+            <Text style={styles.quickSub}>Hasta listesi</Text>
+          </Pressable>
 
-            <Pressable
-              style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF2F2' }, pressed && styles.pressed]}
-              onPress={() => onNavigate('quickClose')}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: '#EF4444' }]}>
-                <AppIcon name="block" size={18} color="#FFFFFF" />
-              </View>
-              <Text style={styles.quickTitle}>Hızlı Kapat</Text>
-              <Text style={styles.quickSub}>Saat kapat/aç</Text>
-            </Pressable>
-          </View>
-        ) : null}
+          <Pressable
+            style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF2F2' }, pressed && styles.pressed]}
+            onPress={() => onNavigate('quickClose')}
+          >
+            <View style={[styles.quickIcon, { backgroundColor: '#EF4444' }]}>
+              <AppIcon name="block" size={18} color="#FFFFFF" />
+            </View>
+            <Text style={styles.quickTitle}>Hızlı Kapat</Text>
+            <Text style={styles.quickSub}>Saat kapat/aç</Text>
+          </Pressable>
+        </View>
 
         {loading ? (
           <ActivityIndicator color={colors.brand.orange} style={{ marginTop: 40 }} />
         ) : (
-          filteredGroups.map((group) => (
+          MENU_GROUPS.map((group) => (
             <View key={group.title} style={styles.group}>
               <Text style={styles.groupLabel}>{group.title}</Text>
               <View style={styles.card}>
@@ -443,6 +506,25 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+  },
+  searchModalTop: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(15,23,42,0.08)',
+  },
+  searchCancelBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  searchCancelTxt: {
+    color: colors.brand.orangeSoft,
+    fontSize: 15,
+    fontWeight: '700',
   },
   headerNavRow: {
     minHeight: 44,
