@@ -694,6 +694,7 @@ export function PatientsScreen({ onBack }: ModuleProps) {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [financeModalOpen, setFinanceModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -987,13 +988,7 @@ export function PatientsScreen({ onBack }: ModuleProps) {
               },
               pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
             ]}
-            onPress={() => {
-              Alert.alert(
-                'Hasta Hesabı & Ödemeler',
-                `Tahsil Edilen: ${money(toplamOdenen)}\nKalan Borç: ${money(kalanBakiye)}\nToplam Seans: ${randevuSayisi}\n\nÖdeme kaydı oluşturmak veya detaylı hesap incelemek için Finans sekmesini kullanabilirsiniz.`,
-                [{ text: 'Tamam', style: 'cancel' }],
-              );
-            }}
+            onPress={() => setFinanceModalOpen(true)}
           >
             <AppIcon name="finance" size={15} color="#FFFFFF" />
             <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
@@ -1001,6 +996,150 @@ export function PatientsScreen({ onBack }: ModuleProps) {
             </Text>
           </Pressable>
         </View>
+
+        {/* 💳 Hasta Hesabı & Ödeme Hareketleri Modalı */}
+        <Modal
+          visible={financeModalOpen}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setFinanceModalOpen(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: '#F8FAFC', paddingTop: Platform.OS === 'ios' ? 44 : 12 }}>
+            {/* Modal Header */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                paddingBottom: 12,
+                backgroundColor: '#FFFFFF',
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: 'rgba(15,23,42,0.08)',
+              }}
+            >
+              <View>
+                <Text style={{ color: '#0F172A', fontSize: 18, fontWeight: '800' }}>Hasta Hesabı & Cari</Text>
+                <Text style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>{fullName}</Text>
+              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  {
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: '#F1F5F9',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => setFinanceModalOpen(false)}
+              >
+                <AppIcon name="close" size={16} color="#0F172A" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+              {/* Bakiye Özeti */}
+              <View
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 16,
+                  padding: 14,
+                  marginBottom: 16,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: 'rgba(15,23,42,0.08)',
+                }}
+              >
+                <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Cari Hesap Özeti
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1, backgroundColor: '#ECFDF5', padding: 12, borderRadius: 12 }}>
+                    <Text style={{ color: '#047857', fontSize: 11, fontWeight: '700' }}>Toplam Tahsilat</Text>
+                    <Text style={{ color: '#059669', fontSize: 18, fontWeight: '800', marginTop: 4 }}>{money(toplamOdenen)}</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: kalanBakiye > 0 ? '#FEF2F2' : '#F8FAFC', padding: 12, borderRadius: 12 }}>
+                    <Text style={{ color: kalanBakiye > 0 ? '#B91C1C' : '#64748B', fontSize: 11, fontWeight: '700' }}>Kalan Borç</Text>
+                    <Text style={{ color: kalanBakiye > 0 ? '#DC2626' : '#0F172A', fontSize: 18, fontWeight: '800', marginTop: 4 }}>{money(kalanBakiye)}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Hesap Hareketleri Listesi */}
+              <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700', marginBottom: 8 }}>
+                Ödeme & Tahsilat Hareketleri ({odemelerList.length})
+              </Text>
+
+              {odemelerList.length === 0 ? (
+                <View
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 16,
+                    padding: 24,
+                    alignItems: 'center',
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: 'rgba(15,23,42,0.08)',
+                  }}
+                >
+                  <Text style={{ fontSize: 32, marginBottom: 8 }}>💳</Text>
+                  <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>Henüz Tahsilat Kaydı Yok</Text>
+                  <Text style={{ color: '#64748B', fontSize: 13, textAlign: 'center', marginTop: 4 }}>
+                    Bu danışan için henüz girilmiş özel bir finans ödeme dökümü bulunmuyor. Seans tamamlandıkça tutarlar buraya yansır.
+                  </Text>
+                </View>
+              ) : (
+                <View
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: 'rgba(15,23,42,0.08)',
+                  }}
+                >
+                  {odemelerList.map((item: any, idx: number) => (
+                    <View
+                      key={item.id || idx}
+                      style={[
+                        {
+                          padding: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        },
+                        idx < odemelerList.length - 1 && {
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: 'rgba(15,23,42,0.08)',
+                        },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700' }}>
+                          📅 {item.odeme_tarihi || 'Tarih yok'}
+                        </Text>
+                        <Text style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
+                          Ödeme Yöntemi: {item.odeme_yontemi || 'Nakit'} {item.aciklama ? `· ${item.aciklama}` : ''}
+                        </Text>
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: '#059669', fontSize: 15, fontWeight: '800' }}>
+                          +{money(item.odenen_tutar ?? item.tutar)}
+                        </Text>
+                        <StatusChip
+                          label={item.durum === 'odendi' ? 'Ödendi' : item.durum === 'kismi_odeme' ? 'Kısmi' : 'Bekliyor'}
+                          tone={item.durum === 'odendi' ? 'success' : item.durum === 'kismi_odeme' ? 'warning' : 'danger'}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </Modal>
 
         {/* Düzenleme Modalı */}
         <FormModal
