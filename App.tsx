@@ -1747,45 +1747,39 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
 
             {isCalendar && (
               <>
-                <View style={styles.dashboardHero}>
-                  <Text style={styles.dashboardEyebrow}>Plan</Text>
-                  <Text style={styles.dashboardTitle}>Randevu takvimi</Text>
-                  <Text style={styles.dashboardSpecialty}>Gün ve hafta görünümü</Text>
-                </View>
                 {/* Premium calendar chrome */}
                 <View style={styles.calHero}>
                   <View style={styles.calHeroTop}>
                     <Pressable style={styles.calNavBtn} onPress={() => changeWeek(-1)} hitSlop={8}>
-                      <AppIcon name="chevronLeft" size={20} color="#0F172A" />
+                      <AppIcon name="chevronLeft" size={18} color="#0F172A" />
                     </Pressable>
                     <View style={styles.calHeroTitleWrap}>
                       <Text style={styles.calHeroMonth}>
-                        {MONTH_LABELS[selectedCalendarDate.getMonth()]}
+                        {MONTH_LABELS[selectedCalendarDate.getMonth()]} {selectedCalendarDate.getFullYear()}
                       </Text>
-                      <Text style={styles.calHeroYear}>{selectedCalendarDate.getFullYear()}</Text>
                     </View>
                     <Pressable style={styles.calNavBtn} onPress={() => changeWeek(1)} hitSlop={8}>
-                      <AppIcon name="chevronRight" size={20} color="#0F172A" />
+                      <AppIcon name="chevronRight" size={18} color="#0F172A" />
                     </Pressable>
-                  </View>
 
-                  <View style={styles.calModeSeg}>
-                    <Pressable
-                      style={[styles.calModeBtn, calendarMode === 'week' && styles.calModeBtnOn]}
-                      onPress={() => setCalendarMode('week')}
-                    >
-                      <Text style={[styles.calModeTxt, calendarMode === 'week' && styles.calModeTxtOn]}>
-                        Hafta
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.calModeBtn, calendarMode === 'month' && styles.calModeBtnOn]}
-                      onPress={() => setCalendarMode('month')}
-                    >
-                      <Text style={[styles.calModeTxt, calendarMode === 'month' && styles.calModeTxtOn]}>
-                        Ay
-                      </Text>
-                    </Pressable>
+                    <View style={styles.calModeSeg}>
+                      <Pressable
+                        style={[styles.calModeBtn, calendarMode === 'week' && styles.calModeBtnOn]}
+                        onPress={() => setCalendarMode('week')}
+                      >
+                        <Text style={[styles.calModeTxt, calendarMode === 'week' && styles.calModeTxtOn]}>
+                          Hafta
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.calModeBtn, calendarMode === 'month' && styles.calModeBtnOn]}
+                        onPress={() => setCalendarMode('month')}
+                      >
+                        <Text style={[styles.calModeTxt, calendarMode === 'month' && styles.calModeTxtOn]}>
+                          Ay
+                        </Text>
+                      </Pressable>
+                    </View>
                   </View>
 
                   <View style={styles.calChipRow}>
@@ -1798,7 +1792,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                       </Text>
                     </Pressable>
                     <Pressable style={styles.calChip} onPress={() => void exportIcal()}>
-                      <Text style={styles.calChipTxt}>iCal</Text>
+                      <Text style={styles.calChipTxt}>iCal Aktar</Text>
                     </Pressable>
                     <Pressable
                       style={styles.calChip}
@@ -1841,7 +1835,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                         ]);
                       }}
                     >
-                      <Text style={styles.calChipTxt}>Periyot</Text>
+                      <Text style={styles.calChipTxt}>Periyot Ayarı</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -3713,61 +3707,60 @@ const styles = StyleSheet.create({
   appointmentsLoading: { marginTop: 40 },
   /* ── Calendar redesign ── */
   calHero: {
-    marginTop: 4,
+    marginTop: 6,
     marginBottom: 8,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
     paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 10,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   calHeroTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   calNavBtn: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
-    backgroundColor: '#F4F6F9',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  calNavBtnText: { color: '#102133', fontSize: 22, fontWeight: '300', marginTop: -2 },
-  calHeroTitleWrap: { alignItems: 'center' },
+  calNavBtnText: { color: '#0F172A', fontSize: 20, fontWeight: '400', marginTop: -2 },
+  calHeroTitleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   calHeroMonth: {
-    color: '#102133',
-    fontSize: 18,
-    fontWeight: '700',
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
-  calHeroYear: { color: '#8A98A8', fontSize: 12, fontWeight: '600', marginTop: 1 },
+  calHeroYear: { color: '#64748B', fontSize: 11, fontWeight: '600', marginTop: 1 },
   calModeSeg: {
-    marginTop: 12,
     flexDirection: 'row',
-    backgroundColor: '#F0F3F7',
+    backgroundColor: '#F1F5F9',
     borderRadius: 10,
-    padding: 3,
+    padding: 2,
   },
   calModeBtn: {
-    flex: 1,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
     alignItems: 'center',
   },
   calModeBtnOn: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#102133',
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    backgroundColor: colors.brand.orange,
   },
-  calModeTxt: { color: '#6D7D8E', fontSize: 13, fontWeight: '600' },
-  calModeTxtOn: { color: '#102133', fontWeight: '700' },
+  calModeTxt: { color: '#64748B', fontSize: 12, fontWeight: '600' },
+  calModeTxtOn: { color: '#FFFFFF', fontWeight: '700' },
   calChipRow: {
     marginTop: 10,
     flexDirection: 'row',
@@ -3775,49 +3768,49 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   calChip: {
-    paddingHorizontal: 11,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#F4F6F9',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E8EDF3',
+    borderColor: 'rgba(15,23,42,0.08)',
   },
   calChipOn: {
     backgroundColor: 'rgba(238,125,49,0.12)',
     borderColor: 'rgba(238,125,49,0.35)',
   },
-  calChipTxt: { color: '#5A6B7D', fontSize: 12, fontWeight: '600' },
-  calChipTxtOn: { color: '#C96A2B' },
+  calChipTxt: { color: '#475569', fontSize: 12, fontWeight: '600' },
+  calChipTxtOn: { color: colors.brand.orangeSoft },
   weekStrip: {
     marginTop: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 4,
-    borderRadius: 14,
+    gap: 6,
+    borderRadius: 16,
     paddingHorizontal: 6,
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
   },
   monthGrid: {
     marginTop: 2,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingHorizontal: 8,
     paddingTop: 10,
     paddingBottom: 8,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(15,23,42,0.08)',
   },
-  monthHeaderRow: { flexDirection: 'row', marginBottom: 4 },
+  monthHeaderRow: { flexDirection: 'row', marginBottom: 6 },
   monthHeaderCell: {
     flex: 1,
     textAlign: 'center',
-    color: '#95A2B5',
-    fontSize: 10,
+    color: '#94A3B8',
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   monthRow: { flexDirection: 'row' },
   monthCell: {
@@ -3826,16 +3819,16 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
     margin: 1,
-    minHeight: 44,
+    minHeight: 46,
   },
   monthCellToday: {
-    backgroundColor: 'rgba(46,158,91,0.08)',
+    backgroundColor: 'rgba(31,157,85,0.08)',
   },
-  monthCellSelected: { backgroundColor: '#EE7D31' },
+  monthCellSelected: { backgroundColor: colors.brand.orange },
   monthCellMuted: { opacity: 0.32 },
-  monthCellText: { color: '#102133', fontSize: 13, fontWeight: '600' },
+  monthCellText: { color: '#0F172A', fontSize: 14, fontWeight: '600' },
   monthCellTextSelected: { color: '#FFFFFF', fontWeight: '700' },
-  monthCellTextToday: { color: '#2E9E5B', fontWeight: '700' },
+  monthCellTextToday: { color: '#1F9D55', fontWeight: '800' },
   monthCountPill: {
     marginTop: 2,
     minWidth: 16,
@@ -3847,24 +3840,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthCountPillOn: { backgroundColor: 'rgba(255,255,255,0.28)' },
-  monthCountTxt: { color: '#C96A2B', fontSize: 9, fontWeight: '700' },
+  monthCountTxt: { color: colors.brand.orangeSoft, fontSize: 9, fontWeight: '700' },
   monthCountTxtOn: { color: '#FFFFFF' },
   monthCountSpacer: { height: 14, marginTop: 2 },
   weekDay: {
     flex: 1,
-    minHeight: 64,
+    minHeight: 66,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   weekDayToday: {
-    backgroundColor: 'rgba(46,158,91,0.08)',
+    backgroundColor: 'rgba(31,157,85,0.08)',
   },
-  weekDaySelected: { backgroundColor: '#EE7D31' },
-  weekDayLabel: { color: '#95A2B5', fontSize: 10, fontWeight: '700' },
+  weekDaySelected: {
+    backgroundColor: colors.brand.orange,
+    shadowColor: colors.brand.orange,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  weekDayLabel: { color: '#94A3B8', fontSize: 11, fontWeight: '600' },
   weekDayLabelSelected: { color: 'rgba(255,255,255,0.9)' },
-  weekDayNumber: { color: '#102133', fontSize: 16, fontWeight: '700', marginTop: 2 },
+  weekDayNumber: { color: '#0F172A', fontSize: 16, fontWeight: '800', marginTop: 2 },
   weekDayNumberSelected: { color: '#FFFFFF' },
   weekDayBadge: {
     marginTop: 4,
@@ -3877,7 +3877,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weekDayBadgeOn: { backgroundColor: 'rgba(255,255,255,0.28)' },
-  weekDayBadgeTxt: { color: '#C96A2B', fontSize: 10, fontWeight: '700' },
+  weekDayBadgeTxt: { color: colors.brand.orangeSoft, fontSize: 10, fontWeight: '700' },
   weekDayBadgeTxtOn: { color: '#FFFFFF' },
   weekDayDotSpacer: { height: 16, marginTop: 4 },
   calendarAgendaHeader: {
