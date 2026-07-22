@@ -367,31 +367,10 @@ export function RequestsScreen({ onBack }: ModuleProps) {
       onRefresh={onRefresh}
     >
       {items.length > 0 ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 10,
-            paddingHorizontal: 4,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: '#FEF3C7',
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 999,
-            }}
-          >
-            <AppIcon name="requests" size={14} color="#D97706" />
-            <Text style={{ color: '#B45309', fontSize: 12, fontWeight: '700' }}>
-              {items.length} Bekleyen Talep
-            </Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
+          <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+            Bekleyen Talepler ({items.length})
+          </Text>
         </View>
       ) : null}
 
@@ -402,136 +381,138 @@ export function RequestsScreen({ onBack }: ModuleProps) {
           text="Yeni randevu talepleri geldikçe burada listelenir."
         />
       ) : (
-        items.map((item) => (
-          <View
-            key={item.id}
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
-              padding: 14,
-              marginBottom: 10,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: 'rgba(15,23,42,0.08)',
-              shadowColor: '#0F172A',
-              shadowOpacity: 0.03,
-              shadowRadius: 6,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: 1,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: 'rgba(238,125,49,0.12)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <AppIcon name="people" size={20} color={colors.brand.orange} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700', letterSpacing: -0.2 }} numberOfLines={1}>
-                    {item.hasta_adi || 'Danışan'}
-                  </Text>
-                  <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
-                    📅 {item.tarih} · {timeSlice(item.saat)}
-                    {item.hizmet ? ` · ${item.hizmet}` : ''}
-                  </Text>
-                </View>
-              </View>
-              <StatusChip label="Bekliyor" tone="warning" />
-            </View>
-
-            {item.telefon ? (
-              <Pressable
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  marginTop: 10,
-                  backgroundColor: '#F8FAFC',
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  alignSelf: 'flex-start',
-                }}
-                onPress={() => openPhone(item.telefon)}
-              >
-                <AppIcon name="call" size={13} color="#475569" />
-                <Text style={{ color: '#475569', fontSize: 12, fontWeight: '600' }}>{item.telefon}</Text>
-              </Pressable>
-            ) : null}
-
-            {item.not ? (
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            overflow: 'hidden',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: 'rgba(15,23,42,0.08)',
+            shadowColor: '#0F172A',
+            shadowOpacity: 0.03,
+            shadowRadius: 6,
+            elevation: 1,
+          }}
+        >
+          {items.map((item, idx) => {
+            const isLast = idx === items.length - 1;
+            const isBusy = busyId === item.id;
+            return (
               <View
-                style={{
-                  marginTop: 10,
-                  backgroundColor: '#F1F5F9',
-                  padding: 10,
-                  borderRadius: 10,
-                }}
+                key={item.id}
+                style={[
+                  {
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  },
+                  !isLast && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: 'rgba(15,23,42,0.08)',
+                  },
+                ]}
               >
-                <Text style={{ color: '#334155', fontSize: 12, fontStyle: 'italic' }}>
-                  "{item.not}"
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: 'rgba(238,125,49,0.12)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <AppIcon name="people" size={18} color={colors.brand.orange} />
+                  </View>
+
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
+                        {item.hasta_adi || 'Danışan'}
+                      </Text>
+                      {item.hizmet ? (
+                        <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }} numberOfLines={1}>
+                            {item.hizmet}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
+                      📅 {item.tarih} · 🕒 {timeSlice(item.saat)}
+                    </Text>
+
+                    {item.not ? (
+                      <Text style={{ color: '#64748B', fontSize: 11, fontStyle: 'italic', marginTop: 2 }} numberOfLines={1}>
+                        Not: "{item.not}"
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {item.telefon ? (
+                      <Pressable
+                        style={({ pressed }) => [
+                          {
+                            width: 34,
+                            height: 34,
+                            borderRadius: 17,
+                            backgroundColor: '#F1F5F9',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          },
+                          pressed && { opacity: 0.7 },
+                        ]}
+                        onPress={() => openPhone(item.telefon)}
+                      >
+                        <AppIcon name="call" size={15} color="#475569" />
+                      </Pressable>
+                    ) : null}
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        {
+                          width: 34,
+                          height: 34,
+                          borderRadius: 17,
+                          backgroundColor: '#10B981',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                        pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+                        isBusy && { opacity: 0.5 },
+                      ]}
+                      disabled={isBusy}
+                      onPress={() => void setStatus(item.id, 'onaylandi')}
+                    >
+                      <AppIcon name="check" size={16} color="#FFFFFF" />
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        {
+                          width: 34,
+                          height: 34,
+                          borderRadius: 17,
+                          backgroundColor: '#FEF2F2',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                        pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+                        isBusy && { opacity: 0.5 },
+                      ]}
+                      disabled={isBusy}
+                      onPress={() => void setStatus(item.id, 'iptal')}
+                    >
+                      <AppIcon name="close" size={15} color="#EF4444" />
+                    </Pressable>
+                  </View>
+                </View>
               </View>
-            ) : null}
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-              <Pressable
-                style={({ pressed }) => [
-                  {
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    height: 42,
-                    borderRadius: 12,
-                    backgroundColor: '#10B981',
-                  },
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                  busyId === item.id && { opacity: 0.6 },
-                ]}
-                disabled={busyId === item.id}
-                onPress={() => void setStatus(item.id, 'onaylandi')}
-              >
-                <AppIcon name="check" size={16} color="#FFFFFF" />
-                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>
-                  {busyId === item.id ? 'İşleniyor…' : 'Onayla'}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  {
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    height: 42,
-                    borderRadius: 12,
-                    backgroundColor: '#FEF2F2',
-                    borderWidth: 1,
-                    borderColor: 'rgba(239,68,68,0.2)',
-                  },
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-                  busyId === item.id && { opacity: 0.6 },
-                ]}
-                disabled={busyId === item.id}
-                onPress={() => void setStatus(item.id, 'iptal')}
-              >
-                <AppIcon name="close" size={16} color="#EF4444" />
-                <Text style={{ color: '#EF4444', fontSize: 14, fontWeight: '700' }}>Reddet</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+            );
+          })}
+        </View>
       )}
     </ScreenShell>
   );
