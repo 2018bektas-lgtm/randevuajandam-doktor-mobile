@@ -59,6 +59,28 @@
     },
     "plugins": [
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24,
+            "ndkVersion": "27.1.12297006",
+            "kotlinVersion": "2.1.0",
+            "buildArchs": ["arm64-v8a", "armeabi-v7a"],
+            "packagingOptions": {
+              "pickFirst": [
+                "lib/x86/libc++_shared.so",
+                "lib/x86_64/libc++_shared.so",
+                "lib/armeabi-v7a/libc++_shared.so",
+                "lib/arm64-v8a/libc++_shared.so"
+              ]
+            },
+            "extraProguardRules": "-keep class com.revenuecat.** { *; }\n-keep class com.swmansion.reanimated.** { *; }\n-keep class com.swmansion.worklets.** { *; }"
+          }
+        }
+      ],
+      [
         "expo-secure-store",
         {
           "faceIDPermission": "Randevu Ajandam Doktor, oturumunuzu korumak için Face ID erişimi ister."
