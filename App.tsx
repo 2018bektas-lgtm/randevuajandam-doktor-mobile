@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
@@ -85,7 +86,14 @@ type Doctor = {
   branslar: string[];
 };
 
-export default function App() {
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: 0.2,
+  integrations: Platform.OS !== 'web' ? [Sentry.mobileReplayIntegration()] : [],
+});
+
+function App() {
   const L = useLayout();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [staff, setStaff] = useState<StaffUser | null>(null);
@@ -4254,3 +4262,5 @@ const styles = StyleSheet.create({
   },
   menuSignOutText: { color: '#DC2626', fontSize: 16, fontWeight: '600' },
 });
+
+export default Sentry.wrap(App);

@@ -69,7 +69,7 @@ type Payment = {
   hasta_adi?: string;
 };
 
-type Tab = 'panel' | 'randevu' | 'talepler' | 'hastalar' | 'odemeler';
+type Tab = 'panel' | 'randevu' | 'talepler' | 'hastalar' | 'odemeler' | 'profil';
 
 const DURUM_LABEL: Record<string, string> = {
   beklemede: 'Beklemede',
@@ -107,6 +107,7 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
     }
     if (yetki.hasta !== false) t.push({ id: 'hastalar', label: 'Hasta', icon: '☺' });
     if (yetki.odeme) t.push({ id: 'odemeler', label: 'Ödeme', icon: '₺' });
+    t.push({ id: 'profil', label: 'Profil', icon: '◉' });
     return t;
   }, [yetki.hasta, yetki.odeme, yetki.randevu]);
 
@@ -160,6 +161,7 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
         {tab === 'talepler' && yetki.randevu !== false ? <StaffRequests /> : null}
         {tab === 'hastalar' && yetki.hasta !== false ? <StaffPatients /> : null}
         {tab === 'odemeler' && yetki.odeme ? <StaffPayments /> : null}
+        {tab === 'profil' ? <StaffProfile staff={staff} onSignOut={onSignOut} /> : null}
       </View>
 
       <View style={[st.tabBarWrap, { paddingBottom: L.footerPad }]}>
@@ -189,6 +191,114 @@ export function StaffApp({ staff, onStaffUpdated, onSignOut }: Props) {
         </View>
       </View>
     </View>
+  );
+}
+
+function StaffProfile({
+  staff,
+  onSignOut,
+}: {
+  staff: StaffUser;
+  onSignOut: () => void | Promise<void>;
+}) {
+  const L = useLayout();
+  const [sifre, setSifre] = useState('');
+  const [sifre2, setSifre2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+  const [showPass, setShowPass] = useState(false);
+
+  async function changePassword() {
+    setErr(null);
+    setOk(null);
+    if (sifre.length < 8) { setErr('Şifre en az 8 karakter olmalı.'); return; }
+    if (sifre !== sifre2) { setErr('Şifreler uyuşmuyor.'); return; }
+    setBusy(true);
+    try {
+      await apiPut('/staff/auth/password', { sifre, sifre_confirmation: sifre2 });
+      setSifre(''); setSifre2('');
+      setShowPass(false);
+      setOk('Şifre başarıyla güncellendi.');
+    } catch (e) {
+      setErr(errMsg(e, 'Şifre güncellenemedi.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ScrollView
+      contentContainerStyle={{ padding: L.padX, paddingTop: 16, paddingBottom: L.footerPad + 24 }}
+    >
+      <View style={[st.card, { marginTop: 0 }]}>
+        <Text style={st.sectionTitle}>Hesap Bilgileri</Text>
+        <Text style={st.label}>Ad Soyad</Text>
+        <Text style={[st.input, { color: '#475569', paddingTop: 14 }]}>{staff.ad_soyad}</Text>
+        <Text style={st.label}>E-posta</Text>
+        <Text style={[st.input, { color: '#475569', paddingTop: 14 }]}>{staff.e_posta}</Text>
+        {staff.rol ? (
+          <>
+            <Text style={st.label}>Rol</Text>
+            <Text style={[st.input, { color: '#475569', paddingTop: 14 }]}>{staff.rol}</Text>
+          </>
+        ) : null}
+        {staff.klinik?.ad ? (
+          <>
+            <Text style={st.label}>Klinik</Text>
+            <Text style={[st.input, { color: '#475569', paddingTop: 14 }]}>{staff.klinik.ad}</Text>
+          </>
+        ) : null}
+      </View>
+
+      <Pressable style={[st.card, { marginTop: 12 }]} onPress={() => setShowPass((v) => !v)}>
+        <Text style={[st.sectionTitle, { marginBottom: 0 }]}>
+          {showPass ? 'Şifre Değiştir ▲' : 'Şifre Değiştir ▼'}
+        </Text>
+      </Pressable>
+
+      {showPass ? (
+        <View style={[st.card, { marginTop: 2 }]}>
+          {ok ? <Text style={{ color: '#16a34a', marginBottom: 8, fontWeight: '600' }}>{ok}</Text> : null}
+          {err ? <Text style={st.error}>{err}</Text> : null}
+          <Text style={st.label}>Yeni şifre</Text>
+          <TextInput
+            style={st.input}
+            secureTextEntry
+            value={sifre}
+            onChangeText={setSifre}
+            placeholderTextColor="#6B7F93"
+          />
+          <Text style={st.label}>Şifre tekrar</Text>
+          <TextInput
+            style={st.input}
+            secureTextEntry
+            value={sifre2}
+            onChangeText={setSifre2}
+            placeholderTextColor="#6B7F93"
+          />
+          <Pressable
+            style={[st.primaryBtn, { marginTop: 14 }, busy && { opacity: 0.6 }]}
+            disabled={busy}
+            onPress={() => void changePassword()}
+          >
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={st.primaryBtnText}>Şifreyi Güncelle</Text>}
+          </Pressable>
+        </View>
+      ) : null}
+
+      <Pressable
+        style={[st.primaryBtn, { marginTop: 24, backgroundColor: '#EF4444' }]}
+        onPress={() => {
+          Alert.alert('Çıkış', 'Oturumu kapatmak istiyor musunuz?', [
+            { text: 'İptal', style: 'cancel' },
+            { text: 'Çıkış Yap', style: 'destructive', onPress: () => void onSignOut() },
+          ]);
+        }}
+      >
+        <Text style={st.primaryBtnText}>Çıkış Yap</Text>
+      </Pressable>
+    </ScrollView>
   );
 }
 

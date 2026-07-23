@@ -18,7 +18,7 @@ const TABS: {
 }[] = [
   { id: 'overview', label: 'Özet', icon: 'home' },
   { id: 'calendar', label: 'Takvim', icon: 'calendar' },
-  { id: 'quickClose', label: 'Kapat', icon: 'block', danger: true },
+  { id: 'quickClose', label: 'Kapat', icon: 'block' },
   { id: 'menu', label: 'Menü', icon: 'menu' },
   { id: 'profile', label: 'Profil', icon: 'profile' },
 ];

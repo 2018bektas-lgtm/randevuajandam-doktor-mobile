@@ -204,7 +204,9 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
               </View>
             ) : searchResults.length === 0 ? (
               <View style={{ alignItems: 'center', marginTop: 36 }}>
-                <Text style={{ fontSize: 32, marginBottom: 8 }}>🔍</Text>
+                <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                  <AppIcon name="search" size={22} color="#94A3B8" />
+                </View>
                 <Text style={{ color: '#0F172A', fontSize: 16, fontWeight: '700' }}>Sonuç Bulunamadı</Text>
                 <Text style={{ color: '#64748B', fontSize: 13, marginTop: 4, textAlign: 'center' }}>
                   "{query}" ile eşleşen bir modül veya özellik bulunamadı.
@@ -569,10 +571,13 @@ const styles = StyleSheet.create({
   quickTile: {
     width: '48%',
     flexGrow: 1,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(15,23,42,0.06)',
+    padding: 14,
+    borderRadius: 16,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   quickIcon: {
     width: 34,
@@ -594,30 +599,33 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
-  group: { marginTop: 12 },
+  group: { marginTop: 20 },
   groupLabel: {
     color: '#64748B',
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 5,
-    marginLeft: 2,
-    letterSpacing: 0.2,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 7,
+    marginLeft: 4,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(15,23,42,0.06)',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   row: {
-    minHeight: 48,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    minHeight: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -626,24 +634,24 @@ const styles = StyleSheet.create({
   rowLocked: { opacity: 0.55 },
   pressed: { opacity: 0.88 },
   iconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: {
     color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: -0.15,
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   rowSub: {
     color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 1,
-    fontWeight: '500',
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '400',
   },
   profileCta: {
     marginTop: 12,
@@ -679,8 +687,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(15,23,42,0.06)',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   avatarWrap: { position: 'relative' },
   avatar: {

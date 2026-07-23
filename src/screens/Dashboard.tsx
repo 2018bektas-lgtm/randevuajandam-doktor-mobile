@@ -366,20 +366,22 @@ export function DashboardOverview({
       <View style={styles.shortcutGrid}>
         {(
           [
-            { id: 'calendar', icon: 'calendar' as AppIconName, title: 'Takvim', sub: 'Plan' },
+            { id: 'calendar', icon: 'calendar' as AppIconName, title: 'Takvim', sub: 'Plan', tint: '#EE7D31', bg: '#FFF7ED' },
             {
               id: 'requests',
               icon: 'requests' as AppIconName,
               title: 'Talepler',
               sub: pendingRequests > 0 ? `${pendingRequests} bekliyor` : 'Onay',
               badge: pendingRequests,
+              tint: '#F59E0B', bg: '#FEF3C7',
             },
-            { id: 'add', icon: 'plus' as AppIconName, title: 'Yeni', sub: 'Randevu' },
+            { id: 'add', icon: 'plus' as AppIconName, title: 'Yeni', sub: 'Randevu', tint: '#10B981', bg: '#ECFDF5' },
             {
               id: 'patients',
               icon: 'people' as AppIconName,
               title: 'Hastalar',
               sub: typeof patientsCount === 'number' ? `${patientsCount}` : 'Liste',
+              tint: '#3B82F6', bg: '#EFF6FF',
             },
             {
               id: 'waitlist',
@@ -387,22 +389,23 @@ export function DashboardOverview({
               title: 'Bekleme',
               sub: 'Liste',
               badge: typeof waitlistCount === 'number' ? waitlistCount : 0,
+              tint: '#8B5CF6', bg: '#F5F3FF',
             },
-            { id: 'finance', icon: 'finance' as AppIconName, title: 'Finans', sub: 'Gelir' },
-            { id: 'clinic', icon: 'clinic' as AppIconName, title: 'Klinik', sub: 'Ekip' },
-            { id: 'packages', icon: 'package' as AppIconName, title: 'Paket', sub: 'Abonelik' },
+            { id: 'finance', icon: 'finance' as AppIconName, title: 'Finans', sub: 'Gelir', tint: '#22C55E', bg: '#F0FDF4' },
+            { id: 'clinic', icon: 'clinic' as AppIconName, title: 'Klinik', sub: 'Ekip', tint: '#0F172A', bg: '#F1F5F9' },
+            { id: 'packages', icon: 'package' as AppIconName, title: 'Paket', sub: 'Abonelik', tint: '#EC4899', bg: '#FDF2F8' },
           ] as const
         ).map((item) => (
           <Pressable
             key={item.id}
-            style={({ pressed }) => [styles.shortcut, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.shortcut, { backgroundColor: item.bg }, pressed && styles.pressed]}
             onPress={() => {
               if (item.id === 'add') onAddAppointment();
               else onNavigate(item.id);
             }}
           >
-            <View style={styles.shortcutIcon}>
-              <AppIcon name={item.icon} size={16} color="#EE7D31" />
+            <View style={[styles.shortcutIcon, { backgroundColor: item.tint }]}>
+              <AppIcon name={item.icon} size={16} color="#FFFFFF" />
               {'badge' in item && item.badge && item.badge > 0 ? (
                 <View style={styles.shortcutBadge}>
                   <Text style={styles.shortcutBadgeText}>
@@ -411,7 +414,7 @@ export function DashboardOverview({
                 </View>
               ) : null}
             </View>
-            <Text style={styles.shortcutTitle}>{item.title}</Text>
+            <Text style={[styles.shortcutTitle, { color: item.tint }]}>{item.title}</Text>
             <Text style={styles.shortcutSub} numberOfLines={1}>
               {item.sub}
             </Text>
@@ -424,7 +427,7 @@ export function DashboardOverview({
           <View style={styles.reviewIcon}>
             <AppIcon name="star" size={14} color="#C96A2B" />
           </View>
-          <Text style={styles.reviewText}>{reviewsPending} yorum onay bekliyor</Text>
+          <Text style={styles.reviewText}>{reviewsPending} yorum yanıt bekliyor</Text>
           <AppIcon name="chevronRight" size={14} color="#C96A2B" />
         </Pressable>
       ) : null}
@@ -773,23 +776,19 @@ const styles = StyleSheet.create({
   },
   shortcut: {
     width: '23.5%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 2,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(15,23,42,0.06)',
     ...cardShadow,
   },
   shortcutIcon: {
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: 'rgba(238,125,49,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 5,
   },
   shortcutBadge: {
     position: 'absolute',

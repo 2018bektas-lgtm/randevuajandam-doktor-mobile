@@ -75,11 +75,6 @@ export function ScreenShell({
           <Text style={styles.titleText} numberOfLines={1}>
             {title}
           </Text>
-          {subtitle ? (
-            <Text style={styles.subtitleText} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          ) : null}
         </View>
 
         <View style={styles.rightSlot}>

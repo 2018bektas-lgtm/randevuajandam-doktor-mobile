@@ -38,7 +38,11 @@ export type AppIconName =
   | 'referral'
   | 'warning'
   | 'flash'
-  | 'list';
+  | 'list'
+  | 'chevronUp'
+  | 'chevronDown'
+  | 'image'
+  | 'edit';
 
 const MAP: Record<AppIconName, ComponentProps<typeof Ionicons>['name']> = {
   home: 'home',
@@ -76,6 +80,10 @@ const MAP: Record<AppIconName, ComponentProps<typeof Ionicons>['name']> = {
   warning: 'warning',
   flash: 'flash',
   list: 'list',
+  chevronUp: 'chevron-up',
+  chevronDown: 'chevron-down',
+  image: 'image',
+  edit: 'pencil',
 };
 
 type Props = {

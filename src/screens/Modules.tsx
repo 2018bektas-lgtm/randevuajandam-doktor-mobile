@@ -136,6 +136,8 @@ function pickImageSource(): Promise<'library' | 'camera' | null> {
   });
 }
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+
 async function launchImagePicker(source: 'library' | 'camera') {
   if (source === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -148,7 +150,12 @@ async function launchImagePicker(source: 'library' | 'camera') {
       allowsEditing: true,
     });
     if (result.canceled || !result.assets?.[0]) return null;
-    return result.assets[0];
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > MAX_IMAGE_BYTES) {
+      Alert.alert('Görsel çok büyük', `Seçilen görsel ${(asset.fileSize / 1024 / 1024).toFixed(1)} MB. Lütfen 5 MB altında bir görsel seçin.`);
+      return null;
+    }
+    return asset;
   }
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
@@ -161,7 +168,12 @@ async function launchImagePicker(source: 'library' | 'camera') {
     allowsEditing: true,
   });
   if (result.canceled || !result.assets?.[0]) return null;
-  return result.assets[0];
+  const asset = result.assets[0];
+  if (asset.fileSize && asset.fileSize > MAX_IMAGE_BYTES) {
+    Alert.alert('Görsel çok büyük', `Seçilen görsel ${(asset.fileSize / 1024 / 1024).toFixed(1)} MB. Lütfen 5 MB altında bir görsel seçin.`);
+    return null;
+  }
+  return asset;
 }
 
 function money(value: number | string | null | undefined): string {
@@ -367,11 +379,7 @@ export function RequestsScreen({ onBack }: ModuleProps) {
       onRefresh={onRefresh}
     >
       {items.length > 0 ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 2 }}>
-          <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 }}>
-            Bekleyen Talepler ({items.length})
-          </Text>
-        </View>
+        <Text style={s.sectionHeader}>Bekleyen Talepler ({items.length})</Text>
       ) : null}
 
       {items.length === 0 ? (
@@ -381,134 +389,89 @@ export function RequestsScreen({ onBack }: ModuleProps) {
           text="Yeni randevu talepleri geldikçe burada listelenir."
         />
       ) : (
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            overflow: 'hidden',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: 'rgba(15,23,42,0.08)',
-            shadowColor: '#0F172A',
-            shadowOpacity: 0.03,
-            shadowRadius: 6,
-            elevation: 1,
-          }}
-        >
+        <View style={s.listGroup}>
           {items.map((item, idx) => {
             const isLast = idx === items.length - 1;
             const isBusy = busyId === item.id;
             return (
-              <View
-                key={item.id}
-                style={[
-                  {
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                  },
-                  !isLast && {
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                    borderBottomColor: 'rgba(15,23,42,0.08)',
-                  },
-                ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      backgroundColor: 'rgba(238,125,49,0.12)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <AppIcon name="people" size={18} color={colors.brand.orange} />
-                  </View>
-
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
-                        {item.hasta_adi || 'Danışan'}
-                      </Text>
-                      {item.hizmet ? (
-                        <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                          <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }} numberOfLines={1}>
-                            {item.hizmet}
-                          </Text>
-                        </View>
-                      ) : null}
+              <View key={item.id}>
+                <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                    <View style={[s.listIconWrap, { backgroundColor: 'rgba(238,125,49,0.12)', marginTop: 2 }]}>
+                      <AppIcon name="people" size={17} color={colors.brand.orange} />
                     </View>
 
-                    <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
-                      📅 {item.tarih} · 🕒 {timeSlice(item.saat)}
-                    </Text>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '600', letterSpacing: -0.2 }} numberOfLines={1}>
+                          {item.hasta_adi || 'Danışan'}
+                        </Text>
+                        {item.hizmet ? (
+                          <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                            <Text style={{ color: '#475569', fontSize: 11, fontWeight: '600' }} numberOfLines={1}>
+                              {item.hizmet}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
 
-                    {item.not ? (
-                      <Text style={{ color: '#64748B', fontSize: 11, fontStyle: 'italic', marginTop: 2 }} numberOfLines={1}>
-                        Not: "{item.not}"
+                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 3 }}>
+                        {item.tarih}  ·  {timeSlice(item.saat)}
                       </Text>
-                    ) : null}
-                  </View>
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {item.telefon ? (
-                      <Pressable
-                        style={({ pressed }) => [
-                          {
-                            width: 34,
-                            height: 34,
-                            borderRadius: 17,
-                            backgroundColor: '#F1F5F9',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          },
-                          pressed && { opacity: 0.7 },
-                        ]}
-                        onPress={() => openPhone(item.telefon)}
-                      >
-                        <AppIcon name="call" size={15} color="#475569" />
-                      </Pressable>
-                    ) : null}
+                      {item.not ? (
+                        <Text style={{ color: '#94A3B8', fontSize: 12, fontStyle: 'italic', marginTop: 2 }} numberOfLines={1}>
+                          "{item.not}"
+                        </Text>
+                      ) : null}
 
-                    <Pressable
-                      style={({ pressed }) => [
-                        {
-                          width: 34,
-                          height: 34,
-                          borderRadius: 17,
-                          backgroundColor: '#10B981',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        },
-                        pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
-                        isBusy && { opacity: 0.5 },
-                      ]}
-                      disabled={isBusy}
-                      onPress={() => void setStatus(item.id, 'onaylandi')}
-                    >
-                      <AppIcon name="check" size={16} color="#FFFFFF" />
-                    </Pressable>
+                      {/* Aksiyon butonları — sadece bu kart için */}
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                        {item.telefon ? (
+                          <Pressable
+                            style={({ pressed }) => [
+                              { height: 36, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#F1F5F9',
+                                alignItems: 'center', justifyContent: 'center' },
+                              pressed && { opacity: 0.7 },
+                            ]}
+                            onPress={() => openPhone(item.telefon)}
+                          >
+                            <AppIcon name="call" size={15} color="#475569" />
+                          </Pressable>
+                        ) : null}
 
-                    <Pressable
-                      style={({ pressed }) => [
-                        {
-                          width: 34,
-                          height: 34,
-                          borderRadius: 17,
-                          backgroundColor: '#FEF2F2',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        },
-                        pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
-                        isBusy && { opacity: 0.5 },
-                      ]}
-                      disabled={isBusy}
-                      onPress={() => void setStatus(item.id, 'iptal')}
-                    >
-                      <AppIcon name="close" size={15} color="#EF4444" />
-                    </Pressable>
+                        <Pressable
+                          style={({ pressed }) => [
+                            { flex: 1, height: 36, borderRadius: 10, backgroundColor: '#1F9D55',
+                              alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
+                            pressed && { opacity: 0.8 },
+                            isBusy && { opacity: 0.5 },
+                          ]}
+                          disabled={isBusy}
+                          onPress={() => void setStatus(item.id, 'onaylandi')}
+                        >
+                          <AppIcon name="check" size={14} color="#FFFFFF" />
+                          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Onayla</Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={({ pressed }) => [
+                            { flex: 1, height: 36, borderRadius: 10, backgroundColor: '#FEF2F2',
+                              alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
+                            pressed && { opacity: 0.8 },
+                            isBusy && { opacity: 0.5 },
+                          ]}
+                          disabled={isBusy}
+                          onPress={() => void setStatus(item.id, 'iptal')}
+                        >
+                          <AppIcon name="close" size={13} color="#DC2626" />
+                          <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600' }}>Reddet</Text>
+                        </Pressable>
+                      </View>
+                    </View>
                   </View>
                 </View>
+                {!isLast && <View style={[s.listCellSep, { marginLeft: 14 + 34 + 10 }]} />}
               </View>
             );
           })}
@@ -620,60 +583,59 @@ export function WaitlistScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Kayıt yok" text="Seçili filtrede bekleme listesi kaydı bulunamadı." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>
-                {item.ad} {item.soyad}
-              </Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>{WAITLIST_LABEL[item.durum] ?? item.durum}</Text>
+        <View style={s.listGroup}>
+          {items.map((item, idx) => {
+            const durumColor =
+              item.durum === 'aktif' ? '#3B82F6'
+              : item.durum === 'bildirildi' ? '#10B981'
+              : '#F59E0B';
+            return (
+              <View key={item.id}>
+                {idx > 0 && <View style={s.listCellSep} />}
+                <View style={s.listCell}>
+                  <View style={[s.listIconWrap, { backgroundColor: `${durumColor}18` }]}>
+                    <AppIcon name="waitlist" size={16} color={durumColor} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[s.listCellLabel, { flex: 1 }]} numberOfLines={1}>
+                        {item.ad} {item.soyad}
+                      </Text>
+                      <View style={[s.pill, { marginLeft: 'auto' }]}>
+                        <Text style={s.pillText}>{WAITLIST_LABEL[item.durum] ?? item.durum}</Text>
+                      </View>
+                    </View>
+                    <Text style={s.listCellMeta} numberOfLines={1}>
+                      {item.telefon || 'Telefon yok'}{item.hizmet ? ` · ${item.hizmet}` : ''}
+                    </Text>
+                    {(item.tercih_tarih || item.tercih_saat) ? (
+                      <Text style={s.listCellMeta}>
+                        Tercih: {item.tercih_tarih ?? '—'} {item.tercih_saat ? timeSlice(item.tercih_saat) : ''}
+                      </Text>
+                    ) : null}
+                    {item.not ? <Text style={[s.listCellMeta, { marginTop: 4 }]}>{item.not}</Text> : null}
+                    <View style={[s.actions, { marginTop: 8 }]}>
+                      {item.durum === 'beklemede' ? (
+                        <Pressable style={[s.actionBtn, s.actionBtnSuccess]} disabled={busyId === item.id} onPress={() => void notify(item.id)}>
+                          <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Bildir</Text>
+                        </Pressable>
+                      ) : null}
+                      <Pressable style={s.actionBtn} disabled={busyId === item.id} onPress={() => void changeStatus(item.id, 'randevu_alindi')}>
+                        <Text style={s.actionBtnText}>Randevu alındı</Text>
+                      </Pressable>
+                      <Pressable style={[s.actionBtn, s.actionBtnMuted]} disabled={busyId === item.id} onPress={() => void changeStatus(item.id, 'iptal')}>
+                        <Text style={[s.actionBtnText, s.actionBtnMutedText]}>İptal</Text>
+                      </Pressable>
+                      <Pressable style={[s.actionBtn, s.actionBtnDanger]} disabled={busyId === item.id} onPress={() => remove(item.id)}>
+                        <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
               </View>
-            </View>
-            <Text style={s.cardMeta}>
-              {item.telefon || 'Telefon yok'}
-              {item.hizmet ? ` · ${item.hizmet}` : ''}
-            </Text>
-            {(item.tercih_tarih || item.tercih_saat) && (
-              <Text style={s.cardMeta}>
-                Tercih: {item.tercih_tarih ?? '—'} {item.tercih_saat ? timeSlice(item.tercih_saat) : ''}
-              </Text>
-            )}
-            {item.not ? <Text style={s.cardBody}>{item.not}</Text> : null}
-            <View style={s.actions}>
-              {item.durum === 'beklemede' ? (
-                <Pressable
-                  style={[s.actionBtn, s.actionBtnSuccess]}
-                  disabled={busyId === item.id}
-                  onPress={() => void notify(item.id)}
-                >
-                  <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Bildir</Text>
-                </Pressable>
-              ) : null}
-              <Pressable
-                style={s.actionBtn}
-                disabled={busyId === item.id}
-                onPress={() => void changeStatus(item.id, 'randevu_alindi')}
-              >
-                <Text style={s.actionBtnText}>Randevu alındı</Text>
-              </Pressable>
-              <Pressable
-                style={[s.actionBtn, s.actionBtnMuted]}
-                disabled={busyId === item.id}
-                onPress={() => void changeStatus(item.id, 'iptal')}
-              >
-                <Text style={[s.actionBtnText, s.actionBtnMutedText]}>İptal</Text>
-              </Pressable>
-              <Pressable
-                style={[s.actionBtn, s.actionBtnDanger]}
-                disabled={busyId === item.id}
-                onPress={() => remove(item.id)}
-              >
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+            );
+          })}
+        </View>
       )}
     </ScreenShell>
   );
@@ -730,6 +692,14 @@ export function PatientsScreen({ onBack }: ModuleProps) {
   const [payDate, setPayDate] = useState(todayKey());
   const [payNote, setPayNote] = useState('');
   const [savingPay, setSavingPay] = useState(false);
+
+  const [addDebtOpen, setAddDebtOpen] = useState(false);
+  const [debtAmount, setDebtAmount] = useState('');
+  const [debtAciklama, setDebtAciklama] = useState('');
+  const [debtTarih, setDebtTarih] = useState(todayKey());
+  const [debtIlk, setDebtIlk] = useState('0');
+  const [debtYontem, setDebtYontem] = useState<'nakit' | 'kredi_karti' | 'havale'>('nakit');
+  const [savingDebt, setSavingDebt] = useState(false);
 
   async function openDetail(id: number) {
     setDetailLoading(true);
@@ -791,6 +761,37 @@ export function PatientsScreen({ onBack }: ModuleProps) {
     }
   }
 
+  async function addPatientDebt() {
+    const amount = parseFloat(debtAmount.replace(',', '.'));
+    if (!amount || amount <= 0) {
+      Alert.alert('Eksik Bilgi', 'Geçerli bir borç tutarı girin.');
+      return;
+    }
+    const hastaId = Number(detail?.id ?? detail?.hasta_id);
+    if (!hastaId) return;
+    setSavingDebt(true);
+    try {
+      await apiPost(`/doctor/finance/patients/${hastaId}/debt`, {
+        tutar: amount,
+        odeme_tarihi: debtTarih,
+        aciklama: debtAciklama.trim() || undefined,
+        ilk_odeme_tutar: parseFloat(debtIlk.replace(',', '.')) || 0,
+        ilk_odeme_yontemi: debtYontem,
+      });
+      setAddDebtOpen(false);
+      setDebtAmount('');
+      setDebtAciklama('');
+      setDebtIlk('0');
+      setDebtYontem('nakit');
+      await openDetail(hastaId);
+      Alert.alert('Tamam', 'Borç kaydı oluşturuldu.');
+    } catch (e) {
+      alertError(e, 'Borç eklenemedi.');
+    } finally {
+      setSavingDebt(false);
+    }
+  }
+
   async function createPatient() {
     if (!adSoyad.trim() || !telefon.trim()) {
       setFormError('Ad soyad ve telefon zorunludur.');
@@ -843,7 +844,8 @@ export function PatientsScreen({ onBack }: ModuleProps) {
     const finans = detail.finans || {};
     const odemelerList = finans.odemeler || [];
     const toplamOdenen = Number(finans.toplam_odenen ?? 0);
-    const kalanBakiye = Number(finans.kalan_bakiye ?? 0);
+    const kalanBakiye  = Number(finans.kalan_bakiye  ?? 0);
+    const toplamBorc   = Number(finans.toplam_borc   ?? 0);
     const randevuSayisi = (detail.randevular || []).length;
 
     return (
@@ -1013,19 +1015,19 @@ export function PatientsScreen({ onBack }: ModuleProps) {
 
           {/* Bakiye kutucukları */}
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }}>
+              <Text style={{ color: '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Toplam Borç</Text>
+              <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '800', marginTop: 2 }}>{money(toplamBorc)}</Text>
+            </View>
+
             <View style={{ flex: 1, backgroundColor: '#ECFDF5', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(16,185,129,0.15)' }}>
-              <Text style={{ color: '#047857', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Tahsil Edilen</Text>
-              <Text style={{ color: '#059669', fontSize: 16, fontWeight: '800', marginTop: 2 }}>{money(toplamOdenen)}</Text>
+              <Text style={{ color: '#047857', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Ödenen</Text>
+              <Text style={{ color: '#059669', fontSize: 15, fontWeight: '800', marginTop: 2 }}>{money(toplamOdenen)}</Text>
             </View>
 
             <View style={{ flex: 1, backgroundColor: kalanBakiye > 0 ? '#FEF2F2' : '#F8FAFC', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: kalanBakiye > 0 ? 'rgba(239,68,68,0.2)' : 'rgba(15,23,42,0.08)' }}>
-              <Text style={{ color: kalanBakiye > 0 ? '#B91C1C' : '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Kalan Borç</Text>
-              <Text style={{ color: kalanBakiye > 0 ? '#DC2626' : '#0F172A', fontSize: 16, fontWeight: '800', marginTop: 2 }}>{money(kalanBakiye)}</Text>
-            </View>
-
-            <View style={{ width: 70, backgroundColor: '#F1F5F9', padding: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Seans</Text>
-              <Text style={{ color: '#0F172A', fontSize: 16, fontWeight: '800', marginTop: 2 }}>{randevuSayisi}</Text>
+              <Text style={{ color: kalanBakiye > 0 ? '#B91C1C' : '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Kalan</Text>
+              <Text style={{ color: kalanBakiye > 0 ? '#DC2626' : '#059669', fontSize: 15, fontWeight: '800', marginTop: 2 }}>{money(kalanBakiye)}</Text>
             </View>
           </View>
 
@@ -1110,39 +1112,140 @@ export function PatientsScreen({ onBack }: ModuleProps) {
                 <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 }}>
                   Cari Hesap Özeti
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flex: 1, backgroundColor: '#F8FAFC', padding: 12, borderRadius: 12 }}>
+                    <Text style={{ color: '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Toplam Borç</Text>
+                    <Text style={{ color: '#0F172A', fontSize: 16, fontWeight: '800', marginTop: 4 }}>{money(toplamBorc)}</Text>
+                  </View>
                   <View style={{ flex: 1, backgroundColor: '#ECFDF5', padding: 12, borderRadius: 12 }}>
-                    <Text style={{ color: '#047857', fontSize: 11, fontWeight: '700' }}>Toplam Tahsilat</Text>
-                    <Text style={{ color: '#059669', fontSize: 18, fontWeight: '800', marginTop: 4 }}>{money(toplamOdenen)}</Text>
+                    <Text style={{ color: '#047857', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Ödenen</Text>
+                    <Text style={{ color: '#059669', fontSize: 16, fontWeight: '800', marginTop: 4 }}>{money(toplamOdenen)}</Text>
                   </View>
                   <View style={{ flex: 1, backgroundColor: kalanBakiye > 0 ? '#FEF2F2' : '#F8FAFC', padding: 12, borderRadius: 12 }}>
-                    <Text style={{ color: kalanBakiye > 0 ? '#B91C1C' : '#64748B', fontSize: 11, fontWeight: '700' }}>Kalan Borç</Text>
-                    <Text style={{ color: kalanBakiye > 0 ? '#DC2626' : '#0F172A', fontSize: 18, fontWeight: '800', marginTop: 4 }}>{money(kalanBakiye)}</Text>
+                    <Text style={{ color: kalanBakiye > 0 ? '#B91C1C' : '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Kalan</Text>
+                    <Text style={{ color: kalanBakiye > 0 ? '#DC2626' : '#059669', fontSize: 16, fontWeight: '800', marginTop: 4 }}>{money(kalanBakiye)}</Text>
                   </View>
                 </View>
 
-                {/* Ödeme Ekle Butonu */}
-                <Pressable
-                  style={({ pressed }) => [
-                    {
-                      marginTop: 12,
-                      height: 38,
-                      borderRadius: 10,
-                      backgroundColor: addPaymentOpen ? '#F1F5F9' : 'rgba(16,185,129,0.12)',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                    },
-                    pressed && { opacity: 0.8 },
-                  ]}
-                  onPress={() => setAddPaymentOpen((prev) => !prev)}
-                >
-                  <AppIcon name={addPaymentOpen ? 'close' : 'plus'} size={15} color={addPaymentOpen ? '#475569' : '#059669'} />
-                  <Text style={{ color: addPaymentOpen ? '#475569' : '#059669', fontSize: 13, fontWeight: '700' }}>
-                    {addPaymentOpen ? 'Formu Kapat' : '➕ Ödeme / Tahsilat Ekle'}
-                  </Text>
-                </Pressable>
+                {/* Aksiyon Butonları */}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      {
+                        flex: 1,
+                        height: 38,
+                        borderRadius: 10,
+                        backgroundColor: addPaymentOpen ? '#F1F5F9' : 'rgba(16,185,129,0.12)',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4,
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                    onPress={() => { setAddPaymentOpen((prev) => !prev); setAddDebtOpen(false); }}
+                  >
+                    <Text style={{ color: addPaymentOpen ? '#475569' : '#059669', fontSize: 12, fontWeight: '700' }}>
+                      {addPaymentOpen ? '✕ Kapat' : '💳 Tahsilat'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [
+                      {
+                        flex: 1,
+                        height: 38,
+                        borderRadius: 10,
+                        backgroundColor: addDebtOpen ? '#F1F5F9' : 'rgba(201,106,43,0.12)',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4,
+                      },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                    onPress={() => { setAddDebtOpen((prev) => !prev); setAddPaymentOpen(false); }}
+                  >
+                    <Text style={{ color: addDebtOpen ? '#475569' : '#C96A2B', fontSize: 12, fontWeight: '700' }}>
+                      {addDebtOpen ? '✕ Kapat' : '📋 Borç Ekle'}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* Inline Borç Ekleme Formu */}
+                {addDebtOpen ? (
+                  <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(15,23,42,0.08)' }}>
+                    <Text style={{ color: '#C96A2B', fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Borç / Fatura Ekle</Text>
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Toplam Tutar (₺)</Text>
+                    <TextInput
+                      style={[s.input, { height: 42, marginBottom: 8 }]}
+                      placeholder="Örn: 1500"
+                      keyboardType="numeric"
+                      value={debtAmount}
+                      onChangeText={setDebtAmount}
+                      placeholderTextColor="#94A3B8"
+                    />
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Tarih</Text>
+                    <DateField label="" value={debtTarih} onChange={setDebtTarih} />
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>Açıklama</Text>
+                    <TextInput
+                      style={[s.input, { height: 42, marginBottom: 8 }]}
+                      placeholder="Hizmet / not..."
+                      value={debtAciklama}
+                      onChangeText={setDebtAciklama}
+                      placeholderTextColor="#94A3B8"
+                    />
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>İlk Ödeme (opsiyonel, ₺)</Text>
+                    <TextInput
+                      style={[s.input, { height: 42, marginBottom: 8 }]}
+                      placeholder="0"
+                      keyboardType="numeric"
+                      value={debtIlk}
+                      onChangeText={setDebtIlk}
+                      placeholderTextColor="#94A3B8"
+                    />
+                    <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700', marginBottom: 6 }}>İlk Ödeme Yöntemi</Text>
+                    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+                      {(['nakit', 'kredi_karti', 'havale'] as const).map((method) => {
+                        const active = debtYontem === method;
+                        const label = method === 'nakit' ? 'Nakit' : method === 'kredi_karti' ? 'Kredi Kartı' : 'Havale/EFT';
+                        return (
+                          <Pressable
+                            key={method}
+                            style={{
+                              flex: 1,
+                              height: 34,
+                              borderRadius: 8,
+                              backgroundColor: active ? '#C96A2B' : '#F1F5F9',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            onPress={() => setDebtYontem(method)}
+                          >
+                            <Text style={{ color: active ? '#FFFFFF' : '#475569', fontSize: 11, fontWeight: '700' }}>{label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <Pressable
+                      style={({ pressed }) => [
+                        {
+                          height: 40,
+                          borderRadius: 10,
+                          backgroundColor: '#C96A2B',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                        (pressed || savingDebt) && { opacity: 0.7 },
+                      ]}
+                      disabled={savingDebt}
+                      onPress={() => void addPatientDebt()}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+                        {savingDebt ? 'Kaydediliyor…' : 'Borcu Kaydet'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
 
                 {/* Inline Ödeme Formu */}
                 {addPaymentOpen ? (
@@ -1214,7 +1317,7 @@ export function PatientsScreen({ onBack }: ModuleProps) {
 
               {/* Hesap Hareketleri Listesi */}
               <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700', marginBottom: 8 }}>
-                Ödeme & Tahsilat Hareketleri ({odemelerList.length})
+                Cari Hesap Hareketleri ({odemelerList.length})
               </Text>
 
               {odemelerList.length === 0 ? (
@@ -1229,9 +1332,9 @@ export function PatientsScreen({ onBack }: ModuleProps) {
                   }}
                 >
                   <Text style={{ fontSize: 32, marginBottom: 8 }}>💳</Text>
-                  <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>Henüz Tahsilat Kaydı Yok</Text>
+                  <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>Henüz Kayıt Yok</Text>
                   <Text style={{ color: '#64748B', fontSize: 13, textAlign: 'center', marginTop: 4 }}>
-                    Bu danışan için henüz girilmiş özel bir finans ödeme dökümü bulunmuyor. Seans tamamlandıkça tutarlar buraya yansır.
+                    Tahsilat al veya borç ekle butonlarını kullanın.
                   </Text>
                 </View>
               ) : (
@@ -1244,42 +1347,48 @@ export function PatientsScreen({ onBack }: ModuleProps) {
                     borderColor: 'rgba(15,23,42,0.08)',
                   }}
                 >
-                  {odemelerList.map((item: any, idx: number) => (
-                    <View
-                      key={item.id || idx}
-                      style={[
-                        {
-                          padding: 12,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        },
-                        idx < odemelerList.length - 1 && {
-                          borderBottomWidth: StyleSheet.hairlineWidth,
-                          borderBottomColor: 'rgba(15,23,42,0.08)',
-                        },
-                      ]}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700' }}>
-                          📅 {item.odeme_tarihi || 'Tarih yok'}
-                        </Text>
-                        <Text style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
-                          Ödeme Yöntemi: {item.odeme_yontemi || 'Nakit'} {item.aciklama ? `· ${item.aciklama}` : ''}
-                        </Text>
-                      </View>
+                  {odemelerList.map((item: any, idx: number) => {
+                    const kalan = item.kalan ?? Math.max(0, (item.tutar ?? 0) - (item.odenen_tutar ?? 0));
+                    const durum = item.durum ?? 'beklemede';
+                    return (
+                      <View
+                        key={item.id || idx}
+                        style={[
+                          {
+                            padding: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          },
+                          idx < odemelerList.length - 1 && {
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: 'rgba(15,23,42,0.08)',
+                          },
+                        ]}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700' }}>
+                            {item.aciklama || item.hizmet || `Kayıt #${item.id}`}
+                          </Text>
+                          <Text style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
+                            {item.odeme_tarihi || 'Tarih yok'}
+                            {item.odeme_yontemi ? ` · ${item.odeme_yontemi}` : ''}
+                          </Text>
+                          {item.tutar !== item.odenen_tutar && item.odenen_tutar > 0 ? (
+                            <Text style={{ color: '#059669', fontSize: 11, marginTop: 1 }}>
+                              Ödenen: {money(item.odenen_tutar)} · Kalan: {money(kalan)}
+                            </Text>
+                          ) : null}
+                        </View>
 
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ color: '#059669', fontSize: 15, fontWeight: '800' }}>
-                          +{money(item.odenen_tutar ?? item.tutar)}
-                        </Text>
-                        <StatusChip
-                          label={item.durum === 'odendi' ? 'Ödendi' : item.durum === 'kismi_odeme' ? 'Kısmi' : 'Bekliyor'}
-                          tone={item.durum === 'odendi' ? 'success' : item.durum === 'kismi_odeme' ? 'warning' : 'danger'}
-                        />
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ color: durum === 'beklemede' ? '#C96A2B' : '#059669', fontSize: 15, fontWeight: '800' }}>
+                            {money(item.tutar ?? item.odenen_tutar)}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
             </ScrollView>
@@ -1346,7 +1455,7 @@ export function PatientsScreen({ onBack }: ModuleProps) {
                     </Text>
                     <StatusChip
                       label={r.durum === 'onaylandi' ? 'Onaylı' : r.durum === 'tamamlandi' ? 'Tamamlandı' : r.durum === 'iptal' ? 'İptal' : 'Bekliyor'}
-                      tone={r.durum === 'onaylandi' ? 'success' : r.durum === 'tamamlandi' ? 'info' : r.durum === 'iptal' ? 'danger' : 'warning'}
+                      tone={r.durum === 'onaylandi' ? 'success' : r.durum === 'tamamlandi' ? 'neutral' : r.durum === 'iptal' ? 'danger' : 'warning'}
                     />
                   </View>
                   {r.hizmet ? (
@@ -1742,31 +1851,46 @@ export function ServicesScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Hizmet yok" text="İlk hizmetinizi ekleyerek randevu almaya başlayın." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{item.ad}</Text>
-              <View style={[s.pill, item.aktif_mi ? s.pillSuccess : s.pillMuted]}>
-                <Text style={[s.pillText, item.aktif_mi ? s.pillSuccessText : s.pillMutedText]}>
-                  {item.aktif_mi ? 'Aktif' : 'Pasif'}
-                </Text>
+        <>
+          <Text style={s.sectionHeader}>Hizmetler ({items.length})</Text>
+          <View style={s.listGroup}>
+            {items.map((item, idx) => (
+              <View key={item.id}>
+                <Pressable
+                  style={({ pressed }) => [s.listCell, { paddingVertical: 14 }, pressed && { opacity: 0.7 }]}
+                  onPress={() => openEdit(item)}
+                >
+                  <View style={[s.listIconWrap, {
+                    backgroundColor: item.aktif_mi ? 'rgba(31,157,85,0.10)' : 'rgba(148,163,184,0.12)',
+                  }]}>
+                    <AppIcon name="document" size={16} color={item.aktif_mi ? '#1F9D55' : '#94A3B8'} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                      <Text style={s.listCellLabel} numberOfLines={1}>{item.ad}</Text>
+                      <View style={[s.pill, item.aktif_mi ? s.pillSuccess : s.pillMuted, { marginTop: 0 }]}>
+                        <Text style={[s.pillText, item.aktif_mi ? s.pillSuccessText : s.pillMutedText]}>
+                          {item.aktif_mi ? 'Aktif' : 'Pasif'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={s.listCellMeta}>
+                      {item.sure} dk{item.fiyat != null ? `  ·  ${money(item.fiyat)}` : ''}
+                    </Text>
+                  </View>
+                  <Pressable
+                    hitSlop={12}
+                    onPress={() => remove(item.id)}
+                    style={({ pressed }) => [{ padding: 8, borderRadius: 8 }, pressed && { backgroundColor: '#FEF2F2' }]}
+                  >
+                    <AppIcon name="close" size={17} color="#DC2626" />
+                  </Pressable>
+                </Pressable>
+                {idx < items.length - 1 && <View style={s.listCellSep} />}
               </View>
-            </View>
-            <Text style={s.cardMeta}>
-              {item.sure} dk
-              {item.fiyat != null ? ` · ${money(item.fiyat)}` : ''}
-            </Text>
-            {item.aciklama ? <Text style={s.cardBody}>{item.aciklama}</Text> : null}
-            <View style={s.actions}>
-              <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
-                <Text style={s.actionBtnText}>Düzenle</Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
+            ))}
           </View>
-        ))
+        </>
       )}
 
       <FormModal
@@ -1911,58 +2035,92 @@ export function WorkingHoursScreen({ onBack }: ModuleProps) {
         void load(false);
       }}
     >
-      {hours.map((h) => (
-        <View key={h.id} style={s.dayCard}>
-          <View style={s.cardHeader}>
-            <Text style={s.dayTitle}>{DAY_LABELS[(h.gun - 1 + 7) % 7] ?? `Gün ${h.gun}`}</Text>
-            <Switch
-              value={!!h.aktif_mi}
-              onValueChange={(v) => updateHour(h.id, { aktif_mi: v })}
-              trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
-              thumbColor={h.aktif_mi ? '#F58A45' : '#7A8B9C'}
-            />
-          </View>
-          {h.aktif_mi ? (
-            <>
-              <TimeField
-                label="Başlangıç"
-                value={timeSlice(h.mesai_baslangic)}
-                onChange={(v) => updateHour(h.id, { mesai_baslangic: v })}
-              />
-              <TimeField
-                label="Bitiş"
-                value={timeSlice(h.mesai_bitis)}
-                onChange={(v) => updateHour(h.id, { mesai_bitis: v })}
-              />
-              <View style={s.switchRow}>
-                <Text style={s.switchLabel}>Öğle arası</Text>
+      <Text style={s.sectionHeader}>Haftalık Program</Text>
+      <View style={s.listGroup}>
+        {hours.map((h, idx) => {
+          const dayLabel = DAY_LABELS[(h.gun - 1 + 7) % 7] ?? `Gün ${h.gun}`;
+          return (
+            <View key={h.id}>
+              {/* Gün başlık satırı */}
+              <View style={[s.listCell, { paddingVertical: 10 }]}>
+                <View style={[s.listIconWrap, {
+                  backgroundColor: h.aktif_mi ? 'rgba(238,125,49,0.12)' : 'rgba(148,163,184,0.10)',
+                }]}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: h.aktif_mi ? colors.brand.orange : '#94A3B8' }}>
+                    {dayLabel.slice(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.listCellLabel, !h.aktif_mi && { color: '#94A3B8' }]}>{dayLabel}</Text>
+                  {h.aktif_mi ? (
+                    <Text style={s.listCellMeta}>
+                      {timeSlice(h.mesai_baslangic)} – {timeSlice(h.mesai_bitis)}
+                      {h.ogle_arasi_aktif_mi ? `  ·  Öğle: ${timeSlice(h.ogle_baslangic ?? '')} – ${timeSlice(h.ogle_bitis ?? '')}` : ''}
+                    </Text>
+                  ) : (
+                    <Text style={[s.listCellMeta, { color: '#CBD5E1' }]}>Kapalı</Text>
+                  )}
+                </View>
                 <Switch
-                  value={!!h.ogle_arasi_aktif_mi}
-                  onValueChange={(v) => updateHour(h.id, { ogle_arasi_aktif_mi: v })}
+                  value={!!h.aktif_mi}
+                  onValueChange={(v) => updateHour(h.id, { aktif_mi: v })}
                   trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
-                  thumbColor={h.ogle_arasi_aktif_mi ? '#F58A45' : '#7A8B9C'}
+                  thumbColor={h.aktif_mi ? '#F58A45' : '#7A8B9C'}
                 />
               </View>
-              {h.ogle_arasi_aktif_mi ? (
-                <>
-                  <TimeField
-                    label="Öğle başlangıç"
-                    value={timeSlice(h.ogle_baslangic)}
-                    onChange={(v) => updateHour(h.id, { ogle_baslangic: v })}
-                  />
-                  <TimeField
-                    label="Öğle bitiş"
-                    value={timeSlice(h.ogle_bitis)}
-                    onChange={(v) => updateHour(h.id, { ogle_bitis: v })}
-                  />
-                </>
+              {/* Açık günlerin saat alanları */}
+              {h.aktif_mi ? (
+                <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
+                  <View style={s.timeRow}>
+                    <View style={s.timeField}>
+                      <TimeField
+                        label="Başlangıç"
+                        value={timeSlice(h.mesai_baslangic)}
+                        onChange={(v) => updateHour(h.id, { mesai_baslangic: v })}
+                      />
+                    </View>
+                    <View style={s.timeField}>
+                      <TimeField
+                        label="Bitiş"
+                        value={timeSlice(h.mesai_bitis)}
+                        onChange={(v) => updateHour(h.id, { mesai_bitis: v })}
+                      />
+                    </View>
+                  </View>
+                  <View style={[s.switchRow, { marginTop: 8 }]}>
+                    <Text style={[s.switchLabel, { fontSize: 12 }]}>Öğle arası</Text>
+                    <Switch
+                      value={!!h.ogle_arasi_aktif_mi}
+                      onValueChange={(v) => updateHour(h.id, { ogle_arasi_aktif_mi: v })}
+                      trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+                      thumbColor={h.ogle_arasi_aktif_mi ? '#F58A45' : '#7A8B9C'}
+                    />
+                  </View>
+                  {h.ogle_arasi_aktif_mi ? (
+                    <View style={s.timeRow}>
+                      <View style={s.timeField}>
+                        <TimeField
+                          label="Öğle başlangıç"
+                          value={timeSlice(h.ogle_baslangic)}
+                          onChange={(v) => updateHour(h.id, { ogle_baslangic: v })}
+                        />
+                      </View>
+                      <View style={s.timeField}>
+                        <TimeField
+                          label="Öğle bitiş"
+                          value={timeSlice(h.ogle_bitis)}
+                          onChange={(v) => updateHour(h.id, { ogle_bitis: v })}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
-            </>
-          ) : (
-            <Text style={s.hint}>Bu gün kapalı.</Text>
-          )}
-        </View>
-      ))}
+              {idx < hours.length - 1 && <View style={[s.listCellSep, { marginLeft: 14 }]} />}
+            </View>
+          );
+        })}
+      </View>
 
       {message ? <Text style={s.successText}>{message}</Text> : null}
       <Pressable
@@ -2310,22 +2468,34 @@ export function LeavesScreen({ onBack }: ModuleProps) {
         <Text style={s.primaryButtonText}>Seçili slotları kaydet</Text>
       </Pressable>
 
-      <Text style={s.sectionTitle}>İzin kayıtları</Text>
+      <Text style={s.sectionHeader}>İzin kayıtları</Text>
       {items.length === 0 ? (
         <EmptyState title="İzin kaydı yok" text="Tatil veya müsait olmadığınız günleri buradan ekleyin." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <Text style={s.cardTitle}>{formatDateTime(item.baslangic)}</Text>
-            <Text style={s.cardMeta}>→ {formatDateTime(item.bitis)}</Text>
-            {item.aciklama ? <Text style={s.cardBody}>{item.aciklama}</Text> : null}
-            <View style={s.actions}>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
+        <View style={s.listGroup}>
+          {items.map((item, idx) => (
+            <View key={item.id}>
+              {idx > 0 && <View style={s.listCellSep} />}
+              <View style={s.listCell}>
+                <View style={[s.listIconWrap, { backgroundColor: 'rgba(6,182,212,0.12)' }]}>
+                  <AppIcon name="time" size={16} color="#06B6D4" />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.listCellLabel}>{formatDateTime(item.baslangic)}</Text>
+                  <Text style={s.listCellMeta}>→ {formatDateTime(item.bitis)}</Text>
+                  {item.aciklama ? <Text style={[s.listCellMeta, { marginTop: 2 }]}>{item.aciklama}</Text> : null}
+                </View>
+                <Pressable
+                  hitSlop={10}
+                  onPress={() => remove(item.id)}
+                  style={({ pressed }) => [{ padding: 8, borderRadius: 8, backgroundColor: pressed ? '#FEF2F2' : 'rgba(239,68,68,0.1)' }]}
+                >
+                  <AppIcon name="close" size={16} color="#EF4444" />
+                </Pressable>
+              </View>
             </View>
-          </View>
-        ))
+          ))}
+        </View>
       )}
 
       <FormModal
@@ -2516,29 +2686,47 @@ export function BlogsScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Blog yazısı yok" text="İlk yazınızı ekleyerek başlayın." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{item.baslik}</Text>
-              <View style={[s.pill, item.aktif_mi ? s.pillSuccess : s.pillMuted]}>
-                <Text style={[s.pillText, item.aktif_mi ? s.pillSuccessText : s.pillMutedText]}>
-                  {item.aktif_mi ? 'Yayında' : 'Taslak'}
-                </Text>
+        <View style={s.listGroup}>
+          {items.map((item, idx) => (
+            <View key={item.id}>
+              {idx > 0 && <View style={s.listCellSep} />}
+              <View style={s.listCell}>
+                <View style={[s.listIconWrap, { backgroundColor: item.aktif_mi ? 'rgba(99,102,241,0.12)' : 'rgba(100,116,139,0.1)' }]}>
+                  <AppIcon name="blog" size={16} color={item.aktif_mi ? '#6366F1' : '#94A3B8'} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={[s.listCellLabel, { flex: 1 }]} numberOfLines={1}>{item.baslik}</Text>
+                    <View style={[s.pill, item.aktif_mi ? s.pillSuccess : s.pillMuted]}>
+                      <Text style={[s.pillText, item.aktif_mi ? s.pillSuccessText : s.pillMutedText]}>
+                        {item.aktif_mi ? 'Yayında' : 'Taslak'}
+                      </Text>
+                    </View>
+                  </View>
+                  {item.icerik ? (
+                    <Text style={s.listCellMeta} numberOfLines={2}>
+                      {item.icerik.replace(/<[^>]+>/g, '')}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                    <Pressable
+                      style={({ pressed }) => [s.actionBtn, pressed && s.btnPressed]}
+                      onPress={() => openEdit(item)}
+                    >
+                      <Text style={s.actionBtnText}>Düzenle</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [s.actionBtn, s.actionBtnDanger, pressed && s.btnPressed]}
+                      onPress={() => remove(item.id)}
+                    >
+                      <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                    </Pressable>
+                  </View>
+                </View>
               </View>
             </View>
-            <Text style={s.cardBody} numberOfLines={3}>
-              {item.icerik?.replace(/<[^>]+>/g, '')}
-            </Text>
-            <View style={s.actions}>
-              <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
-                <Text style={s.actionBtnText}>Düzenle</Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+          ))}
+        </View>
       )}
 
       <FormModal
@@ -2674,37 +2862,85 @@ export function ReviewsScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Yorum yok" text="Danışanlar tamamlanan randevulara yorum bıraktığında burada görünür." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{item.hasta_adi || 'Danışan'}</Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>{reviewStatusLabel(item.onay_durumu)}</Text>
-              </View>
-            </View>
-            <Text style={s.cardMeta}>{'★'.repeat(Math.max(1, Math.min(5, item.puan || 0)))}</Text>
-            {meta?.klinik_geneli && item.doktor_adi ? (
-              <Text style={s.cardMeta}>Hekim: {item.doktor_adi}</Text>
-            ) : null}
-            {item.hizmet ? <Text style={s.cardMeta}>{item.hizmet}</Text> : null}
-            <Text style={s.cardBody}>{item.yorum}</Text>
-            {item.doktor_yaniti ? (
-              <Text style={[s.cardBody, { color: '#2E9E5B' }]}>Yanıt: {item.doktor_yaniti}</Text>
-            ) : null}
-            <View style={s.actions}>
-              <Pressable
-                style={s.actionBtn}
-                onPress={() => {
-                  setReplyId(item.id);
-                  setReplyText(item.doktor_yaniti ?? '');
-                  setFormError(null);
-                }}
+        <>
+          <Text style={s.sectionHeader}>Yorumlar ({items.length})</Text>
+          {items.map((item) => {
+            const stars = Math.max(1, Math.min(5, item.puan || 0));
+            const starColor = stars >= 4 ? '#F59E0B' : stars >= 3 ? '#D9772A' : '#94A3B8';
+            return (
+              <View
+                key={item.id}
+                style={[s.listGroup, { marginBottom: 2 }]}
               >
-                <Text style={s.actionBtnText}>{item.doktor_yaniti ? 'Yanıtı düzenle' : 'Yanıtla'}</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+                {/* Üst satır: isim + puan + durum */}
+                <View style={{ paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <View style={[s.listIconWrap, { backgroundColor: `${starColor}18` }]}>
+                      <Text style={{ color: starColor, fontSize: 14, fontWeight: '700' }}>★</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={s.listCellLabel} numberOfLines={1}>{item.hasta_adi || 'Danışan'}</Text>
+                      {item.hizmet || (meta?.klinik_geneli && item.doktor_adi) ? (
+                        <Text style={s.listCellMeta} numberOfLines={1}>
+                          {[meta?.klinik_geneli && item.doktor_adi ? `Dr. ${item.doktor_adi}` : null, item.hizmet].filter(Boolean).join('  ·  ')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <Text style={{ color: starColor, fontSize: 14, fontWeight: '700', letterSpacing: 1 }}>
+                        {'★'.repeat(stars)}{'☆'.repeat(5 - stars)}
+                      </Text>
+                      <View style={[s.pill,
+                        item.onay_durumu === 'onaylandi' ? s.pillSuccess :
+                        item.onay_durumu === 'beklemede' ? { backgroundColor: '#FEF3C7' } : s.pillMuted,
+                      ]}>
+                        <Text style={[s.pillText,
+                          item.onay_durumu === 'onaylandi' ? s.pillSuccessText :
+                          item.onay_durumu === 'beklemede' ? { color: '#B45309' } : s.pillMutedText,
+                        ]}>
+                          {reviewStatusLabel(item.onay_durumu)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Yorum metni */}
+                  <Text style={{ color: '#334155', fontSize: 14, lineHeight: 21 }}>{item.yorum}</Text>
+
+                  {/* Doktor yanıtı */}
+                  {item.doktor_yaniti ? (
+                    <View style={{
+                      marginTop: 10, padding: 10, borderRadius: 10,
+                      backgroundColor: 'rgba(31,157,85,0.06)',
+                      borderLeftWidth: 3, borderLeftColor: '#1F9D55',
+                    }}>
+                      <Text style={{ color: '#1F9D55', fontSize: 11, fontWeight: '700', marginBottom: 3 }}>SİZİN YANITINIZ</Text>
+                      <Text style={{ color: '#334155', fontSize: 13, lineHeight: 19 }}>{item.doktor_yaniti}</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Yanıtla butonu */}
+                <View style={[s.listCellSep, { marginLeft: 0 }]} />
+                <Pressable
+                  style={({ pressed }) => [
+                    { paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  onPress={() => {
+                    setReplyId(item.id);
+                    setReplyText(item.doktor_yaniti ?? '');
+                    setFormError(null);
+                  }}
+                >
+                  <Text style={{ color: colors.brand.orangeSoft, fontSize: 14, fontWeight: '600' }}>
+                    {item.doktor_yaniti ? 'Yanıtı düzenle' : 'Yanıtla'}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </>
       )}
 
       <FormModal
@@ -2853,41 +3089,51 @@ export function GalleryScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Galeri boş" text="Henüz fotoğraf eklenmemiş." />
       ) : (
-        items.map((item) => {
-          const uri = item.resim_yolu
-            ? item.resim_yolu.startsWith('http')
-              ? item.resim_yolu
-              : `${SITE_URL}/${item.resim_yolu.replace(/^\//, '')}`
-            : null;
-          return (
-            <View key={item.id} style={s.card}>
-              {uri ? (
-                <Image source={{ uri }} style={{ width: '100%', height: 160, borderRadius: 12, marginBottom: 10 }} resizeMode="cover" />
-              ) : null}
-              <Text style={s.cardTitle}>{item.baslik || `Fotoğraf #${item.id}`}</Text>
-              <View style={s.actions}>
-                <Pressable style={s.actionBtn} onPress={() => void moveItem(item.id, -1)}>
-                  <Text style={s.actionBtnText}>↑</Text>
-                </Pressable>
-                <Pressable style={s.actionBtn} onPress={() => void moveItem(item.id, 1)}>
-                  <Text style={s.actionBtnText}>↓</Text>
-                </Pressable>
-                <Pressable
-                  style={s.actionBtn}
-                  onPress={() => {
-                    setEditId(item.id);
-                    setEditTitle(item.baslik || '');
-                  }}
-                >
-                  <Text style={s.actionBtnText}>Başlık</Text>
-                </Pressable>
-                <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                  <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-                </Pressable>
+        <View style={{ gap: 12 }}>
+          {items.map((item) => {
+            const uri = item.resim_yolu
+              ? item.resim_yolu.startsWith('http')
+                ? item.resim_yolu
+                : `${SITE_URL}/${item.resim_yolu.replace(/^\//, '')}`
+              : null;
+            return (
+              <View key={item.id} style={{ backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden', shadowColor: '#0F172A', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
+                {uri ? (
+                  <Image source={{ uri }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+                ) : (
+                  <View style={{ width: '100%', height: 120, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}>
+                    <AppIcon name="gallery" size={32} color="#CBD5E1" />
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 8 }}>
+                  <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#0F172A' }} numberOfLines={1}>
+                    {item.baslik || `Fotoğraf #${item.id}`}
+                  </Text>
+                  <Pressable hitSlop={8} onPress={() => void moveItem(item.id, -1)}
+                    style={({ pressed }) => [{ width: 34, height: 34, borderRadius: 10, backgroundColor: pressed ? '#F1F5F9' : '#F8FAFC', alignItems: 'center', justifyContent: 'center' }]}
+                  >
+                    <AppIcon name="chevronUp" size={16} color="#475569" />
+                  </Pressable>
+                  <Pressable hitSlop={8} onPress={() => void moveItem(item.id, 1)}
+                    style={({ pressed }) => [{ width: 34, height: 34, borderRadius: 10, backgroundColor: pressed ? '#F1F5F9' : '#F8FAFC', alignItems: 'center', justifyContent: 'center' }]}
+                  >
+                    <AppIcon name="chevronDown" size={16} color="#475569" />
+                  </Pressable>
+                  <Pressable hitSlop={8} onPress={() => { setEditId(item.id); setEditTitle(item.baslik || ''); }}
+                    style={({ pressed }) => [{ width: 34, height: 34, borderRadius: 10, backgroundColor: pressed ? '#EFF6FF' : 'rgba(59,130,246,0.08)', alignItems: 'center', justifyContent: 'center' }]}
+                  >
+                    <AppIcon name="edit" size={14} color="#3B82F6" />
+                  </Pressable>
+                  <Pressable hitSlop={8} onPress={() => remove(item.id)}
+                    style={({ pressed }) => [{ width: 34, height: 34, borderRadius: 10, backgroundColor: pressed ? '#FEF2F2' : 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' }]}
+                  >
+                    <AppIcon name="close" size={16} color="#EF4444" />
+                  </Pressable>
+                </View>
               </View>
-            </View>
-          );
-        })
+            );
+          })}
+        </View>
       )}
       <FormModal
         visible={editId != null}
@@ -2955,17 +3201,18 @@ export function FinanceScreen({ onBack, onNavigate }: ModuleProps) {
     }
   }
 
-  const links: { id: ScreenId; title: string; meta: string }[] = [
-    { id: 'financeIncomes', title: 'Gelirler', meta: 'Ödeme ve gelir kayıtları' },
-    { id: 'financeExpenses', title: 'Giderler', meta: 'Klinik giderleri' },
-    { id: 'financeCategories', title: 'Kategoriler', meta: 'Gelir / gider kategorileri' },
-    { id: 'financeBalances', title: 'Hasta bakiyeleri', meta: 'Açık bakiyeler' },
+  const links: { id: ScreenId; title: string; meta: string; icon: string; tint: string }[] = [
+    { id: 'financeIncomes',    title: 'Gelirler',         meta: 'Ödeme ve gelir kayıtları', icon: '↑', tint: '#1F9D55' },
+    { id: 'financeExpenses',   title: 'Giderler',         meta: 'Klinik giderleri',         icon: '↓', tint: '#DC2626' },
+    { id: 'financeCategories', title: 'Kategoriler',      meta: 'Gelir / gider kategorileri', icon: '#', tint: '#6366F1' },
+    { id: 'financeBalances',   title: 'Hasta Bakiyeleri', meta: 'Açık bakiyeler',            icon: '₺', tint: '#D9772A' },
   ];
+
+  const netColor = data && data.bu_ay_net >= 0 ? '#1F9D55' : '#DC2626';
 
   return (
     <ScreenShell
       title="Finans"
-      subtitle="Bu ayın özeti ve finans modülleri."
       onBack={onBack}
       loading={loading}
       refreshing={refreshing}
@@ -2974,27 +3221,42 @@ export function FinanceScreen({ onBack, onNavigate }: ModuleProps) {
         void load(false);
       }}
     >
+      {/* KPI Grid */}
       {data ? (
-        <View style={s.statGrid}>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{money(data.bu_ay_gelir)}</Text>
-            <Text style={s.statLabel}>Bu ay gelir</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+          <View style={s.kpiCard}>
+            <View style={[s.listIconWrap, { backgroundColor: 'rgba(31,157,85,0.12)' }]}>
+              <Text style={{ color: '#1F9D55', fontSize: 15, fontWeight: '700' }}>↑</Text>
+            </View>
+            <Text style={s.kpiValue}>{money(data.bu_ay_gelir)}</Text>
+            <Text style={s.kpiLabel}>Bu ay gelir</Text>
           </View>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{money(data.bu_ay_gider)}</Text>
-            <Text style={s.statLabel}>Bu ay gider</Text>
+          <View style={s.kpiCard}>
+            <View style={[s.listIconWrap, { backgroundColor: 'rgba(220,38,38,0.10)' }]}>
+              <Text style={{ color: '#DC2626', fontSize: 15, fontWeight: '700' }}>↓</Text>
+            </View>
+            <Text style={s.kpiValue}>{money(data.bu_ay_gider)}</Text>
+            <Text style={s.kpiLabel}>Bu ay gider</Text>
           </View>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{money(data.bu_ay_net)}</Text>
-            <Text style={s.statLabel}>Net</Text>
+          <View style={s.kpiCard}>
+            <View style={[s.listIconWrap, { backgroundColor: 'rgba(99,102,241,0.10)' }]}>
+              <Text style={{ color: '#6366F1', fontSize: 15, fontWeight: '700' }}>=</Text>
+            </View>
+            <Text style={[s.kpiValue, { color: netColor }]}>{money(data.bu_ay_net)}</Text>
+            <Text style={s.kpiLabel}>Net kâr</Text>
           </View>
-          <View style={s.statCard}>
-            <Text style={s.statValue}>{money(data.toplam_borc)}</Text>
-            <Text style={s.statLabel}>Toplam borç</Text>
+          <View style={s.kpiCard}>
+            <View style={[s.listIconWrap, { backgroundColor: 'rgba(217,119,42,0.12)' }]}>
+              <Text style={{ color: '#D9772A', fontSize: 15, fontWeight: '700' }}>₺</Text>
+            </View>
+            <Text style={[s.kpiValue, { color: '#D9772A' }]}>{money(data.toplam_borc)}</Text>
+            <Text style={s.kpiLabel}>Açık borç</Text>
           </View>
         </View>
       ) : null}
-      <View style={s.actions}>
+
+      {/* Rapor aksiyonları */}
+      <View style={[s.actions, { marginTop: 16 }]}>
         <Pressable style={[s.secondaryButton, { flex: 1 }]} onPress={() => void loadReport()}>
           <Text style={s.secondaryButtonText}>Rapor metni</Text>
         </Pressable>
@@ -3012,7 +3274,6 @@ export function FinanceScreen({ onBack, onNavigate }: ModuleProps) {
                   Alert.alert('Hata', 'PDF içeriği alınamadı.');
                   return;
                 }
-                // Web: open data URL; native: share via mailto with note + keep base64 length limited messaging
                 if (Platform.OS === 'web') {
                   const a = document.createElement('a');
                   a.href = ['data:application/', 'pdf', ';base64,', b64].join('');
@@ -3033,12 +3294,12 @@ export function FinanceScreen({ onBack, onNavigate }: ModuleProps) {
           <Text style={s.secondaryButtonText}>PDF al</Text>
         </Pressable>
       </View>
+
+      {/* Rapor metni */}
       {reportText ? (
-        <View style={s.card}>
+        <View style={[s.card, { marginTop: 16 }]}>
           <Text style={s.cardTitle}>Rapor özeti</Text>
-          <Text style={s.cardBody} selectable>
-            {reportText}
-          </Text>
+          <Text style={s.cardBody} selectable>{reportText}</Text>
           <Pressable
             style={[s.actionBtn, { marginTop: 10 }]}
             onPress={() => void Linking.openURL(`mailto:?subject=Finans%20Raporu&body=${encodeURIComponent(reportText)}`)}
@@ -3048,32 +3309,73 @@ export function FinanceScreen({ onBack, onNavigate }: ModuleProps) {
         </View>
       ) : null}
 
+      {/* Son hareketler */}
       {(data?.son_odemeler?.length || data?.son_giderler?.length) ? (
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Son hareketler</Text>
-          {(data?.son_odemeler ?? []).slice(0, 5).map((o) => (
-            <Text key={`i-${o.id}`} style={s.cardMeta}>
-              + {money(o.odenen_tutar ?? o.tutar)} · {o.hasta_adi || 'Gelir'} · {o.odeme_tarihi || '—'}
-            </Text>
-          ))}
-          {(data?.son_giderler ?? []).slice(0, 4).map((g) => (
-            <Text key={`e-${g.id}`} style={[s.cardMeta, { color: '#DC2626' }]}>
-              − {money(g.tutar)} · {g.baslik || g.aciklama || 'Gider'} · {g.tarih || '—'}
-            </Text>
-          ))}
-        </View>
+        <>
+          <Text style={s.sectionHeader}>Son Hareketler</Text>
+          <View style={s.listGroup}>
+            {[
+              ...(data?.son_odemeler ?? []).slice(0, 4).map((o) => ({
+                key: `i-${o.id}`,
+                label: o.hasta_adi || 'Gelir',
+                sub: o.odeme_tarihi || '—',
+                value: money(o.odenen_tutar ?? o.tutar),
+                positive: true,
+              })),
+              ...(data?.son_giderler ?? []).slice(0, 3).map((g) => ({
+                key: `e-${g.id}`,
+                label: g.baslik || g.aciklama || 'Gider',
+                sub: g.tarih || '—',
+                value: money(g.tutar),
+                positive: false,
+              })),
+            ].map((row, idx, arr) => (
+              <View key={row.key}>
+                <View style={[s.listCell, { paddingHorizontal: 14 }]}>
+                  <View style={[s.listIconWrap, {
+                    backgroundColor: row.positive ? 'rgba(31,157,85,0.10)' : 'rgba(220,38,38,0.08)',
+                  }]}>
+                    <Text style={{ color: row.positive ? '#1F9D55' : '#DC2626', fontSize: 14, fontWeight: '700' }}>
+                      {row.positive ? '+' : '−'}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.listCellLabel} numberOfLines={1}>{row.label}</Text>
+                    <Text style={s.listCellMeta}>{row.sub}</Text>
+                  </View>
+                  <Text style={[s.listCellValue, { color: row.positive ? '#1F9D55' : '#DC2626', fontWeight: '600' }]}>
+                    {row.positive ? '+' : '−'}{row.value}
+                  </Text>
+                </View>
+                {idx < arr.length - 1 && <View style={s.listCellSep} />}
+              </View>
+            ))}
+          </View>
+        </>
       ) : null}
 
-      <Text style={s.sectionTitle}>Modüller</Text>
-      {links.map((link) => (
-        <Pressable key={link.id} style={s.navLinkCard} onPress={() => onNavigate(link.id)}>
-          <View>
-            <Text style={s.navLinkTitle}>{link.title}</Text>
-            <Text style={s.navLinkMeta}>{link.meta}</Text>
+      {/* Modüller */}
+      <Text style={s.sectionHeader}>Modüller</Text>
+      <View style={s.listGroup}>
+        {links.map((link, idx) => (
+          <View key={link.id}>
+            <Pressable
+              style={({ pressed }) => [s.listCell, pressed && { opacity: 0.7 }]}
+              onPress={() => onNavigate(link.id)}
+            >
+              <View style={[s.listIconWrap, { backgroundColor: `${link.tint}18` }]}>
+                <Text style={{ color: link.tint, fontSize: 15, fontWeight: '700' }}>{link.icon}</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.listCellLabel}>{link.title}</Text>
+                <Text style={s.listCellMeta}>{link.meta}</Text>
+              </View>
+              <Text style={s.listCellChevron}>›</Text>
+            </Pressable>
+            {idx < links.length - 1 && <View style={s.listCellSep} />}
           </View>
-          <Text style={s.menuChevron}>›</Text>
-        </Pressable>
-      ))}
+        ))}
+      </View>
     </ScreenShell>
   );
 }
@@ -3340,27 +3642,49 @@ export function FinanceIncomesScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Gelir yok" text="Henüz gelir kaydı eklenmemiş." />
       ) : (
-        items.map((item) => (
-          <Pressable key={item.id} style={s.card} onPress={() => void openDetail(item.id)}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{money(item.tutar)}</Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>{item.durum}</Text>
-              </View>
-            </View>
-            <Text style={s.cardMeta}>
-              {item.odeme_tarihi}
-              {item.hasta_adi ? ` · ${item.hasta_adi}` : ''}
-            </Text>
-            <Text style={s.cardMeta}>Ödenen: {money(item.odenen_tutar)} · detay için dokunun</Text>
-            {item.aciklama ? <Text style={s.cardBody}>{item.aciklama}</Text> : null}
-            <View style={s.actions}>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        ))
+        <>
+          <Text style={s.sectionHeader}>Kayıtlar ({items.length})</Text>
+          <View style={s.listGroup}>
+            {items.map((item, idx) => {
+              const durumColor = item.durum === 'odendi' ? '#1F9D55'
+                : item.durum === 'beklemede' ? '#B45309'
+                : item.durum === 'kismi_odeme' ? '#2563EB'
+                : '#94A3B8';
+              const durumLabel = item.durum === 'odendi' ? 'Ödendi'
+                : item.durum === 'beklemede' ? 'Beklemede'
+                : item.durum === 'kismi_odeme' ? 'Kısmi'
+                : item.durum === 'iptal' ? 'İptal' : item.durum;
+              return (
+                <View key={item.id}>
+                  <Pressable
+                    style={({ pressed }) => [s.listCell, { paddingVertical: 14 }, pressed && { opacity: 0.7 }]}
+                    onPress={() => void openDetail(item.id)}
+                  >
+                    <View style={[s.listIconWrap, { backgroundColor: `${durumColor}14` }]}>
+                      <Text style={{ color: durumColor, fontSize: 13, fontWeight: '700' }}>₺</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={s.listCellLabel} numberOfLines={1}>
+                        {item.hasta_adi || item.hizmet || 'Gelir'}
+                      </Text>
+                      <Text style={s.listCellMeta}>
+                        {item.odeme_tarihi}
+                        {item.odenen_tutar !== item.tutar ? `  ·  Ödenen ${money(item.odenen_tutar)}` : ''}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                      <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>{money(item.tutar)}</Text>
+                      <View style={[s.pill, { backgroundColor: `${durumColor}14` }]}>
+                        <Text style={[s.pillText, { color: durumColor }]}>{durumLabel}</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                  {idx < items.length - 1 && <View style={s.listCellSep} />}
+                </View>
+              );
+            })}
+          </View>
+        </>
       )}
 
       <FormModal
@@ -3514,37 +3838,63 @@ export function FinanceExpensesScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Gider yok" text="Henüz gider kaydı eklenmemiş." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{money(item.tutar)}</Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>{item.kategori}</Text>
+        <>
+          <Text style={s.sectionHeader}>Giderler ({items.length})</Text>
+          <View style={s.listGroup}>
+            {items.map((item, idx) => (
+              <View key={item.id}>
+                <View style={[s.listCell, { paddingVertical: 14, alignItems: 'flex-start' }]}>
+                  <View style={[s.listIconWrap, { backgroundColor: 'rgba(220,38,38,0.08)', marginTop: 2 }]}>
+                    <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '700' }}>↓</Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>{money(item.tutar)}</Text>
+                      <View style={[s.pill, { backgroundColor: 'rgba(100,116,139,0.10)' }]}>
+                        <Text style={[s.pillText, { color: '#64748B' }]}>{item.kategori}</Text>
+                      </View>
+                    </View>
+                    <Text style={s.listCellMeta}>{String(item.tarih).slice(0, 10)}</Text>
+                    {item.aciklama ? (
+                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 3 }} numberOfLines={2}>{item.aciklama}</Text>
+                    ) : null}
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                      <Pressable
+                        style={({ pressed }) => [
+                          { flex: 1, height: 32, borderRadius: 8, backgroundColor: 'rgba(238,125,49,0.10)',
+                            alignItems: 'center', justifyContent: 'center' },
+                          pressed && { opacity: 0.7 },
+                        ]}
+                        onPress={() => {
+                          setEditId(item.id);
+                          setTutar(String(item.tutar));
+                          setTarih(String(item.tarih).slice(0, 10));
+                          setKategori(item.kategori || 'Genel');
+                          setAciklama(item.aciklama || '');
+                          setBelgeUri(null);
+                          setModalOpen(true);
+                        }}
+                      >
+                        <Text style={{ color: colors.brand.orangeSoft, fontSize: 13, fontWeight: '600' }}>Düzenle</Text>
+                      </Pressable>
+                      <Pressable
+                        style={({ pressed }) => [
+                          { flex: 1, height: 32, borderRadius: 8, backgroundColor: 'rgba(220,38,38,0.08)',
+                            alignItems: 'center', justifyContent: 'center' },
+                          pressed && { opacity: 0.7 },
+                        ]}
+                        onPress={() => remove(item.id)}
+                      >
+                        <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600' }}>Sil</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+                {idx < items.length - 1 && <View style={[s.listCellSep, { marginLeft: 14 }]} />}
               </View>
-            </View>
-            <Text style={s.cardMeta}>{String(item.tarih).slice(0, 10)}</Text>
-            {item.aciklama ? <Text style={s.cardBody}>{item.aciklama}</Text> : null}
-            <View style={s.actions}>
-              <Pressable
-                style={s.actionBtn}
-                onPress={() => {
-                  setEditId(item.id);
-                  setTutar(String(item.tutar));
-                  setTarih(String(item.tarih).slice(0, 10));
-                  setKategori(item.kategori || 'Genel');
-                  setAciklama(item.aciklama || '');
-                  setBelgeUri(null);
-                  setModalOpen(true);
-                }}
-              >
-                <Text style={s.actionBtnText}>Düzenle</Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
+            ))}
           </View>
-        ))
+        </>
       )}
 
       <FormModal
@@ -3680,35 +4030,50 @@ export function FinanceCategoriesScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Kategori yok" text="Finans kategorilerinizi buradan ekleyin." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{item.ad}</Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>{item.tur === 'gider' ? 'Gider' : 'Gelir'}</Text>
+        <View style={s.listGroup}>
+          {items.map((item, idx) => {
+            const isGider = item.tur === 'gider';
+            return (
+              <View key={item.id}>
+                {idx > 0 && <View style={s.listCellSep} />}
+                <View style={s.listCell}>
+                  <View style={[s.listIconWrap, { backgroundColor: isGider ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)' }]}>
+                    <AppIcon name="finance" size={16} color={isGider ? '#EF4444' : '#22C55E'} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={[s.listCellLabel, { flex: 1 }]} numberOfLines={1}>{item.ad}</Text>
+                      <View style={[s.pill, isGider ? s.pillDanger : s.pillSuccess]}>
+                        <Text style={[s.pillText, isGider ? s.pillDangerText : s.pillSuccessText]}>
+                          {isGider ? 'Gider' : 'Gelir'}
+                        </Text>
+                      </View>
+                    </View>
+                    {item.aktif === false ? (
+                      <Text style={[s.listCellMeta, { color: '#EF4444' }]}>Pasif</Text>
+                    ) : null}
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                      <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
+                        <Text style={s.actionBtnText}>Düzenle</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[s.actionBtn, s.actionBtnMuted]}
+                        onPress={() => void apiPost(`/doctor/finance/categories/${item.id}/toggle`).then(() => reload(false)).catch(alertError)}
+                      >
+                        <Text style={[s.actionBtnText, s.actionBtnMutedText]}>
+                          {item.aktif === false ? 'Aktif et' : 'Pasif et'}
+                        </Text>
+                      </Pressable>
+                      <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
+                        <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
               </View>
-            </View>
-            <Text style={s.cardMeta}>{item.aktif === false ? 'Pasif' : 'Aktif'}</Text>
-            <View style={s.actions}>
-              <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
-                <Text style={s.actionBtnText}>Düzenle</Text>
-              </Pressable>
-              <Pressable
-                style={s.actionBtn}
-                onPress={() =>
-                  void apiPost(`/doctor/finance/categories/${item.id}/toggle`)
-                    .then(() => reload(false))
-                    .catch(alertError)
-                }
-              >
-                <Text style={s.actionBtnText}>{item.aktif === false ? 'Aktif et' : 'Pasif et'}</Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+            );
+          })}
+        </View>
       )}
 
       <FormModal
@@ -3774,24 +4139,33 @@ export function FinanceBalancesScreen({ onBack, onNavigate }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Açık bakiye yok" text="Bekleyen veya kısmi ödemeli kayıt bulunmuyor." />
       ) : (
-        items.map((item) => (
-          <Pressable
-            key={item.hasta_id}
-            style={s.card}
-            onPress={() => {
-              setFinanceHastaId(item.hasta_id);
-              onNavigate('financePatientAccount');
-            }}
-          >
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{item.hasta_adi}</Text>
-              <Text style={[s.cardTitle, { flex: 0, color: '#C96A2B' }]}>{money(item.bakiye)}</Text>
-            </View>
-            <Text style={s.cardMeta}>
-              {item.telefon || 'Telefon yok'} · {item.kayit_sayisi} kayıt · Hesabı aç ›
-            </Text>
-          </Pressable>
-        ))
+        <>
+          <Text style={s.sectionHeader}>Açık Bakiyeler ({items.length})</Text>
+          <View style={s.listGroup}>
+            {items.map((item, idx) => (
+              <View key={item.hasta_id}>
+                <Pressable
+                  style={({ pressed }) => [s.listCell, pressed && { opacity: 0.7 }]}
+                  onPress={() => {
+                    setFinanceHastaId(item.hasta_id);
+                    onNavigate('financePatientAccount');
+                  }}
+                >
+                  <View style={[s.listIconWrap, { backgroundColor: 'rgba(217,119,42,0.12)' }]}>
+                    <Text style={{ color: '#D9772A', fontSize: 13, fontWeight: '700' }}>₺</Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.listCellLabel} numberOfLines={1}>{item.hasta_adi}</Text>
+                    <Text style={s.listCellMeta}>{item.telefon || 'Telefon yok'}  ·  {item.kayit_sayisi} kayıt</Text>
+                  </View>
+                  <Text style={{ color: '#D9772A', fontSize: 15, fontWeight: '700', marginRight: 6 }}>{money(item.bakiye)}</Text>
+                  <Text style={s.listCellChevron}>›</Text>
+                </Pressable>
+                {idx < items.length - 1 && <View style={s.listCellSep} />}
+              </View>
+            ))}
+          </View>
+        </>
       )}
     </ScreenShell>
   );
@@ -3990,29 +4364,46 @@ export function FinancePatientAccountScreen({ onBack }: ModuleProps) {
             </Pressable>
           </View>
 
-          {(data.faturalar ?? []).map((f) => (
-            <View key={f.id} style={s.card}>
-              <View style={s.cardHeader}>
-                <Text style={s.cardTitle}>{f.hizmet || f.aciklama || `Fatura #${f.id}`}</Text>
-                <View style={s.pill}>
-                  <Text style={s.pillText}>{f.durum}</Text>
-                </View>
-              </View>
-              <Text style={s.cardMeta}>
-                {f.odeme_tarihi || '—'} · Borç {money(f.tutar)} · Ödenen {money(f.odenen_tutar)} · Kalan{' '}
-                {money(f.kalan ?? Math.max(0, f.tutar - f.odenen_tutar))}
-              </Text>
-              {(f.kalemler ?? []).map((k) => (
-                <Text key={k.id} style={[s.cardBody, { marginTop: 4 }]}>
-                  · {k.tarih} {k.odeme_yontemi} {money(k.tutar)}
-                  {k.not ? ` — ${k.not}` : ''}
-                </Text>
-              ))}
-            </View>
-          ))}
           {(data.faturalar ?? []).length === 0 ? (
             <EmptyState title="Hareket yok" text="Bu hastaya henüz borç/tahsilat yazılmamış." />
-          ) : null}
+          ) : (
+            <View style={s.listGroup}>
+              {(data.faturalar ?? []).map((f, idx) => {
+                const paid = f.durum === 'odendi';
+                const open = f.durum === 'acik' || f.durum === 'kismiopendi';
+                const iconColor = paid ? '#10B981' : open ? '#F59E0B' : '#64748B';
+                const iconBg = paid ? 'rgba(16,185,129,0.12)' : open ? 'rgba(245,158,11,0.12)' : 'rgba(100,116,139,0.1)';
+                return (
+                  <View key={f.id}>
+                    {idx > 0 && <View style={s.listCellSep} />}
+                    <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 4 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                        <View style={[s.listIconWrap, { backgroundColor: iconBg, marginTop: 2 }]}>
+                          <AppIcon name="finance" size={16} color={iconColor} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={[s.listCellLabel, { flex: 1 }]} numberOfLines={1}>{f.hizmet || f.aciklama || `Fatura #${f.id}`}</Text>
+                            <View style={[s.pill, paid ? s.pillSuccess : {}]}>
+                              <Text style={[s.pillText, paid ? s.pillSuccessText : {}]}>{f.durum}</Text>
+                            </View>
+                          </View>
+                          <Text style={s.listCellMeta}>
+                            {f.odeme_tarihi || '—'} · Borç {money(f.tutar)} · Kalan {money(f.kalan ?? Math.max(0, f.tutar - f.odenen_tutar))}
+                          </Text>
+                          {(f.kalemler ?? []).map((k) => (
+                            <Text key={k.id} style={s.listCellMeta}>
+                              · {k.tarih} {k.odeme_yontemi} {money(k.tutar)}{k.not ? ` — ${k.not}` : ''}
+                            </Text>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </>
       ) : null}
 
@@ -4172,34 +4563,45 @@ export function FaqScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="SSS yok" text="İlk soruyu ekleyerek başlayın." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <Text style={s.cardTitle}>{item.soru}</Text>
-            <Text style={s.cardBody} numberOfLines={4}>
-              {item.cevap}
-            </Text>
-            <View style={s.actions}>
-              <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
-                <Text style={s.actionBtnText}>Düzenle</Text>
-              </Pressable>
-              <Pressable
-                style={[s.actionBtn, s.actionBtnMuted]}
-                onPress={() =>
-                  void apiPost(`/doctor/faqs/${item.id}/toggle`)
-                    .then(() => reload(false))
-                    .catch(alertError)
-                }
-              >
-                <Text style={[s.actionBtnText, s.actionBtnMutedText]}>
-                  {item.aktif === false ? 'Aktifleştir' : 'Pasifleştir'}
-                </Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
+        <View style={s.listGroup}>
+          {items.map((item, idx) => (
+            <View key={item.id}>
+              {idx > 0 && <View style={s.listCellSep} />}
+              <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                  <View style={[s.listIconWrap, { backgroundColor: 'rgba(20,184,166,0.12)', marginTop: 2 }]}>
+                    <AppIcon name="document" size={16} color="#14B8A6" />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.listCellLabel}>{item.soru}</Text>
+                    <Text style={s.listCellMeta} numberOfLines={3}>{item.cevap}</Text>
+                  </View>
+                  {item.aktif === false ? (
+                    <View style={[s.pill, s.pillMuted]}>
+                      <Text style={[s.pillText, s.pillMutedText]}>Pasif</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44 }}>
+                  <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
+                    <Text style={s.actionBtnText}>Düzenle</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[s.actionBtn, s.actionBtnMuted]}
+                    onPress={() => void apiPost(`/doctor/faqs/${item.id}/toggle`).then(() => reload(false)).catch(alertError)}
+                  >
+                    <Text style={[s.actionBtnText, s.actionBtnMutedText]}>
+                      {item.aktif === false ? 'Aktifleştir' : 'Pasifleştir'}
+                    </Text>
+                  </Pressable>
+                  <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
+                    <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
-          </View>
-        ))
+          ))}
+        </View>
       )}
 
       <FormModal
@@ -4467,29 +4869,44 @@ export function EducationScreen({ onBack, onNavigate }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Eğitim yok" text="Yeni bir eğitim oluşturarak başlayın." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{item.baslik}</Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>{item.durum || 'taslak'}</Text>
+        <View style={s.listGroup}>
+          {items.map((item, idx) => {
+            const active = item.durum === 'yayinda' || item.durum === 'aktif';
+            return (
+              <View key={item.id}>
+                {idx > 0 && <View style={s.listCellSep} />}
+                <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                    <View style={[s.listIconWrap, { backgroundColor: active ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.1)', marginTop: 2 }]}>
+                      <AppIcon name="education" size={16} color={active ? '#10B981' : '#64748B'} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={[s.listCellLabel, { flex: 1 }]} numberOfLines={1}>{item.baslik}</Text>
+                        <View style={[s.pill, active ? s.pillSuccess : {}]}>
+                          <Text style={[s.pillText, active ? s.pillSuccessText : {}]}>{item.durum || 'taslak'}</Text>
+                        </View>
+                      </View>
+                      {item.ozet ? <Text style={s.listCellMeta} numberOfLines={2}>{item.ozet}</Text> : null}
+                      <Text style={s.listCellMeta}>
+                        {item.fiyat != null ? money(item.fiyat) : 'Ücretsiz'}
+                        {item.basvurular_count != null ? ` · ${item.basvurular_count} başvuru` : ''}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44 }}>
+                    <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
+                      <Text style={s.actionBtnText}>Düzenle</Text>
+                    </Pressable>
+                    <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
+                      <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                    </Pressable>
+                  </View>
+                </View>
               </View>
-            </View>
-            {item.ozet ? <Text style={s.cardBody}>{item.ozet}</Text> : null}
-            <Text style={s.cardMeta}>
-              {item.fiyat != null ? money(item.fiyat) : 'Ücretsiz / belirtilmemiş'}
-              {item.basvurular_count != null ? ` · ${item.basvurular_count} başvuru` : ''}
-            </Text>
-            <View style={s.actions}>
-              <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
-                <Text style={s.actionBtnText}>Düzenle</Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+            );
+          })}
+        </View>
       )}
 
       <FormModal
@@ -4695,6 +5112,7 @@ export function EducationAppsScreen({ onBack }: ModuleProps) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [payId, setPayId] = useState<number | null>(null);
   const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState('nakit');
 
   useEffect(() => {
     void apiGet<any[]>('/doctor/educations')
@@ -4729,10 +5147,11 @@ export function EducationAppsScreen({ onBack }: ModuleProps) {
     try {
       await apiPost(`/doctor/education-applications/${payId}/payment`, {
         odenen_tutar: amount,
-        odeme_yontemi: 'nakit',
+        odeme_yontemi: payMethod,
       });
       setPayId(null);
       setPayAmount('');
+      setPayMethod('nakit');
       await reload(false);
       Alert.alert('Tamam', 'Ödeme kaydedildi.');
     } catch (e) {
@@ -4769,60 +5188,59 @@ export function EducationAppsScreen({ onBack }: ModuleProps) {
       {items.length === 0 ? (
         <EmptyState title="Başvuru yok" text="Eğitim başvuruları burada listelenir." />
       ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>
-                {item.ad} {item.soyad}
-              </Text>
-              <View style={s.pill}>
-                <Text style={s.pillText}>{item.durum}</Text>
+        <View style={s.listGroup}>
+          {items.map((item, idx) => {
+            const approved = item.durum === 'onaylandi';
+            const rejected = item.durum === 'reddedildi';
+            const iconColor = approved ? '#10B981' : rejected ? '#EF4444' : '#F59E0B';
+            const iconBg = approved ? 'rgba(16,185,129,0.12)' : rejected ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)';
+            return (
+              <View key={item.id}>
+                {idx > 0 && <View style={s.listCellSep} />}
+                <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                    <View style={[s.listIconWrap, { backgroundColor: iconBg, marginTop: 2 }]}>
+                      <AppIcon name="education" size={16} color={iconColor} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={[s.listCellLabel, { flex: 1 }]} numberOfLines={1}>{item.ad} {item.soyad}</Text>
+                        <View style={[s.pill, approved ? s.pillSuccess : rejected ? s.pillDanger : {}]}>
+                          <Text style={[s.pillText, approved ? s.pillSuccessText : rejected ? s.pillDangerText : {}]}>
+                            {item.durum}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={s.listCellMeta}>{item.egitim || 'Eğitim'}</Text>
+                      {item.telefon ? <Text style={s.listCellMeta}>{item.telefon}</Text> : null}
+                      {item.odeme_durumu ? <Text style={s.listCellMeta}>Ödeme: {item.odeme_durumu}</Text> : null}
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44, flexWrap: 'wrap' }}>
+                    <Pressable style={[s.actionBtn, s.actionBtnSuccess]} disabled={busyId === item.id} onPress={() => void setStatus(item.id, 'onaylandi')}>
+                      <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Onayla</Text>
+                    </Pressable>
+                    <Pressable style={[s.actionBtn, s.actionBtnDanger]} disabled={busyId === item.id} onPress={() => void setStatus(item.id, 'reddedildi')}>
+                      <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Reddet</Text>
+                    </Pressable>
+                    <Pressable style={[s.actionBtn, s.actionBtnMuted]} disabled={busyId === item.id} onPress={() => void setStatus(item.id, 'beklemede')}>
+                      <Text style={[s.actionBtnText, s.actionBtnMutedText]}>Beklet</Text>
+                    </Pressable>
+                    <Pressable style={s.actionBtn} disabled={busyId === item.id} onPress={() => { setPayId(item.id); setPayAmount(''); }}>
+                      <Text style={s.actionBtnText}>Ödeme</Text>
+                    </Pressable>
+                  </View>
+                </View>
               </View>
-            </View>
-            <Text style={s.cardMeta}>{item.egitim || 'Eğitim'}</Text>
-            {item.telefon ? <Text style={s.cardMeta}>{item.telefon}</Text> : null}
-            {item.odeme_durumu ? <Text style={s.cardMeta}>Ödeme: {item.odeme_durumu}</Text> : null}
-            <View style={s.actions}>
-              <Pressable
-                style={[s.actionBtn, s.actionBtnSuccess]}
-                disabled={busyId === item.id}
-                onPress={() => void setStatus(item.id, 'onaylandi')}
-              >
-                <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Onayla</Text>
-              </Pressable>
-              <Pressable
-                style={[s.actionBtn, s.actionBtnDanger]}
-                disabled={busyId === item.id}
-                onPress={() => void setStatus(item.id, 'reddedildi')}
-              >
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Reddet</Text>
-              </Pressable>
-              <Pressable
-                style={[s.actionBtn, s.actionBtnMuted]}
-                disabled={busyId === item.id}
-                onPress={() => void setStatus(item.id, 'beklemede')}
-              >
-                <Text style={[s.actionBtnText, s.actionBtnMutedText]}>Beklet</Text>
-              </Pressable>
-              <Pressable
-                style={s.actionBtn}
-                disabled={busyId === item.id}
-                onPress={() => {
-                  setPayId(item.id);
-                  setPayAmount('');
-                }}
-              >
-                <Text style={s.actionBtnText}>Ödeme</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
+            );
+          })}
+        </View>
       )}
 
       <FormModal
         visible={payId != null}
         title="Ödeme kaydet"
-        onClose={() => setPayId(null)}
+        onClose={() => { setPayId(null); setPayMethod('nakit'); }}
         onSubmit={() => void markPaid()}
         submitLabel="Kaydet"
         submitting={busyId === payId}
@@ -4834,6 +5252,17 @@ export function EducationAppsScreen({ onBack }: ModuleProps) {
           onChangeText={setPayAmount}
           keyboardType="decimal-pad"
           placeholderTextColor="#6B7F93"
+        />
+        <SelectField
+          label="Ödeme yöntemi"
+          options={[
+            { label: 'Nakit', value: 'nakit' },
+            { label: 'Kredi Kartı', value: 'kredi_karti' },
+            { label: 'Havale / EFT', value: 'havale' },
+            { label: 'Online', value: 'online' },
+          ]}
+          value={payMethod}
+          onChange={(v) => setPayMethod(String(v))}
         />
       </FormModal>
     </ScreenShell>
@@ -5448,19 +5877,25 @@ export function AboutScreen({ onBack }: ModuleProps) {
       {mezuniyet.length === 0 ? (
         <Text style={[s.hint, { marginTop: 6 }]}>Henüz mezuniyet eklenmedi.</Text>
       ) : (
-        mezuniyet.map((m, idx) => (
-          <View key={`${m}-${idx}`} style={[s.card, { marginTop: 8 }]}>
-            <View style={s.cardHeader}>
-              <Text style={[s.cardTitle, { flex: 1 }]}>{m}</Text>
-              <Pressable
-                style={[s.actionBtn, s.actionBtnDanger]}
-                onPress={() => setMezuniyet((prev) => prev.filter((_, i) => i !== idx))}
-              >
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
+        <View style={[s.listGroup, { marginTop: 8 }]}>
+          {mezuniyet.map((m, idx) => (
+            <View key={`${m}-${idx}`}>
+              {idx > 0 && <View style={s.listCellSep} />}
+              <View style={s.listCell}>
+                <View style={[s.listIconWrap, { backgroundColor: 'rgba(139,92,246,0.12)' }]}>
+                  <AppIcon name="education" size={16} color="#8B5CF6" />
+                </View>
+                <Text style={[s.listCellLabel, { flex: 1 }]} numberOfLines={2}>{m}</Text>
+                <Pressable hitSlop={8}
+                  onPress={() => setMezuniyet((prev) => prev.filter((_, i) => i !== idx))}
+                  style={({ pressed }) => [{ width: 34, height: 34, borderRadius: 10, backgroundColor: pressed ? '#FEF2F2' : 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' }]}
+                >
+                  <AppIcon name="close" size={14} color="#EF4444" />
+                </Pressable>
+              </View>
             </View>
-          </View>
-        ))
+          ))}
+        </View>
       )}
       <Text style={s.label}>Yeni mezuniyet</Text>
       <TextInput
@@ -6496,122 +6931,79 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                   </Pressable>
                 </View>
               ) : null}
-              {doctorsPack.davetiyeler.map((i) => (
-                <View key={i.id} style={s.card}>
-                  <Text style={s.cardTitle}>{i.e_posta}</Text>
-                  <Text style={s.cardMeta}>Bekleyen davet · {i.son_kullanma}</Text>
-                  {isOwner ? (
-                    <Pressable
-                      style={[s.actionBtn, s.actionBtnDanger, { marginTop: 10 }]}
-                      onPress={() =>
-                        void (async () => {
-                          try {
-                            await apiDelete(`/doctor/clinic/invites/${i.id}`);
-                            setDoctorsPack((p) => ({ ...p, davetiyeler: p.davetiyeler.filter((x) => x.id !== i.id) }));
-                          } catch (e) {
-                            alertError(e);
-                          }
-                        })()
-                      }
-                    >
-                      <Text style={[s.actionBtnText, s.actionBtnDangerText]}>İptal</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              ))}
-              {doctorsPack.doktorlar.map((d) => (
-                <View key={d.id} style={s.card}>
-                  <Text style={s.cardTitle}>{[d.unvan, d.ad_soyad].filter(Boolean).join(' ')}</Text>
-                  <Text style={s.cardMeta}>{d.e_posta} · {d.rol || 'üye'}</Text>
-                  <Text style={s.cardMeta}>{d.klinik_aktif_mi === false ? 'Klinikte pasif' : 'Aktif'}</Text>
-                  {Array.isArray(d.calisma_saatleri) && d.calisma_saatleri.length > 0 ? (
-                    <Text style={s.cardBody}>
-                      Saatler:{' '}
-                      {d.calisma_saatleri
-                        .filter((cs: any) => cs.aktif_mi)
-                        .map((cs: any) => `G${cs.gun} ${cs.mesai_baslangic}-${cs.mesai_bitis}`)
-                        .join(' · ') || 'Kapalı günler'}
-                    </Text>
-                  ) : null}
-                  {isOwner ? (
-                    <View style={s.actions}>
-                      <Pressable
-                        style={s.actionBtn}
-                        onPress={() =>
-                          void (async () => {
-                            try {
-                              await apiPost(`/doctor/clinic/doctors/${d.id}/toggle`);
-                              const res = await apiGet<any>('/doctor/clinic/doctors');
-                              setDoctorsPack({ doktorlar: res.data?.doktorlar ?? [], davetiyeler: res.data?.davetiyeler ?? [] });
-                            } catch (e) {
-                              alertError(e);
-                            }
-                          })()
-                        }
-                      >
-                        <Text style={s.actionBtnText}>Durum</Text>
-                      </Pressable>
-                      <Pressable
-                        style={s.actionBtn}
-                        onPress={() => {
-                          Alert.alert('Hekim rolü', 'Rol seçin', [
-                            {
-                              text: 'Doktor',
-                              onPress: () =>
-                                void apiPut(`/doctor/clinic/doctors/${d.id}`, {
-                                  klinik_rolu: 'doktor',
-                                  komisyon_orani: Number(d.komisyon_orani) || 0,
-                                })
-                                  .then(() => apiGet<any>('/doctor/clinic/doctors'))
-                                  .then((res) =>
-                                    setDoctorsPack({
-                                      doktorlar: res.data?.doktorlar ?? [],
-                                      davetiyeler: res.data?.davetiyeler ?? [],
-                                    }),
-                                  )
-                                  .catch(alertError),
-                            },
-                            {
-                              text: 'Ortak',
-                              onPress: () =>
-                                void apiPut(`/doctor/clinic/doctors/${d.id}`, {
-                                  klinik_rolu: 'ortak',
-                                  komisyon_orani: Number(d.komisyon_orani) || 20,
-                                })
-                                  .then(() => apiGet<any>('/doctor/clinic/doctors'))
-                                  .then((res) =>
-                                    setDoctorsPack({
-                                      doktorlar: res.data?.doktorlar ?? [],
-                                      davetiyeler: res.data?.davetiyeler ?? [],
-                                    }),
-                                  )
-                                  .catch(alertError),
-                            },
-                            { text: 'Vazgeç', style: 'cancel' },
-                          ]);
-                        }}
-                      >
-                        <Text style={s.actionBtnText}>Rol</Text>
-                      </Pressable>
-                      <Pressable
-                        style={[s.actionBtn, s.actionBtnDanger]}
-                        onPress={() =>
-                          void (async () => {
-                            try {
-                              await apiPost(`/doctor/clinic/doctors/${d.id}/remove`);
-                              setDoctorsPack((p) => ({ ...p, doktorlar: p.doktorlar.filter((x) => x.id !== d.id) }));
-                            } catch (e) {
-                              alertError(e);
-                            }
-                          })()
-                        }
-                      >
-                        <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Çıkar</Text>
-                      </Pressable>
+              {doctorsPack.davetiyeler.length > 0 ? (
+                <View style={s.listGroup}>
+                  {doctorsPack.davetiyeler.map((i, idx) => (
+                    <View key={i.id}>
+                      {idx > 0 && <View style={s.listCellSep} />}
+                      <View style={s.listCell}>
+                        <View style={[s.listIconWrap, { backgroundColor: 'rgba(245,158,11,0.12)' }]}>
+                          <AppIcon name="mail" size={16} color="#F59E0B" />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={s.listCellLabel} numberOfLines={1}>{i.e_posta}</Text>
+                          <Text style={s.listCellMeta}>Bekleyen davet · {i.son_kullanma}</Text>
+                        </View>
+                        {isOwner ? (
+                          <Pressable hitSlop={8}
+                            onPress={() => void apiDelete(`/doctor/clinic/invites/${i.id}`).then(() => setDoctorsPack((p) => ({ ...p, davetiyeler: p.davetiyeler.filter((x) => x.id !== i.id) }))).catch(alertError)}
+                            style={({ pressed }) => [{ width: 34, height: 34, borderRadius: 10, backgroundColor: pressed ? '#FEF2F2' : 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' }]}
+                          >
+                            <AppIcon name="close" size={16} color="#EF4444" />
+                          </Pressable>
+                        ) : null}
+                      </View>
                     </View>
-                  ) : null}
+                  ))}
                 </View>
-              ))}
+              ) : null}
+              {doctorsPack.doktorlar.length > 0 ? (
+                <View style={s.listGroup}>
+                  {doctorsPack.doktorlar.map((d, idx) => {
+                    const aktif = d.klinik_aktif_mi !== false;
+                    return (
+                      <View key={d.id}>
+                        {idx > 0 && <View style={s.listCellSep} />}
+                        <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                            <View style={[s.listIconWrap, { backgroundColor: aktif ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.1)', marginTop: 2 }]}>
+                              <AppIcon name="profile" size={16} color={aktif ? '#10B981' : '#64748B'} />
+                            </View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={s.listCellLabel} numberOfLines={1}>{[d.unvan, d.ad_soyad].filter(Boolean).join(' ')}</Text>
+                              <Text style={s.listCellMeta}>{d.e_posta} · {d.rol || 'üye'}</Text>
+                              <Text style={s.listCellMeta}>{aktif ? 'Aktif' : 'Klinikte pasif'}</Text>
+                            </View>
+                          </View>
+                          {isOwner ? (
+                            <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44, flexWrap: 'wrap' }}>
+                              <Pressable style={s.actionBtn}
+                                onPress={() => void apiPost(`/doctor/clinic/doctors/${d.id}/toggle`).then(() => apiGet<any>('/doctor/clinic/doctors')).then((res) => setDoctorsPack({ doktorlar: res.data?.doktorlar ?? [], davetiyeler: res.data?.davetiyeler ?? [] })).catch(alertError)}
+                              >
+                                <Text style={s.actionBtnText}>Durum</Text>
+                              </Pressable>
+                              <Pressable style={s.actionBtn}
+                                onPress={() => Alert.alert('Hekim rolü', 'Rol seçin', [
+                                  { text: 'Doktor', onPress: () => void apiPut(`/doctor/clinic/doctors/${d.id}`, { klinik_rolu: 'doktor', komisyon_orani: Number(d.komisyon_orani) || 0 }).then(() => apiGet<any>('/doctor/clinic/doctors')).then((res) => setDoctorsPack({ doktorlar: res.data?.doktorlar ?? [], davetiyeler: res.data?.davetiyeler ?? [] })).catch(alertError) },
+                                  { text: 'Ortak', onPress: () => void apiPut(`/doctor/clinic/doctors/${d.id}`, { klinik_rolu: 'ortak', komisyon_orani: Number(d.komisyon_orani) || 20 }).then(() => apiGet<any>('/doctor/clinic/doctors')).then((res) => setDoctorsPack({ doktorlar: res.data?.doktorlar ?? [], davetiyeler: res.data?.davetiyeler ?? [] })).catch(alertError) },
+                                  { text: 'Vazgeç', style: 'cancel' },
+                                ])}
+                              >
+                                <Text style={s.actionBtnText}>Rol</Text>
+                              </Pressable>
+                              <Pressable style={[s.actionBtn, s.actionBtnDanger]}
+                                onPress={() => void apiPost(`/doctor/clinic/doctors/${d.id}/remove`).then(() => setDoctorsPack((p) => ({ ...p, doktorlar: p.doktorlar.filter((x) => x.id !== d.id) }))).catch(alertError)}
+                              >
+                                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Çıkar</Text>
+                              </Pressable>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
             </>
           ) : null}
 
@@ -6672,47 +7064,40 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                   </View>
                 </View>
               ) : null}
-              {staff.map((p) => (
-                <View key={p.id} style={s.card}>
-                  <Text style={s.cardTitle}>{p.ad_soyad}</Text>
-                  <Text style={s.cardMeta}>{p.e_posta} · {p.rol} · {p.aktif_mi ? 'aktif' : 'pasif'}</Text>
-                  <View style={s.actions}>
-                    <Pressable
-                      style={s.actionBtn}
-                      onPress={() => {
-                        setEditStaffId(p.id);
-                        setEditStaffForm({
-                          ad_soyad: p.ad_soyad || '',
-                          e_posta: p.e_posta || '',
-                          telefon: p.telefon || '',
-                          sifre: '',
-                          rol: p.rol || 'sekreter',
-                        });
-                      }}
-                    >
-                      <Text style={s.actionBtnText}>Düzenle</Text>
-                    </Pressable>
-                    <Pressable style={s.actionBtn} onPress={() => void apiPost(`/doctor/clinic/staff/${p.id}/toggle`).then(() => apiGet<any[]>('/doctor/clinic/staff').then((r) => setStaff(r.data ?? []))).catch(alertError)}>
-                      <Text style={s.actionBtnText}>Durum</Text>
-                    </Pressable>
-                    <Pressable
-                      style={s.actionBtn}
-                      onPress={() =>
-                        void apiPost<{ gecici_sifre: string }>(`/doctor/clinic/staff/${p.id}/reset-password`)
-                          .then((r) => {
-                            Alert.alert('Şifre sıfırlandı', `Geçici şifre: ${r.data?.gecici_sifre || '—'}`);
-                          })
-                          .catch(alertError)
-                      }
-                    >
-                      <Text style={s.actionBtnText}>Şifre sıfırla</Text>
-                    </Pressable>
-                    <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => void apiDelete(`/doctor/clinic/staff/${p.id}`).then(() => setStaff((x) => x.filter((i) => i.id !== p.id))).catch(alertError)}>
-                      <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-                    </Pressable>
-                  </View>
+              {staff.length > 0 ? (
+                <View style={s.listGroup}>
+                  {staff.map((p, idx) => (
+                    <View key={p.id}>
+                      {idx > 0 && <View style={s.listCellSep} />}
+                      <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                          <View style={[s.listIconWrap, { backgroundColor: p.aktif_mi ? 'rgba(59,130,246,0.12)' : 'rgba(100,116,139,0.1)', marginTop: 2 }]}>
+                            <AppIcon name="people" size={16} color={p.aktif_mi ? '#3B82F6' : '#64748B'} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={s.listCellLabel} numberOfLines={1}>{p.ad_soyad}</Text>
+                            <Text style={s.listCellMeta}>{p.e_posta} · {p.rol} · {p.aktif_mi ? 'aktif' : 'pasif'}</Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44, flexWrap: 'wrap' }}>
+                          <Pressable style={s.actionBtn} onPress={() => { setEditStaffId(p.id); setEditStaffForm({ ad_soyad: p.ad_soyad || '', e_posta: p.e_posta || '', telefon: p.telefon || '', sifre: '', rol: p.rol || 'sekreter' }); }}>
+                            <Text style={s.actionBtnText}>Düzenle</Text>
+                          </Pressable>
+                          <Pressable style={s.actionBtn} onPress={() => void apiPost(`/doctor/clinic/staff/${p.id}/toggle`).then(() => apiGet<any[]>('/doctor/clinic/staff').then((r) => setStaff(r.data ?? []))).catch(alertError)}>
+                            <Text style={s.actionBtnText}>Durum</Text>
+                          </Pressable>
+                          <Pressable style={s.actionBtn} onPress={() => void apiPost<{ gecici_sifre: string }>(`/doctor/clinic/staff/${p.id}/reset-password`).then((r) => Alert.alert('Şifre sıfırlandı', `Geçici şifre: ${r.data?.gecici_sifre || '—'}`)).catch(alertError)}>
+                            <Text style={s.actionBtnText}>Şifre</Text>
+                          </Pressable>
+                          <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => void apiDelete(`/doctor/clinic/staff/${p.id}`).then(() => setStaff((x) => x.filter((i) => i.id !== p.id))).catch(alertError)}>
+                            <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
                 </View>
-              ))}
+              ) : null}
             </>
           ) : null}
 
@@ -6743,16 +7128,28 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                     value={selectedReq}
                     onChange={setSelectedReq}
                   />
-                  {requests.map((r) => (
-                    <View key={r.id} style={s.card}>
-                      <Text style={s.cardTitle}>{r.hasta_adi}</Text>
-                      <Text style={s.cardMeta}>{r.doktor} · {r.tarih} {r.saat}</Text>
-                      {r.hizmet ? <Text style={s.cardBody}>{r.hizmet}</Text> : null}
-                      <Text style={s.hint}>
-                        {selectedReq.includes(r.id) ? 'Toplu seçimde işaretli' : 'Listede görünür'}
-                      </Text>
-                    </View>
-                  ))}
+                  <View style={s.listGroup}>
+                    {requests.map((r, idx) => (
+                      <View key={r.id}>
+                        {idx > 0 && <View style={s.listCellSep} />}
+                        <View style={s.listCell}>
+                          <View style={[s.listIconWrap, { backgroundColor: selectedReq.includes(r.id) ? 'rgba(238,125,49,0.15)' : 'rgba(100,116,139,0.1)' }]}>
+                            <AppIcon name="requests" size={16} color={selectedReq.includes(r.id) ? '#EE7D31' : '#64748B'} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={s.listCellLabel} numberOfLines={1}>{r.hasta_adi}</Text>
+                            <Text style={s.listCellMeta}>{r.doktor} · {r.tarih} {r.saat}</Text>
+                            {r.hizmet ? <Text style={s.listCellMeta}>{r.hizmet}</Text> : null}
+                          </View>
+                          {selectedReq.includes(r.id) ? (
+                            <View style={[s.listIconWrap, { backgroundColor: 'rgba(238,125,49,0.12)' }]}>
+                              <AppIcon name="check" size={14} color="#EE7D31" />
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
                 </>
               )}
             </>
@@ -6778,39 +7175,49 @@ export function ClinicScreen({ onBack }: ModuleProps) {
               {clinicAppts.length === 0 ? (
                 <EmptyState title="Randevu yok" text="Seçili haftada klinik randevusu yok." />
               ) : (
-                clinicAppts.map((a) => (
-                  <View key={a.id} style={s.card}>
-                    <Text style={s.cardTitle}>{a.hasta_adi}</Text>
-                    <Text style={s.cardMeta}>{a.doktor} · {a.tarih} {a.saat} · {a.durum}</Text>
-                    {a.hizmet ? <Text style={s.cardBody}>{a.hizmet}</Text> : null}
-                    {a.durum === 'beklemede' || a.durum === 'onaylandi' ? (
-                      <View style={s.actions}>
-                        {a.durum === 'beklemede' ? (
-                          <Pressable style={[s.actionBtn, s.actionBtnSuccess]} disabled={busy} onPress={() => void clinicApptStatus(a.id, 'onaylandi')}>
-                            <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Onayla</Text>
-                          </Pressable>
-                        ) : null}
-                        <Pressable
-                          style={s.actionBtn}
-                          disabled={busy}
-                          onPress={() => {
-                            setRescheduleId(a.id);
-                            setRescheduleDate(a.tarih);
-                            setRescheduleTime(String(a.saat || '09:00').slice(0, 5));
-                          }}
-                        >
-                          <Text style={s.actionBtnText}>Ertele</Text>
-                        </Pressable>
-                        <Pressable style={s.actionBtn} disabled={busy} onPress={() => void clinicApptStatus(a.id, 'tamamlandi')}>
-                          <Text style={s.actionBtnText}>Tamam</Text>
-                        </Pressable>
-                        <Pressable style={[s.actionBtn, s.actionBtnDanger]} disabled={busy} onPress={() => void clinicApptStatus(a.id, 'iptal')}>
-                          <Text style={[s.actionBtnText, s.actionBtnDangerText]}>İptal</Text>
-                        </Pressable>
+                <View style={s.listGroup}>
+                  {clinicAppts.map((a, idx) => {
+                    const pending = a.durum === 'beklemede';
+                    const approved = a.durum === 'onaylandi';
+                    const iconColor = pending ? '#F59E0B' : approved ? '#10B981' : '#64748B';
+                    const iconBg = pending ? 'rgba(245,158,11,0.12)' : approved ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.1)';
+                    return (
+                      <View key={a.id}>
+                        {idx > 0 && <View style={s.listCellSep} />}
+                        <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                            <View style={[s.listIconWrap, { backgroundColor: iconBg, marginTop: 2 }]}>
+                              <AppIcon name="calendar" size={16} color={iconColor} />
+                            </View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={s.listCellLabel} numberOfLines={1}>{a.hasta_adi}</Text>
+                              <Text style={s.listCellMeta}>{a.doktor} · {a.tarih} {String(a.saat || '').slice(0, 5)} · {a.durum}</Text>
+                              {a.hizmet ? <Text style={s.listCellMeta}>{a.hizmet}</Text> : null}
+                            </View>
+                          </View>
+                          {pending || approved ? (
+                            <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44, flexWrap: 'wrap' }}>
+                              {pending ? (
+                                <Pressable style={[s.actionBtn, s.actionBtnSuccess]} disabled={busy} onPress={() => void clinicApptStatus(a.id, 'onaylandi')}>
+                                  <Text style={[s.actionBtnText, s.actionBtnSuccessText]}>Onayla</Text>
+                                </Pressable>
+                              ) : null}
+                              <Pressable style={s.actionBtn} disabled={busy} onPress={() => { setRescheduleId(a.id); setRescheduleDate(a.tarih); setRescheduleTime(String(a.saat || '09:00').slice(0, 5)); }}>
+                                <Text style={s.actionBtnText}>Ertele</Text>
+                              </Pressable>
+                              <Pressable style={s.actionBtn} disabled={busy} onPress={() => void clinicApptStatus(a.id, 'tamamlandi')}>
+                                <Text style={s.actionBtnText}>Tamam</Text>
+                              </Pressable>
+                              <Pressable style={[s.actionBtn, s.actionBtnDanger]} disabled={busy} onPress={() => void clinicApptStatus(a.id, 'iptal')}>
+                                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>İptal</Text>
+                              </Pressable>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
-                    ) : null}
-                  </View>
-                ))
+                    );
+                  })}
+                </View>
               )}
             </>
           ) : null}
@@ -6855,51 +7262,69 @@ export function ClinicScreen({ onBack }: ModuleProps) {
               {announcements.length === 0 ? (
                 <EmptyState title="Duyuru yok" text="Klinik duyurusu bulunmuyor." />
               ) : (
-                announcements.map((a) => (
-                  <View key={a.id} style={s.card}>
-                    <Text style={s.cardTitle}>{a.baslik}</Text>
-                    <Text style={s.cardMeta}>{a.onem_derecesi || 'genel'} · {a.aktif_mi === false ? 'pasif' : 'aktif'}</Text>
-                    <Text style={s.cardBody}>{a.icerik}</Text>
-                    {isOwner ? (
-                      <View style={s.actions}>
-                        <Pressable
-                          style={s.actionBtn}
-                          onPress={() => {
-                            setAnnEditId(a.id);
-                            setAnnForm({
-                              baslik: a.baslik || '',
-                              icerik: a.icerik || '',
-                              onem_derecesi: a.onem_derecesi || 'genel',
-                            });
-                          }}
-                        >
-                          <Text style={s.actionBtnText}>Düzenle</Text>
-                        </Pressable>
-                        <Pressable
-                          style={s.actionBtn}
-                          onPress={() =>
-                            void apiPost(`/doctor/clinic/announcements/${a.id}/toggle`)
-                              .then(() => apiGet<any[]>('/doctor/clinic/announcements/admin'))
-                              .then((r) => setAnnouncements(r.data ?? []))
-                              .catch(alertError)
-                          }
-                        >
-                          <Text style={s.actionBtnText}>{a.aktif_mi === false ? 'Aktif et' : 'Pasif et'}</Text>
-                        </Pressable>
-                        <Pressable
-                          style={[s.actionBtn, s.actionBtnDanger]}
-                          onPress={() =>
-                            void apiDelete(`/doctor/clinic/announcements/${a.id}`)
-                              .then(() => setAnnouncements((x) => x.filter((i) => i.id !== a.id)))
-                              .catch(alertError)
-                          }
-                        >
-                          <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-                        </Pressable>
+                <View style={s.listGroup}>
+                  {announcements.map((a, idx) => {
+                    const acil = a.onem_derecesi === 'acil';
+                    const onemli = a.onem_derecesi === 'onemli';
+                    const iconColor = acil ? '#EF4444' : onemli ? '#F59E0B' : '#3B82F6';
+                    const iconBg = acil ? 'rgba(239,68,68,0.12)' : onemli ? 'rgba(245,158,11,0.12)' : 'rgba(59,130,246,0.12)';
+                    return (
+                      <View key={a.id}>
+                        {idx > 0 && <View style={s.listCellSep} />}
+                        <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                            <View style={[s.listIconWrap, { backgroundColor: iconBg, marginTop: 2 }]}>
+                              <AppIcon name={acil ? 'warning' : 'bell'} size={16} color={iconColor} />
+                            </View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={s.listCellLabel} numberOfLines={1}>{a.baslik}</Text>
+                              <Text style={s.listCellMeta}>{a.onem_derecesi || 'genel'} · {a.aktif_mi === false ? 'pasif' : 'aktif'}</Text>
+                              <Text style={s.listCellMeta} numberOfLines={3}>{a.icerik}</Text>
+                            </View>
+                          </View>
+                          {isOwner ? (
+                            <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44, flexWrap: 'wrap' }}>
+                              <Pressable
+                                style={s.actionBtn}
+                                onPress={() => {
+                                  setAnnEditId(a.id);
+                                  setAnnForm({
+                                    baslik: a.baslik || '',
+                                    icerik: a.icerik || '',
+                                    onem_derecesi: a.onem_derecesi || 'genel',
+                                  });
+                                        }}
+                              >
+                                <Text style={s.actionBtnText}>Düzenle</Text>
+                              </Pressable>
+                              <Pressable
+                                style={s.actionBtn}
+                                onPress={() =>
+                                  void apiPost(`/doctor/clinic/announcements/${a.id}/toggle`)
+                                    .then(() => apiGet<any[]>('/doctor/clinic/announcements/admin'))
+                                    .then((r) => setAnnouncements(r.data ?? []))
+                                    .catch(alertError)
+                                }
+                              >
+                                <Text style={s.actionBtnText}>{a.aktif_mi === false ? 'Aktif et' : 'Pasif et'}</Text>
+                              </Pressable>
+                              <Pressable
+                                style={[s.actionBtn, s.actionBtnDanger]}
+                                onPress={() =>
+                                  void apiDelete(`/doctor/clinic/announcements/${a.id}`)
+                                    .then(() => setAnnouncements((x) => x.filter((i) => i.id !== a.id)))
+                                    .catch(alertError)
+                                }
+                              >
+                                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                              </Pressable>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
-                    ) : null}
-                  </View>
-                ))
+                    );
+                  })}
+                </View>
               )}
             </>
           ) : null}
@@ -6908,20 +7333,31 @@ export function ClinicScreen({ onBack }: ModuleProps) {
             doctorsHours.length === 0 ? (
               <EmptyState title="Mesai yok" text="Klinik hekimlerinin çalışma saatleri yüklenemedi." />
             ) : (
-              doctorsHours.map((d) => (
-                <View key={d.id} style={s.card}>
-                  <Text style={s.cardTitle}>{d.ad_soyad}</Text>
-                  <Text style={s.cardMeta}>{d.klinik_aktif_mi === false ? 'Klinikte pasif' : 'Aktif'}</Text>
-                  {(d.calisma_saatleri || []).map((h: any) => (
-                    <Text key={h.gun} style={s.cardBody}>
-                      {h.gun_ad}:{' '}
-                      {h.aktif_mi
-                        ? `${h.baslangic || '—'} – ${h.bitis || '—'}`
-                        : 'Kapalı'}
-                    </Text>
-                  ))}
-                </View>
-              ))
+              <View style={s.listGroup}>
+                {doctorsHours.map((d, idx) => (
+                  <View key={d.id}>
+                    {idx > 0 && <View style={s.listCellSep} />}
+                    <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 4 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%' }}>
+                        <View style={[s.listIconWrap, { backgroundColor: d.klinik_aktif_mi !== false ? 'rgba(59,130,246,0.12)' : 'rgba(100,116,139,0.1)' }]}>
+                          <AppIcon name="time" size={16} color={d.klinik_aktif_mi !== false ? '#3B82F6' : '#64748B'} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.listCellLabel}>{d.ad_soyad}</Text>
+                          <Text style={s.listCellMeta}>{d.klinik_aktif_mi === false ? 'Klinikte pasif' : 'Aktif'}</Text>
+                        </View>
+                      </View>
+                      <View style={{ paddingLeft: 44, gap: 2 }}>
+                        {(d.calisma_saatleri || []).map((h: any) => (
+                          <Text key={h.gun} style={s.listCellMeta}>
+                            {h.gun_ad}: {h.aktif_mi ? `${h.baslangic || '—'} – ${h.bitis || '—'}` : 'Kapalı'}
+                          </Text>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
             )
           ) : null}
 
@@ -6992,34 +7428,40 @@ export function ClinicScreen({ onBack }: ModuleProps) {
               {patients.length === 0 ? (
                 <EmptyState title="Hasta yok" text="Klinik havuzunda hasta bulunamadı." />
               ) : (
-                patients.map((p) => (
-                  <View key={p.id} style={s.card}>
-                    <Text style={s.cardTitle}>{p.ad} {p.soyad}</Text>
-                    <Text style={s.cardMeta}>{p.telefon || p.e_posta || '—'}</Text>
-                    {p.pivot?.notlar || p.notlar ? (
-                      <Text style={s.cardBody}>Not: {p.pivot?.notlar || p.notlar}</Text>
-                    ) : null}
-                    <View style={s.actions}>
-                      <Pressable style={s.actionBtn} disabled={busy} onPress={() => void openClinicPatient(p.id)}>
-                        <Text style={s.actionBtnText}>Detay</Text>
-                      </Pressable>
-                      <Pressable
-                        style={s.actionBtn}
-                        onPress={() => {
-                          setPatientNoteId(p.id);
-                          setPatientNoteText(p.pivot?.notlar || p.notlar || '');
-                        }}
-                      >
-                        <Text style={s.actionBtnText}>Not</Text>
-                      </Pressable>
-                      {p.telefon ? (
-                        <Pressable style={s.actionBtn} onPress={() => openPhone(p.telefon)}>
-                          <Text style={s.actionBtnText}>Ara</Text>
-                        </Pressable>
-                      ) : null}
+                <View style={s.listGroup}>
+                  {patients.map((p, idx) => (
+                    <View key={p.id}>
+                      {idx > 0 && <View style={s.listCellSep} />}
+                      <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                          <View style={[s.listIconWrap, { backgroundColor: 'rgba(59,130,246,0.12)', marginTop: 2 }]}>
+                            <AppIcon name="people" size={16} color="#3B82F6" />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={s.listCellLabel} numberOfLines={1}>{p.ad} {p.soyad}</Text>
+                            <Text style={s.listCellMeta}>{p.telefon || p.e_posta || '—'}</Text>
+                            {p.pivot?.notlar || p.notlar ? (
+                              <Text style={s.listCellMeta} numberOfLines={2}>Not: {p.pivot?.notlar || p.notlar}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44 }}>
+                          <Pressable style={s.actionBtn} disabled={busy} onPress={() => void openClinicPatient(p.id)}>
+                            <Text style={s.actionBtnText}>Detay</Text>
+                          </Pressable>
+                          <Pressable style={s.actionBtn} onPress={() => { setPatientNoteId(p.id); setPatientNoteText(p.pivot?.notlar || p.notlar || ''); }}>
+                            <Text style={s.actionBtnText}>Not</Text>
+                          </Pressable>
+                          {p.telefon ? (
+                            <Pressable style={s.actionBtn} onPress={() => openPhone(p.telefon)}>
+                              <Text style={s.actionBtnText}>Ara</Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                ))
+                  ))}
+                </View>
               )}
               <FormModal
                 visible={patientNoteId != null}
@@ -7105,39 +7547,35 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                 </View>
               </View>
               <Text style={s.hint}>Hakedis ozeti icin «Hakedis» sekmesine gidin — giderler klinik merkezidir.</Text>
-              {clinicExpenses.map((g) => (
-                <View key={g.id} style={s.card}>
-                  <Text style={s.cardTitle}>{g.kategori}</Text>
-                  <Text style={s.cardMeta}>{g.tarih} · {money(Number(g.tutar))}</Text>
-                  {g.aciklama ? <Text style={s.cardBody}>{g.aciklama}</Text> : null}
-                  <View style={s.actions}>
-                    <Pressable
-                      style={s.actionBtn}
-                      onPress={() => {
-                        setEditExpId(g.id);
-                        setExpForm({
-                          tutar: String(g.tutar ?? ''),
-                          tarih: String(g.tarih || '').slice(0, 10),
-                          kategori: g.kategori || 'diger',
-                          aciklama: g.aciklama || '',
-                        });
-                      }}
-                    >
-                      <Text style={s.actionBtnText}>Düzenle</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[s.actionBtn, s.actionBtnDanger]}
-                      onPress={() =>
-                        void apiDelete(`/doctor/clinic/expenses/${g.id}`)
-                          .then(() => loadClinicExpenses())
-                          .catch(alertError)
-                      }
-                    >
-                      <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-                    </Pressable>
-                  </View>
+              {clinicExpenses.length > 0 ? (
+                <View style={s.listGroup}>
+                  {clinicExpenses.map((g, idx) => (
+                    <View key={g.id}>
+                      {idx > 0 && <View style={s.listCellSep} />}
+                      <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                          <View style={[s.listIconWrap, { backgroundColor: 'rgba(239,68,68,0.1)', marginTop: 2 }]}>
+                            <AppIcon name="finance" size={16} color="#EF4444" />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={s.listCellLabel} numberOfLines={1}>{g.kategori}</Text>
+                            <Text style={s.listCellMeta}>{g.tarih} · {money(Number(g.tutar))}</Text>
+                            {g.aciklama ? <Text style={s.listCellMeta} numberOfLines={2}>{g.aciklama}</Text> : null}
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8, paddingLeft: 44 }}>
+                          <Pressable style={s.actionBtn} onPress={() => { setEditExpId(g.id); setExpForm({ tutar: String(g.tutar ?? ''), tarih: String(g.tarih || '').slice(0, 10), kategori: g.kategori || 'diger', aciklama: g.aciklama || '' }); }}>
+                            <Text style={s.actionBtnText}>Düzenle</Text>
+                          </Pressable>
+                          <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => void apiDelete(`/doctor/clinic/expenses/${g.id}`).then(() => loadClinicExpenses()).catch(alertError)}>
+                            <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
                 </View>
-              ))}
+              ) : null}
             </>
           ) : null}
 
@@ -7176,29 +7614,48 @@ export function ClinicScreen({ onBack }: ModuleProps) {
               {settlements.length === 0 ? (
                 <EmptyState title="Hakediş yok" text="Henüz hesaplanmış hakediş kaydı yok." />
               ) : (
-                settlements.map((h) => (
-                  <View key={h.id} style={s.card}>
-                    <Text style={s.cardTitle}>{h.doktor}</Text>
-                    <Text style={s.cardMeta}>{h.donem_baslangic} → {h.donem_bitis}</Text>
-                    <Text style={s.cardBody}>Gelir: {money(h.toplam_gelir)} · Komisyon: {money(h.komisyon_tutari)}</Text>
-                    <Text style={s.cardBody}>Net: {money(h.net_hakedis)} · {h.durum}</Text>
-                    <SelectField
-                      label="Durum güncelle"
-                      options={[
-                        { label: 'Hesaplandı', value: 'hesaplandi' },
-                        { label: 'Onaylandı', value: 'onaylandi' },
-                        { label: 'Ödendi', value: 'odendi' },
-                      ]}
-                      value={h.durum || 'hesaplandi'}
-                      onChange={(st) =>
-                        void apiPost(`/doctor/clinic/settlements/${h.id}/status`, { durum: st })
-                          .then(() => apiGet<any>('/doctor/clinic/settlements'))
-                          .then((r) => setSettlements(r.data?.items ?? []))
-                          .catch(alertError)
-                      }
-                    />
-                  </View>
-                ))
+                <View style={s.listGroup}>
+                  {settlements.map((h, idx) => {
+                    const paid = h.durum === 'odendi';
+                    const approved = h.durum === 'onaylandi';
+                    const iconColor = paid ? '#10B981' : approved ? '#3B82F6' : '#F59E0B';
+                    const iconBg = paid ? 'rgba(16,185,129,0.12)' : approved ? 'rgba(59,130,246,0.12)' : 'rgba(245,158,11,0.12)';
+                    return (
+                      <View key={h.id}>
+                        {idx > 0 && <View style={s.listCellSep} />}
+                        <View style={[s.listCell, { flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, width: '100%' }}>
+                            <View style={[s.listIconWrap, { backgroundColor: iconBg, marginTop: 2 }]}>
+                              <AppIcon name="finance" size={16} color={iconColor} />
+                            </View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={s.listCellLabel} numberOfLines={1}>{h.doktor}</Text>
+                              <Text style={s.listCellMeta}>{h.donem_baslangic} → {h.donem_bitis}</Text>
+                              <Text style={s.listCellMeta}>Gelir: {money(h.toplam_gelir)} · Net: {money(h.net_hakedis)}</Text>
+                            </View>
+                          </View>
+                          <View style={{ paddingLeft: 44, width: '100%' }}>
+                            <SelectField
+                              label="Durum"
+                              options={[
+                                { label: 'Hesaplandı', value: 'hesaplandi' },
+                                { label: 'Onaylandı', value: 'onaylandi' },
+                                { label: 'Ödendi', value: 'odendi' },
+                              ]}
+                              value={h.durum || 'hesaplandi'}
+                              onChange={(st) =>
+                                void apiPost(`/doctor/clinic/settlements/${h.id}/status`, { durum: st })
+                                  .then(() => apiGet<any>('/doctor/clinic/settlements'))
+                                  .then((r) => setSettlements(r.data?.items ?? []))
+                                  .catch(alertError)
+                              }
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
               )}
             </>
           ) : null}
@@ -8044,10 +8501,13 @@ const pkgStyles = {
   memberCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8EDF3',
     padding: 12,
     marginBottom: 12,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   } as ViewStyle,
   memberRow: {
     flexDirection: 'row' as const,
@@ -8679,29 +9139,25 @@ const bulkStyles = {
   btn: {
     flex: 1,
     borderRadius: 10,
-    paddingVertical: 9,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   btnRead: {
-    backgroundColor: 'rgba(46,158,91,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(46,158,91,0.28)',
+    backgroundColor: 'rgba(16,185,129,0.1)',
   },
   btnDelete: {
-    backgroundColor: 'rgba(193,60,44,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(193,60,44,0.22)',
+    backgroundColor: 'rgba(239,68,68,0.08)',
   },
   btnDisabled: { opacity: 0.4 },
   btnText: {
-    color: '#102133',
-    fontSize: 12,
-    fontWeight: '700' as const,
+    color: '#059669',
+    fontSize: 13,
+    fontWeight: '600' as const,
   },
   btnDeleteText: {
-    color: '#C13C2C',
+    color: '#EF4444',
   },
 };
 

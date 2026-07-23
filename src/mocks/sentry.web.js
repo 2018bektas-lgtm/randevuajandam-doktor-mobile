@@ -1,0 +1,20 @@
+// @sentry/react-native is mobile-only — no-op stub for web platform.
+export const init = () => {};
+export const mobileReplayIntegration = () => ({ name: 'MobileReplay', setupOnce: () => {} });
+export const setUser = () => {};
+export const setExtra = () => {};
+export const setTag = () => {};
+export const setContext = () => {};
+export const captureException = () => '';
+export const captureMessage = () => '';
+export const captureEvent = () => '';
+export const addBreadcrumb = () => {};
+export const withScope = (cb) => cb({ setTag: () => {}, setExtra: () => {}, setUser: () => {} });
+export const configureScope = (cb) => {};
+export const startTransaction = () => ({ finish: () => {}, setData: () => {}, setTag: () => {} });
+export const wrap = (fn) => fn;
+export const ErrorBoundary = ({ children }) => children;
+export const withProfiler = (Comp) => Comp;
+export const Native = { fetchNativeRelease: async () => ({}) };
+export const ReactNavigationInstrumentation = class {};
+export const ReactNativeTracing = class { constructor() {} };

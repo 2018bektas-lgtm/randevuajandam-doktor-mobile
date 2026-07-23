@@ -2,7 +2,7 @@
   "expo": {
     "name": "Randevu Ajandam Doktor",
     "slug": "randevuajandam-doktor-mobile",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.randevuajandam.doktor",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#F4F6F9",
         "foregroundImage": "./assets/logo.png"
@@ -79,7 +79,8 @@
           "defaultChannel": "randevu",
           "sounds": []
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "eas": {
