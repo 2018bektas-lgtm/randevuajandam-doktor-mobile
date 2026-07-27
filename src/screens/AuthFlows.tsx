@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { TextField } from '../components/TextField';
@@ -16,6 +17,12 @@ import { API_URL } from '../api/client';
 import { colors, spacing } from '../theme';
 import { AppIcon } from '../components/AppIcon';
 import { loadPendingIap } from '../services/iap';
+
+type BelgeAsset = {
+  uri: string;
+  name: string;
+  type: string;
+};
 
 export type AuthMode = 'login' | 'forgot' | 'register' | 'reset';
 
@@ -84,6 +91,7 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
   const [tcKimlik, setTcKimlik] = useState('');
   const [diplomaNo, setDiplomaNo] = useState('');
   const [edevletBarkod, setEdevletBarkod] = useState('');
+  const [belgeler, setBelgeler] = useState<BelgeAsset[]>([]);
   const [unvan, setUnvan] = useState<string | null>(null);
   const [ilId, setIlId] = useState<number | null>(null);
   const [ilceId, setIlceId] = useState<number | null>(null);
@@ -292,6 +300,36 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
     setRegStep('verify');
   }, [adSoyad, branslar, email, ilId, ilceId, sifre, sifre2, tcKimlik, telefon, unvan]);
 
+  const pickBelge = useCallback(async () => {
+    setError(null);
+    if (belgeler.length >= 8) {
+      setError('En fazla 8 belge yükleyebilirsiniz.');
+      return;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setError('Galeri izni gerekli. Ayarlardan izin verin.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsMultipleSelection: true,
+      selectionLimit: Math.max(1, 8 - belgeler.length),
+    });
+    if (result.canceled || !result.assets?.length) return;
+    const next: BelgeAsset[] = result.assets.map((a, i) => {
+      const ext = (a.uri.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      return {
+        uri: a.uri,
+        name: a.fileName || `meslek-belge-${Date.now()}-${i}.${ext === 'jpg' || ext === 'jpeg' || ext === 'png' ? ext : 'jpg'}`,
+        type: a.mimeType || mime,
+      };
+    });
+    setBelgeler((prev) => [...prev, ...next].slice(0, 8));
+  }, [belgeler.length]);
+
   const submitRegister = useCallback(async () => {
     setError(null);
     if (!paketId) {
@@ -304,8 +342,8 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
       setError('T.C. kimlik numarası 11 haneli olmalıdır.');
       return;
     }
-    if (!diplomaNo.trim() && !edevletBarkod.trim()) {
-      setError('Diploma / tescil no veya e-Devlet barkodu girin.');
+    if (belgeler.length === 0) {
+      setError('En az bir mezuniyet / meslek belgesi (fotoğraf) yükleyin.');
       return;
     }
     if (!kvkk || !sozlesme) {
@@ -314,35 +352,43 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
     }
     setBusy(true);
     try {
+      const fd = new FormData();
+      fd.append('ad_soyad', adSoyad.trim());
+      fd.append('e_posta', email.trim());
+      fd.append('telefon', telefon.trim());
+      fd.append('tc_kimlik_no', tc);
+      if (diplomaNo.trim()) fd.append('diploma_no', diplomaNo.trim());
+      if (edevletBarkod.trim()) fd.append('edevlet_barkod', edevletBarkod.trim());
+      fd.append('unvan', String(unvan ?? ''));
+      fd.append('il_id', String(ilId ?? ''));
+      fd.append('ilce_id', String(ilceId ?? ''));
+      branslar.forEach((id) => fd.append('branslar[]', String(id)));
+      fd.append('paket_id', String(paketId));
+      fd.append('kayit_periyot', period);
+      fd.append('kvkk_onay', '1');
+      fd.append('sozlesme_onay', '1');
+      fd.append('sifre', sifre);
+      fd.append('sifre_confirmation', sifre2);
+      fd.append('device', Platform.OS);
+      belgeler.forEach((b, i) => {
+        fd.append('mezuniyet_belgeleri[]', {
+          uri: b.uri,
+          name: b.name || `belge-${i}.jpg`,
+          type: b.type || 'image/jpeg',
+        } as any);
+      });
+
       const res = await fetch(`${API_URL}/doctor/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          ad_soyad: adSoyad.trim(),
-          e_posta: email.trim(),
-          telefon: telefon.trim(),
-          tc_kimlik_no: tc,
-          diploma_no: diplomaNo.trim() || null,
-          edevlet_barkod: edevletBarkod.trim() || null,
-          unvan,
-          il_id: ilId,
-          ilce_id: ilceId,
-          branslar,
-          paket_id: paketId,
-          kayit_periyot: period,
-          kvkk_onay: true,
-          sozlesme_onay: true,
-          sifre,
-          sifre_confirmation: sifre2,
-          device: Platform.OS,
-        }),
+        headers: { Accept: 'application/json' },
+        body: fd,
       });
       const json = await res.json();
       if (!res.ok || !json.success || !json.data?.token || !json.data?.doktor) {
         setError(json.message ?? 'Kayıt başarısız.');
         return;
       }
-      setDoneMsg(json.message ?? 'Kayıt alındı.');
+      setDoneMsg(json.message ?? 'Kayıt alındı. Belgeleriniz yönetici onayına gönderildi.');
       setDoneStep(json.data.next_step ?? 'meslek_bekleme');
       setRegStep('done');
       onRegistered({
@@ -359,6 +405,7 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
     }
   }, [
     adSoyad,
+    belgeler,
     branslar,
     diplomaNo,
     edevletBarkod,
@@ -458,7 +505,7 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
         : regStep === 'account'
           ? '2/3 · Hesap'
           : regStep === 'verify'
-            ? '3/3 · Doğrulama'
+            ? '3/3 · Belgeler'
             : 'Tamam';
 
     return (
@@ -472,18 +519,18 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
             : regStep === 'account'
               ? 'Hesap bilgileri'
               : regStep === 'verify'
-                ? 'Meslek & yasal onay'
+                ? 'Belgeler & yasal onay'
                 : 'Kayıt alındı'}
         </Text>
         <Text style={styles.desc}>
           {regStep === 'package'
-            ? 'Site kaydıyla aynı: önce paket, sonra hesap + meslek doğrulama. Ödeme meslek onayı sonrası.'
+            ? 'Önce paket seçin, sonra hesap ve belgelerinizi yükleyin. Ödeme yönetici onayından sonra.'
             : regStep === 'account'
               ? selectedPkg
                 ? `Seçili paket: ${selectedPkg.ad}. Kimlik ve iletişim bilgilerinizi girin.`
                 : 'Kimlik ve iletişim bilgilerinizi girin.'
               : regStep === 'verify'
-                ? 'e-Devlet barkodu veya diploma no + KVKK onayı (site ile aynı zorunluluklar).'
+                ? 'Diploma / meslek belgesi fotoğraflarınızı yükleyin. Kaydınız hemen oluşur; yönetici onaylar.'
                 : doneMsg ?? 'Devam edebilirsiniz.'}
         </Text>
 
@@ -660,7 +707,7 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
             <TextField label="Şifre" value={sifre} onChangeText={setSifre} secureTextEntry />
             <TextField label="Şifre tekrar" value={sifre2} onChangeText={setSifre2} secureTextEntry />
             {error ? <Text style={styles.err}>{error}</Text> : null}
-            <Button label="Devam — meslek doğrulama" onPress={goVerifyStep} style={styles.btn} />
+            <Button label="Devam — belgeler" onPress={goVerifyStep} style={styles.btn} />
             <Pressable onPress={() => setRegStep('package')} hitSlop={8}>
               <Text style={styles.linkSoft}>← Paket seçimine dön</Text>
             </Pressable>
@@ -668,21 +715,39 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
         ) : regStep === 'verify' ? (
           <>
             <Text style={styles.desc}>
-              Site kaydıyla aynı: e-Devlet mezuniyet barkodu veya diploma/tescil no ile meslek
-              doğrulama kuyruğuna alınır. Onaylanmadan ödeme/panel tam açılmaz.
+              Sistem otomatik doğrulama yapmaz. Belgelerinizi yükleyin; kaydınız oluşur ve yönetici
+              onaylar. Onaylanmadan ödeme açılmaz.
             </Text>
+            <Button
+              label={belgeler.length ? `Belge ekle (${belgeler.length}/8)` : 'Belge fotoğrafı seç (zorunlu)'}
+              onPress={() => void pickBelge()}
+              style={styles.btn}
+            />
+            {belgeler.map((b, i) => (
+              <View key={`${b.uri}-${i}`} style={styles.belgeRow}>
+                <Text style={styles.belgeName} numberOfLines={1}>
+                  {i + 1}. {b.name}
+                </Text>
+                <Pressable
+                  onPress={() => setBelgeler((prev) => prev.filter((_, idx) => idx !== i))}
+                  hitSlop={8}
+                >
+                  <Text style={styles.belgeRemove}>Kaldır</Text>
+                </Pressable>
+              </View>
+            ))}
             <TextField
-              label="e-Devlet barkod (önerilen)"
+              label="Diploma / tescil no (isteğe bağlı)"
+              value={diplomaNo}
+              onChangeText={setDiplomaNo}
+              placeholder="Yönetici incelemesi için"
+            />
+            <TextField
+              label="e-Devlet barkod (isteğe bağlı)"
               value={edevletBarkod}
               onChangeText={setEdevletBarkod}
               autoCapitalize="characters"
               placeholder="Belge barkodu"
-            />
-            <TextField
-              label="Diploma / tescil no"
-              value={diplomaNo}
-              onChangeText={setDiplomaNo}
-              placeholder="Barkod yoksa zorunlu"
             />
             <Pressable style={styles.checkRow} onPress={() => setKvkk((v) => !v)}>
               <View style={[styles.checkbox, kvkk && styles.checkboxOn]}>
@@ -711,25 +776,12 @@ export function AuthFlows({ mode, onChangeMode, onRegistered, resetToken, resetE
         ) : (
           <>
             <View style={styles.doneBox}>
-              <AppIcon
-                name={doneStep === 'payment' ? 'package' : 'time'}
-                size={28}
-                color={colors.brand.orange}
-              />
-              <Text style={styles.doneTitle}>
-                {doneStep === 'payment' ? 'Ödeme adımına hazırsınız' : 'Meslek onayı bekleniyor'}
-              </Text>
+              <AppIcon name="time" size={28} color={colors.brand.orange} />
+              <Text style={styles.doneTitle}>Yönetici onayı bekleniyor</Text>
               <Text style={styles.desc}>{doneMsg}</Text>
-              {doneStep === 'meslek_bekleme' ? (
-                <Text style={styles.desc}>
-                  Yönetici onayından sonra seçtiğiniz paketi aktifleştirebilir / ödeyebilirsiniz.
-                  Panelde paket ekranından devam edin.
-                </Text>
-              ) : (
-                <Text style={styles.desc}>
-                  Giriş sonrası paket / abonelik ekranından ödemeyi tamamlayın.
-                </Text>
-              )}
+              <Text style={styles.desc}>
+                Yönetici onayından sonra seçtiğiniz paketi aktifleştirebilir / ödeyebilirsiniz.
+              </Text>
             </View>
           </>
         )}
@@ -890,4 +942,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
   },
+  belgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  belgeName: { flex: 1, color: '#9A3412', fontSize: 12, fontWeight: '600' },
+  belgeRemove: { color: '#DC2626', fontSize: 12, fontWeight: '700' },
 });
