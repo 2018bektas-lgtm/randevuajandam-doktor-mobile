@@ -42,7 +42,9 @@ export type AppIconName =
   | 'chevronUp'
   | 'chevronDown'
   | 'image'
-  | 'edit';
+  | 'edit'
+  | 'send'
+  | 'chatbot';
 
 const MAP: Record<AppIconName, ComponentProps<typeof Ionicons>['name']> = {
   home: 'home',
@@ -84,6 +86,8 @@ const MAP: Record<AppIconName, ComponentProps<typeof Ionicons>['name']> = {
   chevronDown: 'chevron-down',
   image: 'image',
   edit: 'pencil',
+  send: 'send',
+  chatbot: 'chatbubble-ellipses',
 };
 
 type Props = {

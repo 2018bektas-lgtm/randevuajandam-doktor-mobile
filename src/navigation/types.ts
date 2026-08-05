@@ -19,6 +19,7 @@ export type ScreenId =
   | 'financeBalances'
   | 'financePatientAccount'
   | 'faq'
+  | 'consentForms'
   | 'education'
   | 'educationApps'
   | 'profile'
@@ -30,7 +31,8 @@ export type ScreenId =
   | 'notifications'
   | 'packages'
   | 'referral'
-  | 'menu';
+  | 'menu'
+  | 'asistan';
 
 export type ModuleProps = {
   onBack: () => void;
