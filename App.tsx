@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
@@ -16,6 +17,7 @@ import {
   Share,
   StatusBar as RNStatusBar,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -73,6 +75,17 @@ import {
   registerForPushNotificationsDetailed,
 } from './src/services/push';
 import { applyPendingPackageAfterAuth, loginPurchasesUser } from './src/services/iap';
+import {
+  FEATURE_HASTA_DOSYA,
+  FEATURE_ICAL,
+  FEATURE_ONLINE_GORUSME,
+  FEATURE_SERI_RANDEVU,
+  clearPackageFeaturesCache,
+  ensureFeature,
+  ensureScreen,
+  loadPackageFeatures,
+} from './src/services/packageFeatures';
+import { usePackageFeatures } from './src/hooks/usePackageFeatures';
 import { colors } from './src/theme';
 import { useLayout } from './src/layout';
 
@@ -86,10 +99,14 @@ type Doctor = {
   branslar: string[];
 };
 
+const sentryDsn =
+  (process.env.EXPO_PUBLIC_SENTRY_DSN || '').trim() ||
+  String((Constants.expoConfig?.extra as { sentryDsn?: string } | undefined)?.sentryDsn || '').trim();
+
 Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
-  tracesSampleRate: 0.2,
+  dsn: sentryDsn || undefined,
+  enabled: !!sentryDsn,
+  tracesSampleRate: 0.15,
   integrations: Platform.OS !== 'web' ? [Sentry.mobileReplayIntegration()] : [],
 });
 
@@ -374,6 +391,7 @@ function App() {
       }
     } finally {
       await tokenStore.clearAll();
+      clearPackageFeaturesCache();
       setDoctor(null);
       setStaff(null);
       // Çıkış sonrası misafir → yine tanıtım (Zaten hesabım var ile giriş)
@@ -1030,6 +1048,10 @@ function sortAppointments(list: Appointment[]): Appointment[] {
 }
 
 function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () => Promise<void> }) {
+  // Warm package-features cache (site allowlist) for menu / tab / screen gates
+  useEffect(() => {
+    void loadPackageFeatures(true);
+  }, [doctor.id]);
   const L = useLayout();
   const title = [doctor.unvan, doctor.ad_soyad].filter(Boolean).join(' ');
   const specialty = doctor.branslar.join(' · ') || doctor.uzmanlik_alani || 'Doktor paneli';
@@ -1049,6 +1071,14 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   const [screen, setScreen] = useState<ScreenId>('overview');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [deepLinkPending, setDeepLinkPending] = useState<string | null>(null);
+
+  const goToScreen = useCallback((next: ScreenId) => {
+    void (async () => {
+      await loadPackageFeatures();
+      if (!ensureScreen(next, null, () => setScreen('packages'))) return;
+      setScreen(next);
+    })();
+  }, []);
   const isCalendar = screen === 'calendar';
   const isOverview = screen === 'overview';
   const isQuickClose = screen === 'quickClose';
@@ -1061,6 +1091,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
     || screen === 'packages'
     || screen === 'notifications'
     || screen === 'referral'
+    || screen === 'smsCredits'
   );
   const isMenuTab = screen === 'menu';
   const isCoreHome = isOverview || isCalendar;
@@ -1089,25 +1120,25 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
       if (s.includes('package') || s.includes('paket')) {
         setScreen('packages');
       } else if (s.includes('request') || s.includes('talep')) {
-        setScreen('requests');
+        goToScreen('requests');
       } else if (s.includes('patient') || s.includes('hasta')) {
-        setScreen('patients');
+        goToScreen('patients');
       } else if (s.includes('notif')) {
         setScreen('notifications');
       } else if (s.includes('calendar') || s.includes('takvim') || s.includes('appointment') || s.includes('randevu')) {
-        setScreen('calendar');
+        goToScreen('calendar');
         const apptId = Number(data.appointment_id ?? data.id);
         if (apptId) {
           setDeepLinkPending(String(apptId));
         }
       } else if (data.appointment_id) {
-        setScreen('calendar');
+        goToScreen('calendar');
         setDeepLinkPending(String(data.appointment_id));
       } else {
         setScreen('notifications');
       }
     });
-  }, []);
+  }, [goToScreen]);
 
   const handleModuleBack = useCallback(() => {
     if (
@@ -1332,15 +1363,15 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         const normalized = url.replace(/^randevuajandam-doktor:\/\//, '').replace(/^\//, '');
         const [path, idPart] = normalized.split('/');
         if (path === 'calendar' || path === 'takvim') {
-          setScreen('calendar');
+          goToScreen('calendar');
         } else if (path === 'menu') {
           setScreen('menu');
         } else if (path === 'patients' || path === 'hastalar') {
-          setScreen('patients');
+          goToScreen('patients');
         } else if (path === 'requests' || path === 'talepler') {
-          setScreen('requests');
+          goToScreen('requests');
         } else if (path === 'finance' || path === 'finans') {
-          setScreen('finance');
+          goToScreen('finance');
         } else if (path === 'clinic' || path === 'klinik') {
           setScreen('clinic');
         } else if (path === 'packages' || path === 'paket') {
@@ -1348,13 +1379,13 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         } else if (path === 'notifications' || path === 'bildirim') {
           setScreen('notifications');
         } else if (path === 'appointment' || path === 'randevu') {
-          setScreen('calendar');
+          goToScreen('calendar');
           const apptId = Number(idPart);
           if (apptId) {
             setDeepLinkPending(String(apptId));
           }
         } else if (path === 'create' || path === 'yeni') {
-          setScreen('calendar');
+          goToScreen('calendar');
           setCreateOpen(true);
         }
       } catch {
@@ -1364,7 +1395,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
     void Linking.getInitialURL().then(handleUrl);
     const sub = Linking.addEventListener('url', (e) => handleUrl(e.url));
     return () => sub.remove();
-  }, []);
+  }, [goToScreen]);
 
   useEffect(() => {
     if (!deepLinkPending || weekAppointments.length === 0) return;
@@ -1410,6 +1441,9 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   }
 
   async function exportIcal() {
+    if (!ensureFeature(null, FEATURE_ICAL, () => setScreen('packages'))) {
+      return;
+    }
     try {
       const response = await fetch(`${API_URL}/doctor/calendar/ical?json=1`, {
         headers: await authHeaders(),
@@ -1455,8 +1489,8 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
       active={activeTab}
       onChange={(tab) => {
         if (tab === 'overview') setScreen('overview');
-        else if (tab === 'calendar') setScreen('calendar');
-        else if (tab === 'quickClose') setScreen('quickClose');
+        else if (tab === 'calendar') goToScreen('calendar');
+        else if (tab === 'quickClose') goToScreen('quickClose');
         else if (tab === 'menu') setScreen('menu');
         else setScreen('profile');
       }}
@@ -1469,7 +1503,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
         <View style={styles.moduleBody}>
           <ModuleScreen
             onBack={handleModuleBack}
-            onNavigate={(next) => setScreen(next === 'calendar' ? 'calendar' : next)}
+            onNavigate={(next) => goToScreen(next === 'calendar' ? 'calendar' : next)}
             onSignOut={onSignOut}
           />
         </View>
@@ -1695,7 +1729,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
                     }
                   })();
                 }}
-                onNavigate={(screen) => setScreen(screen as ScreenId)}
+                onNavigate={(screen) => goToScreen(screen as ScreenId)}
               />
             ) : null}
 
@@ -2317,7 +2351,13 @@ function AppointmentDetailModal({
                   {detail.durum === 'onaylandi' ? (
                     <Pressable
                       style={[styles.modalPrimaryButton, { marginTop: 14 }]}
-                      onPress={() => setVideoCallOpen(true)}
+                      onPress={() => {
+                        void (async () => {
+                          await loadPackageFeatures();
+                          if (!ensureFeature(null, FEATURE_ONLINE_GORUSME)) return;
+                          setVideoCallOpen(true);
+                        })();
+                      }}
                     >
                       <Text style={styles.modalPrimaryButtonText}>📹 Görüşmeye katıl</Text>
                     </Pressable>
@@ -2435,8 +2475,14 @@ function CreateAppointmentModal({
   onClose: () => void;
   onCreated: () => Promise<void>;
 }) {
+  const pkg = usePackageFeatures();
+  const canSeri = pkg.can(FEATURE_SERI_RANDEVU);
+  const canNote = pkg.can(FEATURE_HASTA_DOSYA);
   const [tarih, setTarih] = useState(defaultDate);
   const [saat, setSaat] = useState('09:00');
+  const [seri, setSeri] = useState(false);
+  const [seriAdet, setSeriAdet] = useState('4');
+  const [seriAralik, setSeriAralik] = useState('7');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [patientQuery, setPatientQuery] = useState('');
   const [patients, setPatients] = useState<PatientOption[]>([]);
@@ -2472,6 +2518,9 @@ function CreateAppointmentModal({
     setSelectedServiceId(null);
     setGorusmeTipi('yuz_yuze');
     setNote('');
+    setSeri(false);
+    setSeriAdet('4');
+    setSeriAralik('7');
     setHasSearched(false);
     setFormError(null);
 
@@ -2633,6 +2682,8 @@ function CreateAppointmentModal({
         return;
       }
 
+      const adet = Math.max(2, Math.min(52, Number(seriAdet) || 2));
+      const aralik = Math.max(1, Math.min(90, Number(seriAralik) || 7));
       const response = await fetch(`${API_URL}/doctor/appointments`, {
         method: 'POST',
         headers: await authHeaders({ 'Content-Type': 'application/json' }),
@@ -2641,8 +2692,11 @@ function CreateAppointmentModal({
           hizmet_id: selectedServiceId,
           tarih,
           saat,
-          aciklama: note || null,
+          aciklama: canNote ? note || null : null,
           gorusme_tipi: gorusmeTipi,
+          ...(canSeri && seri
+            ? { seri: true, seri_adet: adet, seri_aralik_gun: aralik }
+            : {}),
         }),
       });
       const payload = await response.json();
@@ -2852,15 +2906,66 @@ function CreateAppointmentModal({
                 onChange={setGorusmeTipi}
               />
 
-              <Text style={styles.modalLabel}>Not (opsiyonel)</Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalTextArea]}
-                value={note}
-                onChangeText={setNote}
-                multiline
-                placeholder="Hekim notu veya açıklama"
-                placeholderTextColor="#6B7F93"
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, marginBottom: 8 }}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.modalLabel}>Tekrarlayan (seri) randevu</Text>
+                  <Text style={styles.modalHint}>
+                    {canSeri
+                      ? 'Aynı saatle birden fazla seans oluşturur.'
+                      : 'Paketinizde yok. Paket yükseltince açılır.'}
+                  </Text>
+                </View>
+                <Switch
+                  value={canSeri && seri}
+                  onValueChange={(v) => {
+                    if (!canSeri) {
+                      Alert.alert('Paket gerekli', 'Seri / tekrarlayan randevu mevcut paketinizde yok.');
+                      return;
+                    }
+                    setSeri(v);
+                  }}
+                  trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
+                  thumbColor={canSeri && seri ? '#F58A45' : '#7A8B9C'}
+                />
+              </View>
+              {canSeri && seri ? (
+                <>
+                  <Text style={styles.modalLabel}>Seans adedi (2–52)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={seriAdet}
+                    onChangeText={setSeriAdet}
+                    keyboardType="number-pad"
+                    placeholder="4"
+                    placeholderTextColor="#6B7F93"
+                  />
+                  <Text style={styles.modalLabel}>Aralık (gün)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={seriAralik}
+                    onChangeText={setSeriAralik}
+                    keyboardType="number-pad"
+                    placeholder="7"
+                    placeholderTextColor="#6B7F93"
+                  />
+                </>
+              ) : null}
+
+              {canNote ? (
+                <>
+                  <Text style={styles.modalLabel}>Not (opsiyonel)</Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.modalTextArea]}
+                    value={note}
+                    onChangeText={setNote}
+                    multiline
+                    placeholder="Hekim notu veya açıklama"
+                    placeholderTextColor="#6B7F93"
+                  />
+                </>
+              ) : (
+                <Text style={styles.modalHint}>Randevu notu paketinizde yok (hasta not / dosya).</Text>
+              )}
 
               {formError ? <Text style={styles.modalError}>{formError}</Text> : null}
 

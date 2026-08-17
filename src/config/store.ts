@@ -105,3 +105,18 @@ export function appVersion(): string {
 export function isIapConfigured(): boolean {
   return Boolean(revenueCatApiKey());
 }
+
+/** True when App Store / Play review deep-link can be shown. */
+export function isStoreReviewConfigured(): boolean {
+  return Boolean(storeReviewUrl());
+}
+
+/** Human-readable build label for support / about screens. */
+export function buildLabel(): string {
+  const v = appVersion();
+  const build =
+    Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode;
+  return build != null && String(build) !== '' ? `${v} (${build})` : v;
+}

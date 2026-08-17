@@ -62,6 +62,7 @@ const HIZLI_ISLEMLER = [
   { etiket: 'Bekleme listesi',             mesaj: 'bekleme listemde kimler var' },
   { etiket: 'Hizmetlerimi listele',        mesaj: 'hizmetlerimi listele' },
   { etiket: 'Profilime SEO önerisi',       mesaj: 'profilimi SEO açısından incele ve önerilerde bulun' },
+  { etiket: 'Blog yazılarımı SEO incele',  mesaj: 'blog yazılarımı SEO açısından analiz et ve önerilerde bulun' },
 ] as const;
 
 // ── Ana ekran ──────────────────────────────────────────────────
@@ -102,18 +103,20 @@ export function AsistanScreen({ onBack }: ModuleProps) {
       const body = payload ?? { mesaj: metin, gecmis: gecmis.slice(-10) };
       try {
         const res = await apiPost<AsistanYanit>('/doctor/asistan/mesaj', body as Record<string, unknown>);
-        const yanit = res.data?.yanit ?? 'Yanıt alınamadı.';
+        const raw = res as AsistanYanit & { data?: AsistanYanit };
+        const paket = raw.data ?? raw;
+        const yanit = (paket.yanit ?? '').trim() || 'Yanıt alınamadı.';
         setGecmis((prev) => [
           ...prev,
-          { rol: 'kullanici', mesaj: metin },
+          ...(metin.trim() ? [{ rol: 'kullanici' as Rol, mesaj: metin }] : []),
           { rol: 'asistan', mesaj: yanit },
         ]);
         ekle('asistan', yanit);
 
-        if (res.data?.secim_gerekli) {
-          setSecim(res.data.secim_gerekli);
-        } else if (res.data?.onay_gerekli) {
-          setOnay(res.data.onay_gerekli);
+        if (paket.secim_gerekli) {
+          setSecim(paket.secim_gerekli);
+        } else if (paket.onay_gerekli) {
+          setOnay(paket.onay_gerekli);
         }
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : 'Bağlantı hatası. Lütfen tekrar deneyin.';

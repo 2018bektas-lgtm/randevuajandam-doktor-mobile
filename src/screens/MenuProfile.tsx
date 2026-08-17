@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,12 +12,12 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon, AppIconName } from '../components/AppIcon';
 import { HeaderIconButton, SearchField } from '../components/ContentUI';
-import { apiGet } from '../api/client';
+import { usePackageFeatures } from '../hooks/usePackageFeatures';
 import { useLayout } from '../layout';
 import type { ModuleProps, ScreenId } from '../navigation/types';
+import { SCREEN_FEATURES, ensureScreen, hasAnyFeature } from '../services/packageFeatures';
 import { colors } from '../theme';
 
 type MenuItem = {
@@ -25,7 +25,8 @@ type MenuItem = {
   title: string;
   description: string;
   screen: ScreenId;
-  feature?: string;
+  /** Override; default = SCREEN_FEATURES[screen] */
+  feature?: string | string[];
   tint: string;
 };
 
@@ -36,8 +37,9 @@ const MENU_GROUPS: MenuGroup[] = [
     title: 'Randevu',
     items: [
       { icon: 'calendar', title: 'Takvim', description: 'Günlük plan', screen: 'calendar', tint: '#EE7D31' },
-      { icon: 'requests', title: 'Talepler', description: 'Onay bekleyenler', screen: 'requests', feature: 'randevu_talepleri', tint: '#F59E0B' },
-      { icon: 'people', title: 'Hastalar', description: 'Kayıtlar', screen: 'patients', tint: '#3B82F6' },
+      { icon: 'requests', title: 'Talepler', description: 'Onay bekleyenler', screen: 'requests', tint: '#F59E0B' },
+      { icon: 'people', title: 'Hastalar', description: 'Kayıtlar & dosyalar', screen: 'patients', tint: '#3B82F6' },
+      { icon: 'document', title: 'Onam formları', description: 'Form & imza', screen: 'consentForms', tint: '#0D9488' },
       { icon: 'waitlist', title: 'Bekleme listesi', description: 'Boş slot', screen: 'waitlist', tint: '#8B5CF6' },
       { icon: 'block', title: 'Hızlı kapat', description: 'Saat kapat/aç', screen: 'quickClose', tint: '#EF4444' },
       { icon: 'time', title: 'İzin / tatil', description: 'Müsaitlik', screen: 'leaves', tint: '#06B6D4' },
@@ -49,22 +51,28 @@ const MENU_GROUPS: MenuGroup[] = [
     title: 'İçerik',
     items: [
       { icon: 'list', title: 'Hizmetler', description: 'Süre & fiyat', screen: 'services', tint: '#10B981' },
-      { icon: 'blog', title: 'Blog', description: 'Yazılar', screen: 'blogs', feature: 'blog', tint: '#6366F1' },
+      { icon: 'blog', title: 'Blog', description: 'Yazılar', screen: 'blogs', tint: '#6366F1' },
       { icon: 'star', title: 'Yorumlar', description: 'Hasta geri bildirimi', screen: 'reviews', tint: '#EAB308' },
-      { icon: 'gallery', title: 'Galeri', description: 'Fotoğraflar', screen: 'gallery', feature: 'galeri', tint: '#EC4899' },
-      { icon: 'document', title: 'SSS', description: 'Sık sorulanlar', screen: 'faq', feature: 'faq', tint: '#14B8A6' },
-      { icon: 'education', title: 'Eğitimler', description: 'Kurs & seminer', screen: 'education', feature: 'egitimler', tint: '#8B5CF6' },
-      { icon: 'mail', title: 'Eğitim başvuruları', description: 'Başvuru listesi', screen: 'educationApps', feature: 'egitimler', tint: '#A855F7' },
+      { icon: 'gallery', title: 'Galeri', description: 'Fotoğraflar', screen: 'gallery', tint: '#EC4899' },
+      { icon: 'document', title: 'SSS', description: 'Sık sorulanlar', screen: 'faq', tint: '#14B8A6' },
+      { icon: 'education', title: 'Eğitimler', description: 'Kurs & seminer', screen: 'education', tint: '#8B5CF6' },
+      { icon: 'mail', title: 'Eğitim başvuruları', description: 'Başvuru listesi', screen: 'educationApps', tint: '#A855F7' },
     ],
   },
   {
     title: 'İşletme',
     items: [
-      { icon: 'finance', title: 'Finans', description: 'Gelir & gider', screen: 'finance', feature: 'finans', tint: '#22C55E' },
+      { icon: 'finance', title: 'Finans', description: 'Gelir & gider', screen: 'finance', tint: '#22C55E' },
+      { icon: 'mail', title: 'SMS kontör', description: 'Bakiye & hatırlatma', screen: 'smsCredits', tint: '#0EA5E9' },
       { icon: 'clinic', title: 'Klinik', description: 'Ekip & yönetim', screen: 'clinic', tint: '#0F172A' },
     ],
   },
 ];
+
+function itemFeatureCodes(item: MenuItem): string | string[] | null {
+  if (item.feature != null) return item.feature;
+  return SCREEN_FEATURES[item.screen] ?? null;
+}
 
 function MenuRow({
   item,
@@ -103,31 +111,14 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
   const L = useLayout();
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [features, setFeatures] = useState<string[]>([]);
-  const [restrict, setRestrict] = useState(false);
-  const [paketAd, setPaketAd] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await apiGet<{ features: string[]; restrict: boolean; paket: { ad?: string } | null }>(
-          '/doctor/package-features',
-        );
-        setFeatures(res.data?.features ?? []);
-        setRestrict(!!res.data?.restrict);
-        setPaketAd(res.data?.paket?.ad ?? null);
-      } catch {
-        setRestrict(false);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const pkg = usePackageFeatures();
+  const loading = pkg.loading;
+  const paketAd = pkg.paketAd;
 
   function isLocked(item: MenuItem): boolean {
-    if (!restrict || !item.feature) return false;
-    return !features.includes(item.feature);
+    const codes = itemFeatureCodes(item);
+    if (codes == null) return false;
+    return !hasAnyFeature(pkg.features, codes, pkg.restrict);
   }
 
   function openItem(item: MenuItem) {
@@ -139,6 +130,11 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
       return;
     }
     onNavigate(item.screen);
+  }
+
+  function openQuick(screen: ScreenId) {
+    if (!ensureScreen(screen, pkg, () => onNavigate('packages'))) return;
+    onNavigate(screen);
   }
 
   const allItems = MENU_GROUPS.flatMap((g) => g.items);
@@ -240,18 +236,22 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
         <View style={styles.quickGrid}>
           <Pressable
             style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FFF7ED' }, pressed && styles.pressed]}
-            onPress={() => onNavigate('calendar')}
+            onPress={() => openQuick('calendar')}
           >
             <View style={[styles.quickIcon, { backgroundColor: '#EE7D31' }]}>
               <AppIcon name="calendar" size={18} color="#FFFFFF" />
             </View>
             <Text style={styles.quickTitle}>Takvim</Text>
-            <Text style={styles.quickSub}>Günlük plan</Text>
+            <Text style={styles.quickSub}>
+              {isLocked({ icon: 'calendar', title: '', description: '', screen: 'calendar', tint: '' })
+                ? 'Paket gerekli'
+                : 'Günlük plan'}
+            </Text>
           </Pressable>
 
           <Pressable
             style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF3C7' }, pressed && styles.pressed]}
-            onPress={() => onNavigate('requests')}
+            onPress={() => openQuick('requests')}
           >
             <View style={[styles.quickIcon, { backgroundColor: '#F59E0B' }]}>
               <AppIcon name="requests" size={18} color="#FFFFFF" />
@@ -262,7 +262,7 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
 
           <Pressable
             style={({ pressed }) => [styles.quickTile, { backgroundColor: '#EFF6FF' }, pressed && styles.pressed]}
-            onPress={() => onNavigate('patients')}
+            onPress={() => openQuick('patients')}
           >
             <View style={[styles.quickIcon, { backgroundColor: '#3B82F6' }]}>
               <AppIcon name="people" size={18} color="#FFFFFF" />
@@ -273,7 +273,7 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
 
           <Pressable
             style={({ pressed }) => [styles.quickTile, { backgroundColor: '#FEF2F2' }, pressed && styles.pressed]}
-            onPress={() => onNavigate('quickClose')}
+            onPress={() => openQuick('quickClose')}
           >
             <View style={[styles.quickIcon, { backgroundColor: '#EF4444' }]}>
               <AppIcon name="block" size={18} color="#FFFFFF" />
@@ -461,33 +461,64 @@ export function ProfileLinkGroup({
   onNavigate,
 }: {
   title: string;
-  items: { icon: AppIconName; title: string; description: string; screen: ScreenId; tint: string }[];
+  items: {
+    icon: AppIconName;
+    title: string;
+    description: string;
+    screen: ScreenId;
+    tint: string;
+    feature?: string | string[];
+  }[];
   onNavigate: (s: ScreenId) => void;
 }) {
+  const pkg = usePackageFeatures();
+
+  function locked(item: (typeof items)[number]): boolean {
+    const codes = item.feature ?? SCREEN_FEATURES[item.screen] ?? null;
+    if (codes == null) return false;
+    return !hasAnyFeature(pkg.features, codes, pkg.restrict);
+  }
+
   return (
     <View style={styles.group}>
       <Text style={styles.groupLabel}>{title}</Text>
       <View style={styles.card}>
-        {items.map((item, i) => (
-          <Pressable
-            key={item.screen}
-            onPress={() => onNavigate(item.screen)}
-            style={({ pressed }) => [
-              styles.row,
-              i < items.length - 1 && styles.rowBorder,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={[styles.iconBox, { backgroundColor: `${item.tint}18` }]}>
-              <AppIcon name={item.icon} size={16} color={item.tint} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={styles.rowTitle}>{item.title}</Text>
-              <Text style={styles.rowSub}>{item.description}</Text>
-            </View>
-            <AppIcon name="chevronRight" size={16} color="#CBD5E1" />
-          </Pressable>
-        ))}
+        {items.map((item, i) => {
+          const isLock = locked(item);
+          return (
+            <Pressable
+              key={item.screen}
+              onPress={() => {
+                if (!ensureScreen(item.screen, pkg, () => onNavigate('packages'))) return;
+                if (isLock) {
+                  Alert.alert('Paket gerekli', 'Bu özellik mevcut paketinizde yok.', [
+                    { text: 'Tamam', style: 'cancel' },
+                    { text: 'Paketlere git', onPress: () => onNavigate('packages') },
+                  ]);
+                  return;
+                }
+                onNavigate(item.screen);
+              }}
+              style={({ pressed }) => [
+                styles.row,
+                i < items.length - 1 && styles.rowBorder,
+                pressed && styles.pressed,
+                isLock && styles.rowLocked,
+              ]}
+            >
+              <View style={[styles.iconBox, { backgroundColor: `${item.tint}18` }]}>
+                <AppIcon name={item.icon} size={16} color={item.tint} />
+              </View>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>{item.title}</Text>
+                <Text style={styles.rowSub}>
+                  {isLock ? 'Paket yükseltme gerekli' : item.description}
+                </Text>
+              </View>
+              <AppIcon name={isLock ? 'lock' : 'chevronRight'} size={16} color={isLock ? '#F59E0B' : '#CBD5E1'} />
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );

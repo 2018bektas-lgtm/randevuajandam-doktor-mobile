@@ -90,6 +90,7 @@ export const SCREEN_FEATURES: Partial<Record<ScreenId, string | string[]>> = {
   about: 'hakkimda',
   website: 'web_sitesi',
   asistan: 'ai_asistan',
+  smsCredits: 'sms_hatirlatma',
 };
 
 export const FEATURE_AI_ASISTAN = 'ai_asistan';
@@ -103,6 +104,15 @@ export const FEATURE_ICAL = 'ical_export';
 export const FEATURE_ONLINE_GORUSME = 'online_gorusme';
 export const FEATURE_ONLINE_TAKVIM = 'online_takvim';
 export const FEATURE_HIZLI_SLOT = 'hizli_slot';
+export const FEATURE_SERI_RANDEVU = 'seri_randevu';
+export const FEATURE_HASTA_EXPORT = 'hasta_export';
+export const FEATURE_TEDAVI_GECMISI = 'tedavi_gecmisi';
+export const FEATURE_SMS_HATIRLATMA = 'sms_hatirlatma';
+export const FEATURE_SMS_BASLIK = 'sms_baslik';
+export const FEATURE_EMAIL_BILDIRIM = 'email_bildirim';
+export const FEATURE_DIS_BAGLANTI = 'dis_baglanti';
+export const FEATURE_YORUM_DAVET = 'yorum_davet';
+export const FEATURE_NO_SHOW = 'no_show_mesaj';
 
 export function featureCodesForScreen(screen: ScreenId): string[] | null {
   const raw = SCREEN_FEATURES[screen];

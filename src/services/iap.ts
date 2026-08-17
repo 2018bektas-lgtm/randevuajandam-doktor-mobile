@@ -272,6 +272,49 @@ export async function restorePurchases(doktorId?: number | null): Promise<Purcha
   }
 }
 
+export type StoreSubscriptionInfo = {
+  active: boolean;
+  managementUrl: string | null;
+};
+
+/**
+ * Active store subscription + App Store / Play management URL (if any).
+ * Used by Packages screen to route cancel to the store when needed.
+ */
+export async function getStoreSubscriptionInfo(
+  doktorId?: number | null,
+): Promise<StoreSubscriptionInfo> {
+  const empty: StoreSubscriptionInfo = { active: false, managementUrl: null };
+  if (Platform.OS === 'web') return empty;
+
+  const Purchases = getPurchases();
+  if (!Purchases || !isIapConfigured()) return empty;
+
+  try {
+    await configurePurchases(doktorId ?? null);
+    const info = await Purchases.getCustomerInfo();
+    if (!info) return empty;
+
+    const activeEntitlements = info.entitlements?.active
+      ? Object.keys(info.entitlements.active)
+      : [];
+    const activeSubs: string[] = Array.isArray(info.activeSubscriptions)
+      ? info.activeSubscriptions
+      : info.activeSubscriptions
+        ? Object.keys(info.activeSubscriptions)
+        : [];
+    const active = activeEntitlements.length > 0 || activeSubs.length > 0;
+    const managementUrl =
+      (typeof info.managementURL === 'string' && info.managementURL) ||
+      (typeof info.managementUrl === 'string' && info.managementUrl) ||
+      null;
+
+    return { active, managementUrl };
+  } catch {
+    return empty;
+  }
+}
+
 export async function applyPendingPackageAfterAuth(
   post: <T = unknown>(
     path: string,

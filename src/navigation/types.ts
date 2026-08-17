@@ -32,7 +32,8 @@ export type ScreenId =
   | 'packages'
   | 'referral'
   | 'menu'
-  | 'asistan';
+  | 'asistan'
+  | 'smsCredits';
 
 export type ModuleProps = {
   onBack: () => void;

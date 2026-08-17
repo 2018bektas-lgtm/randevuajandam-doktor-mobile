@@ -16,9 +16,12 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_SITE_URL": "https://randevuajandam.com",
         "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
         "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_KVKK_URL": "https://randevuajandam.com/kvkk",
         "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor",
+        "EXPO_PUBLIC_USE_LOCAL_API": "0",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -33,9 +36,12 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_SITE_URL": "https://randevuajandam.com",
         "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
         "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_KVKK_URL": "https://randevuajandam.com/kvkk",
         "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor",
+        "EXPO_PUBLIC_USE_LOCAL_API": "0",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -47,9 +53,12 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_SITE_URL": "https://randevuajandam.com",
         "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
         "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_KVKK_URL": "https://randevuajandam.com/kvkk",
         "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor",
+        "EXPO_PUBLIC_USE_LOCAL_API": "0",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
@@ -60,16 +69,28 @@
       "ios": {
         "resourceClass": "m-medium"
       },
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://randevuajandam.com/api/mobile/v1",
+        "EXPO_PUBLIC_SITE_URL": "https://randevuajandam.com",
         "EXPO_PUBLIC_PRIVACY_URL": "https://randevuajandam.com/gizlilik-politikasi",
         "EXPO_PUBLIC_TERMS_URL": "https://randevuajandam.com/kullanim-kosullari",
+        "EXPO_PUBLIC_KVKK_URL": "https://randevuajandam.com/kvkk",
         "EXPO_PUBLIC_PLAY_PACKAGE_ID": "com.randevuajandam.doktor",
+        "EXPO_PUBLIC_USE_LOCAL_API": "0",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      },
+      "ios": {
+        "ascAppId": ""
+      }
+    }
   }
 }

@@ -27,9 +27,17 @@ import { SelectField } from '../components/SelectField';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { usePackageFeatures } from '../hooks/usePackageFeatures';
 import {
+  FEATURE_DIS_BAGLANTI,
+  FEATURE_EMAIL_BILDIRIM,
   FEATURE_FINANS_RAPOR,
   FEATURE_HASTA_DOSYA,
+  FEATURE_HASTA_EXPORT,
+  FEATURE_NO_SHOW,
   FEATURE_ONAM,
+  FEATURE_SMS_BASLIK,
+  FEATURE_SMS_HATIRLATMA,
+  FEATURE_TEDAVI_GECMISI,
+  FEATURE_YORUM_DAVET,
   FEATURE_YORUM_YANIT,
   ensureFeature,
   hasAnyFeature,
@@ -791,6 +799,9 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
   const goPackages = () => onNavigate('packages');
   const canFiles = pkg.can(FEATURE_HASTA_DOSYA);
   const canOnam = pkg.can(FEATURE_ONAM);
+  const canExport = pkg.can(FEATURE_HASTA_EXPORT);
+  const canTedavi = pkg.can(FEATURE_TEDAVI_GECMISI);
+  const [exporting, setExporting] = useState(false);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1104,6 +1115,35 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
       alertError(e, payType === 'borc' ? 'Borç kaydı eklenemedi.' : 'Tahsilat kaydı eklenemedi.');
     } finally {
       setSavingPay(false);
+    }
+  }
+
+  async function exportPatientsCsv() {
+    if (!ensureFeature(pkg, FEATURE_HASTA_EXPORT, goPackages)) return;
+    setExporting(true);
+    try {
+      const res = await apiGet<{ filename: string; csv: string; csv_base64: string; count: number }>(
+        '/doctor/patients/export',
+      );
+      const csv = res.data?.csv ?? '';
+      const filename = res.data?.filename || 'hastalar.csv';
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+      await Share.share({
+        title: filename,
+        message: csv,
+      });
+    } catch (e) {
+      alertError(e, 'Hasta listesi dışa aktarılamadı.');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -2031,11 +2071,16 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
           <TextInput style={s.input} value={editMail} onChangeText={setEditMail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="#6B7F93" />
         </FormModal>
 
-        {/* Seans / Randevu Geçmişi */}
+        {/* Seans / Randevu Geçmişi — tedavi_gecmisi paketi */}
         <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700', marginBottom: 8, marginTop: 4 }}>
-          Randevu & Seans Geçmişi ({randevuSayisi})
+          Randevu & Seans Geçmişi {canTedavi ? `(${randevuSayisi})` : ''}
         </Text>
-        {(detail.randevular || []).length === 0 ? (
+        {!canTedavi ? (
+          <EmptyState
+            title="Tedavi geçmişi kilitli"
+            text="Seans / tedavi geçmişi mevcut paketinizde yok. Paketinizi yükselterek açabilirsiniz."
+          />
+        ) : (detail.randevular || []).length === 0 ? (
           <EmptyState title="Randevu yok" text="Bu danışanla randevu kaydı bulunamadı." />
         ) : (
           <View
@@ -2105,6 +2150,11 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
       onRefresh={onRefresh}
       rightAction={
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <HeaderIconButton
+            name="document"
+            color={canExport ? '#0F172A' : '#94A3B8'}
+            onPress={() => void exportPatientsCsv()}
+          />
           <HeaderIconButton name="search" color={searchOpen ? colors.brand.orange : '#0F172A'} onPress={() => setSearchOpen((prev) => !prev)} />
           <HeaderIconButton name="plus" color="#0F172A" onPress={() => setModalOpen(true)} />
         </View>
@@ -2721,9 +2771,17 @@ type AppointmentSettings = {
   gunluk_maksimum_randevu: number;
   email_bildirimleri: boolean;
   sms_bildirimleri: boolean;
+  sms_gonderici_baslik?: string | null;
+  can_email_bildirim?: boolean;
+  can_sms_hatirlatma?: boolean;
+  can_sms_baslik?: boolean;
+  can_yorum_davet?: boolean;
+  can_no_show_mesaj?: boolean;
 };
 
-export function SettingsScreen({ onBack }: ModuleProps) {
+export function SettingsScreen({ onBack, onNavigate }: ModuleProps) {
+  const pkg = usePackageFeatures();
+  const goPackages = () => onNavigate('packages');
   const [form, setForm] = useState<AppointmentSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -2769,6 +2827,7 @@ export function SettingsScreen({ onBack }: ModuleProps) {
         gunluk_maksimum_randevu: Number(form.gunluk_maksimum_randevu),
         email_bildirimleri: !!form.email_bildirimleri,
         sms_bildirimleri: !!form.sms_bildirimleri,
+        sms_gonderici_baslik: form.sms_gonderici_baslik ?? null,
       });
       setMessage('Randevu ayarları güncellendi.');
     } catch (e) {
@@ -2853,22 +2912,66 @@ export function SettingsScreen({ onBack }: ModuleProps) {
           />
 
           <View style={s.switchRow}>
-            <Text style={s.switchLabel}>E-posta bildirimleri</Text>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={s.switchLabel}>E-posta bildirimleri</Text>
+              {!pkg.can(FEATURE_EMAIL_BILDIRIM) ? (
+                <Text style={s.hint}>Paketinizde yok</Text>
+              ) : null}
+            </View>
             <Switch
-              value={!!form.email_bildirimleri}
-              onValueChange={(v) => patch('email_bildirimleri', v)}
+              value={pkg.can(FEATURE_EMAIL_BILDIRIM) && !!form.email_bildirimleri}
+              onValueChange={(v) => {
+                if (!ensureFeature(pkg, FEATURE_EMAIL_BILDIRIM, goPackages)) return;
+                patch('email_bildirimleri', v);
+              }}
               trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
               thumbColor={form.email_bildirimleri ? '#F58A45' : '#7A8B9C'}
             />
           </View>
           <View style={s.switchRow}>
-            <Text style={s.switchLabel}>SMS bildirimleri</Text>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={s.switchLabel}>SMS hatırlatmaları</Text>
+              {!pkg.can(FEATURE_SMS_HATIRLATMA) ? (
+                <Text style={s.hint}>Paketinizde yok</Text>
+              ) : null}
+            </View>
             <Switch
-              value={!!form.sms_bildirimleri}
-              onValueChange={(v) => patch('sms_bildirimleri', v)}
+              value={pkg.can(FEATURE_SMS_HATIRLATMA) && !!form.sms_bildirimleri}
+              onValueChange={(v) => {
+                if (!ensureFeature(pkg, FEATURE_SMS_HATIRLATMA, goPackages)) return;
+                patch('sms_bildirimleri', v);
+              }}
               trackColor={{ false: '#E1E6ED', true: 'rgba(245,138,69,0.55)' }}
               thumbColor={form.sms_bildirimleri ? '#F58A45' : '#7A8B9C'}
             />
+          </View>
+          {pkg.can(FEATURE_SMS_BASLIK) ? (
+            <>
+              <Text style={s.label}>SMS gönderici başlığı (en fazla 11 karakter)</Text>
+              <TextInput
+                style={s.input}
+                value={form.sms_gonderici_baslik ?? ''}
+                onChangeText={(v) => patch('sms_gonderici_baslik', v.replace(/[^A-Za-z0-9 ]/g, '').slice(0, 11))}
+                autoCapitalize="characters"
+                placeholder="ORNEK KLINIK"
+                placeholderTextColor="#6B7F93"
+              />
+            </>
+          ) : (
+            <Text style={s.hint}>Özel SMS başlığı paketinizde yok.</Text>
+          )}
+          <View style={s.card}>
+            <Text style={s.cardMeta}>
+              Yorum daveti: {pkg.can(FEATURE_YORUM_DAVET) || form.can_yorum_davet ? 'Paketinizde açık (otomatik)' : 'Paketinizde yok'}
+            </Text>
+            <Text style={s.cardMeta}>
+              No-show SMS: {pkg.can(FEATURE_NO_SHOW) || form.can_no_show_mesaj ? 'Gelinmedi durumunda otomatik' : 'Paketinizde yok'}
+            </Text>
+            {pkg.can(FEATURE_SMS_HATIRLATMA) ? (
+              <Pressable style={[s.secondaryButton, { marginTop: 10 }]} onPress={() => onNavigate('smsCredits')}>
+                <Text style={s.secondaryButtonText}>SMS kontör bakiyesi</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {message ? <Text style={s.successText}>{message}</Text> : null}
@@ -5882,6 +5985,8 @@ type ProfileData = {
 };
 
 export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
+  const pkg = usePackageFeatures();
+  const canSocial = pkg.can(FEATURE_DIS_BAGLANTI);
   const [form, setForm] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -5891,6 +5996,12 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
   const [ilceler, setIlceler] = useState<{ id: number; ad: string }[]>([]);
   const [unvanlar, setUnvanlar] = useState<{ id: number; ad: string }[]>([]);
   const [showDetails, setShowDetails] = useState(false);
+  const [meslek, setMeslek] = useState<{
+    durum?: string;
+    can_proceed?: boolean;
+    not?: string | null;
+    kayit_paket_ad?: string | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -5898,6 +6009,17 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
       const res = await apiGet<ProfileData>('/doctor/profile');
       setForm(res.data ?? null);
       setLocalPhoto(null);
+      try {
+        const ms = await apiGet<{
+          durum?: string;
+          can_proceed?: boolean;
+          not?: string | null;
+          kayit_paket_ad?: string | null;
+        }>('/doctor/auth/meslek-status');
+        setMeslek(ms.data ?? null);
+      } catch {
+        setMeslek(null);
+      }
       const meta = await apiGet<{
         iller: { id: number; ad: string }[];
         unvanlar?: { id: number; ad: string }[];
@@ -6040,6 +6162,7 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
   ];
   const membershipLinks = [
     { icon: 'package' as const, title: 'Paket & Abonelik', description: 'Plan ve ödeme', screen: 'packages' as ScreenId, tint: '#EE7D31' },
+    { icon: 'mail' as const, title: 'SMS kontör', description: 'Bakiye ve hatırlatma', screen: 'smsCredits' as ScreenId, tint: '#0EA5E9', feature: 'sms_hatirlatma' as string | string[] },
     { icon: 'referral' as const, title: 'Referans programı', description: 'Davet & ödül', screen: 'referral' as ScreenId, tint: '#8B5CF6' },
   ];
   const publicLinks = [
@@ -6073,6 +6196,23 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
           phone={form.telefon}
           onPickPhoto={() => void pickPhoto()}
         />
+      ) : null}
+
+      {meslek?.durum && meslek.durum !== 'onaylandi' ? (
+        <View style={[s.card, { marginTop: 12 }]}>
+          <Text style={s.cardTitle}>Meslek belgesi</Text>
+          <Text style={s.cardBody}>
+            {meslek.durum === 'beklemede'
+              ? 'Belgeniz inceleniyor. Onay sonrası paket ödemesine geçebilirsiniz.'
+              : meslek.durum === 'reddedildi'
+                ? 'Belge reddedildi. Kayıt bilgilerinizi kontrol edin veya destek ile iletişime geçin.'
+                : `Durum: ${meslek.durum}`}
+          </Text>
+          {meslek.not ? <Text style={s.cardMeta}>{meslek.not}</Text> : null}
+          {meslek.kayit_paket_ad ? <Text style={s.cardMeta}>Kayıt paketi: {meslek.kayit_paket_ad}</Text> : null}
+        </View>
+      ) : meslek?.durum === 'onaylandi' ? (
+        <Text style={[s.hint, { marginTop: 8 }]}>Meslek belgesi onaylı.</Text>
       ) : null}
 
       <ProfileLinkGroup title="Bildirimler" items={inboxLinks} onNavigate={onNavigate} />
@@ -6216,6 +6356,8 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
             onChangeText={(v) => setForm({ ...form, uzmanlik_alani: v })}
             placeholderTextColor="#6B7F93"
           />
+          {canSocial ? (
+            <>
           <Text style={s.label}>Instagram</Text>
           <TextInput
             style={s.input}
@@ -6276,6 +6418,10 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
             autoCapitalize="none"
             placeholderTextColor="#6B7F93"
           />
+            </>
+          ) : (
+            <Text style={s.hint}>Dış bağlantılar (Instagram, LinkedIn vb.) paketinizde yok. Paketinizi yükselterek ekleyebilirsiniz.</Text>
+          )}
           {message ? <Text style={s.successText}>{message}</Text> : null}
           <Pressable
             style={[s.primaryButton, { marginTop: 20 }, saving && s.primaryButtonDisabled]}
@@ -6288,9 +6434,9 @@ export function ProfileScreen({ onBack, onNavigate, onSignOut }: ModuleProps) {
               <Text style={s.primaryButtonText}>Profili kaydet</Text>
             )}
           </Pressable>
-            </>
-          ) : null}
 
+        </>
+      ) : null}
         </>
       ) : null}
 
@@ -7220,6 +7366,11 @@ export function ClinicScreen({ onBack }: ModuleProps) {
   });
   const [annForm, setAnnForm] = useState({ baslik: '', icerik: '', onem_derecesi: 'genel' as 'genel' | 'onemli' | 'acil' });
   const [domainInput, setDomainInput] = useState('');
+  const [clinicSld, setClinicSld] = useState('');
+  const [clinicCheckResults, setClinicCheckResults] = useState<
+    { domain: string | null; is_available: boolean; is_alternative?: boolean }[] | null
+  >(null);
+  const [clinicChecking, setClinicChecking] = useState(false);
   const [rescheduleId, setRescheduleId] = useState<number | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('09:00');
@@ -7666,6 +7817,66 @@ export function ClinicScreen({ onBack }: ModuleProps) {
       Alert.alert('Tamam', 'Domain kaydedildi. Secret keyi kaydedin.');
     } catch (e) {
       alertError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function checkClinicDomain() {
+    const q = clinicSld.trim().replace(/^https?:\/\//, '').split('.')[0];
+    if (q.length < 2) {
+      Alert.alert('Eksik', 'En az 2 karakterlik bir alan adı yazın.');
+      return;
+    }
+    setClinicChecking(true);
+    setClinicCheckResults(null);
+    try {
+      const res = await apiPost<{
+        results: { domain: string | null; is_available: boolean }[];
+        eligibility: any;
+      }>('/doctor/clinic/website/domain/check', { sld: q });
+      setClinicCheckResults(res.data?.results ?? []);
+      if (res.data?.eligibility) {
+        setWebsite((w: any) => (w ? { ...w, domain_eligibility: res.data!.eligibility } : w));
+      }
+    } catch (e) {
+      alertError(e, 'Domain sorgusu başarısız.');
+    } finally {
+      setClinicChecking(false);
+    }
+  }
+
+  async function claimClinicDomain(target: string, mode: 'included' | 'byod') {
+    setBusy(true);
+    try {
+      const res = await apiPost<{ domain: string; plain_api_secret?: string | null }>(
+        '/doctor/clinic/website/domain/claim',
+        { domain: target, mode },
+      );
+      if (res.data?.plain_api_secret) setWebsiteSecret(res.data.plain_api_secret);
+      setClinicCheckResults(null);
+      setClinicSld('');
+      const w = await apiGet<any>('/doctor/clinic/website');
+      setWebsite(w.data);
+      Alert.alert('Tamam', res.message ?? 'Domain kaydedildi.');
+    } catch (e) {
+      alertError(e, 'Domain kaydedilemedi.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyClinicDns() {
+    setBusy(true);
+    try {
+      const res = await apiPost<{ ok: boolean; domain: string; durum: string }>(
+        '/doctor/clinic/website/dns-verify',
+      );
+      const w = await apiGet<any>('/doctor/clinic/website');
+      setWebsite(w.data);
+      Alert.alert(res.data?.ok ? 'DNS tamam' : 'DNS bekliyor', res.message ?? '');
+    } catch (e) {
+      alertError(e, 'DNS doğrulanamadı.');
     } finally {
       setBusy(false);
     }
@@ -8793,10 +9004,58 @@ export function ClinicScreen({ onBack }: ModuleProps) {
                     >
                       <Text style={s.secondaryButtonText}>API anahtarını yenile</Text>
                     </Pressable>
+                    <Pressable
+                      style={[s.secondaryButton, { marginTop: 8 }]}
+                      disabled={busy}
+                      onPress={() => void verifyClinicDns()}
+                    >
+                      <Text style={s.secondaryButtonText}>DNS doğrula</Text>
+                    </Pressable>
                   </>
                 ) : (
                   <>
-                    <Text style={s.hint}>Domain tanımlayın (örn. kliniginiz.com)</Text>
+                    {website?.domain_eligibility?.eligible ? (
+                      <>
+                        <Text style={s.hint}>
+                          {website.domain_eligibility.paket_ad
+                            ? `${website.domain_eligibility.paket_ad} paketinde ücretsiz domain.`
+                            : 'Paketinize dahil domain hakkınız var.'}
+                        </Text>
+                        <Text style={s.label}>Alan adı (uzantısız)</Text>
+                        <TextInput
+                          style={s.input}
+                          value={clinicSld}
+                          onChangeText={setClinicSld}
+                          autoCapitalize="none"
+                          placeholder="kliniginiz"
+                          placeholderTextColor="#6B7F93"
+                        />
+                        <Pressable
+                          style={[s.secondaryButton, { marginTop: 8 }]}
+                          disabled={clinicChecking}
+                          onPress={() => void checkClinicDomain()}
+                        >
+                          <Text style={s.secondaryButtonText}>{clinicChecking ? 'Sorgulanıyor…' : 'Müsaitlik sorgula'}</Text>
+                        </Pressable>
+                        {(clinicCheckResults ?? []).map((r) => (
+                          <View key={r.domain || 'x'} style={{ marginTop: 10 }}>
+                            <Text style={s.cardMeta}>
+                              {r.domain} · {r.is_available ? 'Müsait' : 'Dolu'}
+                            </Text>
+                            {r.is_available && r.domain ? (
+                              <Pressable
+                                style={[s.primaryButton, { marginTop: 6 }]}
+                                disabled={busy}
+                                onPress={() => void claimClinicDomain(r.domain as string, 'included')}
+                              >
+                                <Text style={s.primaryButtonText}>Pakete dahil al</Text>
+                              </Pressable>
+                            ) : null}
+                          </View>
+                        ))}
+                      </>
+                    ) : null}
+                    <Text style={[s.hint, { marginTop: 12 }]}>Kendi domaininizi bağlayın (örn. kliniginiz.com)</Text>
                     <TextInput style={s.input} value={domainInput} onChangeText={setDomainInput} autoCapitalize="none" placeholder="kliniginiz.com" placeholderTextColor="#6B7F93" />
                     <Pressable style={[s.primaryButton, { marginTop: 12 }, busy && s.primaryButtonDisabled]} disabled={busy} onPress={() => void setupClinicWebsite()}>
                       <Text style={s.primaryButtonText}>Kur</Text>
@@ -10787,6 +11046,91 @@ const qcStyles = StyleSheet.create({
   linkLeavesTxt: { color: colors.brand.orangeSoft, fontSize: 13, fontWeight: '700' },
 });
 
+export function SmsCreditsScreen({ onBack, onNavigate }: ModuleProps) {
+  const pkg = usePackageFeatures();
+  const [data, setData] = useState<{
+    kalan: number | null;
+    kullanilan: number;
+    ek_kontor: number;
+    paket_kota: number | null;
+    paket_ad: string | null;
+    sinirsiz: boolean;
+    sms_paketleri: { kod: string; adet: number; fiyat: number; etiket: string; not?: string | null }[];
+    satin_alma_url?: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiGet<NonNullable<typeof data>>('/doctor/sms-credits');
+      setData(res.data ?? null);
+    } catch (e) {
+      alertError(e, 'SMS bakiyesi yüklenemedi.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!pkg.can(FEATURE_SMS_HATIRLATMA)) {
+      setLoading(false);
+      return;
+    }
+    void load();
+  }, [load, pkg.features, pkg.restrict]);
+
+  return (
+    <ScreenShell title="SMS kontör" subtitle="Hatırlatma bakiyesi ve ek paketler." onBack={onBack} loading={loading}>
+      {data ? (
+        <>
+          <View style={s.statGrid}>
+            <View style={s.statCard}>
+              <Text style={s.statValue}>{data.sinirsiz ? '∞' : String(data.kalan ?? 0)}</Text>
+              <Text style={s.statLabel}>Kalan</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statValue}>{String(data.kullanilan ?? 0)}</Text>
+              <Text style={s.statLabel}>Kullanılan</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statValue}>{String(data.ek_kontor ?? 0)}</Text>
+              <Text style={s.statLabel}>Ek kontör</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statValue}>{data.paket_kota == null ? '—' : String(data.paket_kota)}</Text>
+              <Text style={s.statLabel}>Paket kotası</Text>
+            </View>
+          </View>
+          {data.paket_ad ? <Text style={s.hint}>Aktif paket: {data.paket_ad}</Text> : null}
+
+          <Text style={[s.cardTitle, { marginTop: 16 }]}>Ek SMS paketleri</Text>
+          <Text style={s.hint}>Kartlı satın alma PayTR 3D ile web panelinde yapılır (web ile aynı akış).</Text>
+          {(data.sms_paketleri ?? []).map((p) => (
+            <View key={p.kod} style={s.card}>
+              <Text style={s.cardTitle}>{p.etiket || `${p.adet} SMS`}</Text>
+              <Text style={s.cardBody}>{Number(p.fiyat).toLocaleString('tr-TR')} ₺ · {p.adet} adet</Text>
+              {p.not ? <Text style={s.cardMeta}>{p.not}</Text> : null}
+            </View>
+          ))}
+
+          <Pressable
+            style={[s.primaryButton, { marginTop: 12 }]}
+            onPress={() => {
+              const url = data.satin_alma_url || `${SITE_URL}/hekim/sms-kontor`;
+              void Linking.openURL(url);
+            }}
+          >
+            <Text style={s.primaryButtonText}>Web panelden satın al</Text>
+          </Pressable>
+        </>
+      ) : !pkg.can(FEATURE_SMS_HATIRLATMA) ? (
+        <EmptyState title="SMS hatırlatma kilitli" text="Bu özellik mevcut paketinizde yok." />
+      ) : null}
+    </ScreenShell>
+  );
+}
+
 // ── Module map ─────────────────────────────────────────────────────────────
 
 export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>>> = {
@@ -10822,4 +11166,5 @@ export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>
   referral: ReferralScreen,
   menu: PolishedMenuScreen,
   asistan: AsistanScreen,
+  smsCredits: SmsCreditsScreen,
 };

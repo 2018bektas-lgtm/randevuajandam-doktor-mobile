@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { cacheGet, cacheKeyFromUrl, cacheSet } from './offlineCache';
@@ -12,13 +13,47 @@ function isLocalHost(url: string): boolean {
   return /localhost|127\.0\.0\.1|192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[0-1])\./i.test(url);
 }
 
+/** Metro/Expo machine IP so a physical device does not call its own 127.0.0.1. */
+function expoDevHost(): string | null {
+  const candidates = [
+    Constants.expoConfig?.hostUri,
+    Constants.linkingUri,
+    (Constants as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost,
+  ].filter(Boolean) as string[];
+
+  for (const value of candidates) {
+    const ip = value.match(/(\d{1,3}(?:\.\d{1,3}){3})/);
+    if (ip && ip[1] !== '127.0.0.1') {
+      return ip[1];
+    }
+  }
+  return null;
+}
+
+function resolveLocalApiUrl(url: string): string {
+  if (!/localhost|127\.0\.0\.1/i.test(url)) {
+    return url;
+  }
+  if (Platform.OS === 'web') {
+    return url;
+  }
+  const host = expoDevHost();
+  if (host) {
+    return url.replace(/localhost|127\.0\.0\.1/gi, host);
+  }
+  if (Platform.OS === 'android') {
+    return url.replace(/localhost|127\.0\.0\.1/gi, '10.0.2.2');
+  }
+  return url;
+}
+
 export const API_URL = (() => {
   if (!envApi) return PROD_API;
   // Refuse accidental local API in production builds / default runs
   if (isLocalHost(envApi) && !useLocal) {
     return PROD_API;
   }
-  return envApi.replace(/\/+$/, '');
+  return resolveLocalApiUrl(envApi.replace(/\/+$/, ''));
 })();
 
 /** Public website origin (legal pages, marketing). Dynamic in local dev. */
