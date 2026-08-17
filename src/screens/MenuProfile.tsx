@@ -116,6 +116,7 @@ export function MenuScreen({ onBack: _onBack, onNavigate, onSignOut }: ModulePro
   const paketAd = pkg.paketAd;
 
   function isLocked(item: MenuItem): boolean {
+    if (loading) return false;
     const codes = itemFeatureCodes(item);
     if (codes == null) return false;
     return !hasAnyFeature(pkg.features, codes, pkg.restrict);
@@ -474,6 +475,7 @@ export function ProfileLinkGroup({
   const pkg = usePackageFeatures();
 
   function locked(item: (typeof items)[number]): boolean {
+    if (pkg.loading) return false;
     const codes = item.feature ?? SCREEN_FEATURES[item.screen] ?? null;
     if (codes == null) return false;
     return !hasAnyFeature(pkg.features, codes, pkg.restrict);

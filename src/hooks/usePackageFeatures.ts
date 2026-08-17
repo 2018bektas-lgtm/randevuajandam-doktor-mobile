@@ -40,9 +40,11 @@ export function usePackageFeatures() {
   }, []);
 
   const can = useCallback(
-    (codes: string | string[] | null | undefined) =>
-      hasAnyFeature(data.features, codes, data.restrict),
-    [data.features, data.restrict],
+    (codes: string | string[] | null | undefined) => {
+      if (loading && data.features.length === 0) return true;
+      return hasAnyFeature(data.features, codes, data.restrict);
+    },
+    [data.features, data.restrict, loading],
   );
 
   const screenLocked = useCallback(
