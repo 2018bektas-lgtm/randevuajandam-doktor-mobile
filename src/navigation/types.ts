@@ -19,7 +19,6 @@ export type ScreenId =
   | 'financeBalances'
   | 'financePatientAccount'
   | 'faq'
-  | 'consentForms'
   | 'education'
   | 'educationApps'
   | 'profile'

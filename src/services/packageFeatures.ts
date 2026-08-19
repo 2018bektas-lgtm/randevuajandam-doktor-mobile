@@ -84,7 +84,6 @@ export const SCREEN_FEATURES: Partial<Record<ScreenId, string | string[]>> = {
   financeBalances: 'hasta_bakiyeleri',
   financePatientAccount: 'hasta_bakiyeleri',
   faq: 'faq',
-  consentForms: 'onam_formu',
   education: 'egitimler',
   educationApps: 'egitimler',
   about: 'hakkimda',
@@ -96,8 +95,6 @@ export const SCREEN_FEATURES: Partial<Record<ScreenId, string | string[]>> = {
 export const FEATURE_AI_ASISTAN = 'ai_asistan';
 
 /** Sub-features used inside screens (not always a ScreenId). */
-export const FEATURE_HASTA_DOSYA = 'hasta_not_dosya';
-export const FEATURE_ONAM = 'onam_formu';
 export const FEATURE_YORUM_YANIT = 'yorum_yanit';
 export const FEATURE_FINANS_RAPOR = 'finans_rapor';
 export const FEATURE_ICAL = 'ical_export';

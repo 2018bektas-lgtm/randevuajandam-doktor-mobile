@@ -34,12 +34,17 @@ type MenuGroup = { title: string; items: MenuItem[] };
 
 const MENU_GROUPS: MenuGroup[] = [
   {
+    title: 'Asistan',
+    items: [
+      { icon: 'chatbot', title: 'Dijital Asistan', description: 'AI ile randevu ve takvim', screen: 'asistan', tint: '#C96A2B' },
+    ],
+  },
+  {
     title: 'Randevu',
     items: [
       { icon: 'calendar', title: 'Takvim', description: 'Günlük plan', screen: 'calendar', tint: '#EE7D31' },
       { icon: 'requests', title: 'Talepler', description: 'Onay bekleyenler', screen: 'requests', tint: '#F59E0B' },
-      { icon: 'people', title: 'Hastalar', description: 'Kayıtlar & dosyalar', screen: 'patients', tint: '#3B82F6' },
-      { icon: 'document', title: 'Onam formları', description: 'Form & imza', screen: 'consentForms', tint: '#0D9488' },
+      { icon: 'people', title: 'Hastalar', description: 'Kayıtlar', screen: 'patients', tint: '#3B82F6' },
       { icon: 'waitlist', title: 'Bekleme listesi', description: 'Boş slot', screen: 'waitlist', tint: '#8B5CF6' },
       { icon: 'block', title: 'Hızlı kapat', description: 'Saat kapat/aç', screen: 'quickClose', tint: '#EF4444' },
       { icon: 'time', title: 'İzin / tatil', description: 'Müsaitlik', screen: 'leaves', tint: '#06B6D4' },

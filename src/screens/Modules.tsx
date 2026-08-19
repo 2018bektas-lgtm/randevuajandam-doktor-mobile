@@ -30,10 +30,8 @@ import {
   FEATURE_DIS_BAGLANTI,
   FEATURE_EMAIL_BILDIRIM,
   FEATURE_FINANS_RAPOR,
-  FEATURE_HASTA_DOSYA,
   FEATURE_HASTA_EXPORT,
   FEATURE_NO_SHOW,
-  FEATURE_ONAM,
   FEATURE_SMS_BASLIK,
   FEATURE_SMS_HATIRLATMA,
   FEATURE_TEDAVI_GECMISI,
@@ -205,26 +203,6 @@ function formatBytes(value: number | null | undefined): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-type PatientFileItem = {
-  id: number;
-  baslik?: string | null;
-  dosya_yolu?: string | null;
-  url?: string | null;
-  orijinal_ad?: string | null;
-  mime?: string | null;
-  boyut?: number | null;
-  not?: string | null;
-  created_at?: string | null;
-};
-
-type ConsentFormItem = {
-  id: number;
-  baslik: string;
-  icerik: string;
-  aktif_mi: boolean;
-  sira?: number;
-};
 
 function timeSlice(value: string | null | undefined): string {
   if (!value) {
@@ -797,8 +775,6 @@ type PatientItem = {
 export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
   const pkg = usePackageFeatures();
   const goPackages = () => onNavigate('packages');
-  const canFiles = pkg.can(FEATURE_HASTA_DOSYA);
-  const canOnam = pkg.can(FEATURE_ONAM);
   const canExport = pkg.can(FEATURE_HASTA_EXPORT);
   const canTedavi = pkg.can(FEATURE_TEDAVI_GECMISI);
   const [exporting, setExporting] = useState(false);
@@ -849,58 +825,8 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
   const [payNote, setPayNote] = useState('');
   const [savingPay, setSavingPay] = useState(false);
 
-  const [patientFiles, setPatientFiles] = useState<PatientFileItem[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
-  const [filesError, setFilesError] = useState<string | null>(null);
-  const [fileUploading, setFileUploading] = useState(false);
-  const [fileBaslik, setFileBaslik] = useState('');
-  const [fileNot, setFileNot] = useState('');
-  const [consentForms, setConsentForms] = useState<ConsentFormItem[]>([]);
-  const [consentLoading, setConsentLoading] = useState(false);
-  const [signingConsentId, setSigningConsentId] = useState<number | null>(null);
-
-  async function loadPatientFiles(hastaId: number) {
-    if (!hasAnyFeature(pkg.features, FEATURE_HASTA_DOSYA, pkg.restrict)) {
-      setPatientFiles([]);
-      setFilesError('Hasta dosyaları paketinizde yok. Yükseltmek için Paket & Abonelik ekranına gidin.');
-      setFilesLoading(false);
-      return;
-    }
-    setFilesLoading(true);
-    setFilesError(null);
-    try {
-      const res = await apiGet<PatientFileItem[]>(`/doctor/patients/${hastaId}/files`);
-      setPatientFiles(res.data ?? []);
-    } catch (e) {
-      setPatientFiles([]);
-      setFilesError(errMessage(e, 'Dosyalar yüklenemedi (paket veya yetki).'));
-    } finally {
-      setFilesLoading(false);
-    }
-  }
-
-  async function loadConsentFormsForPatient() {
-    if (!hasAnyFeature(pkg.features, FEATURE_ONAM, pkg.restrict)) {
-      setConsentForms([]);
-      setConsentLoading(false);
-      return;
-    }
-    setConsentLoading(true);
-    try {
-      const res = await apiGet<ConsentFormItem[]>('/doctor/consent-forms');
-      setConsentForms((res.data ?? []).filter((f) => f.aktif_mi !== false));
-    } catch {
-      setConsentForms([]);
-    } finally {
-      setConsentLoading(false);
-    }
-  }
-
   async function openDetail(id: number) {
     setDetailLoading(true);
-    setPatientFiles([]);
-    setFilesError(null);
-    setConsentForms([]);
     try {
       const res = await apiGet<any>(`/doctor/patients/${id}`);
       let patientData = res.data;
@@ -921,113 +847,10 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
         }
       } catch (_) {}
       setDetail(patientData);
-      void loadPatientFiles(id);
-      void loadConsentFormsForPatient();
     } catch (e) {
       alertError(e, 'Hasta detayı yüklenemedi.');
     } finally {
       setDetailLoading(false);
-    }
-  }
-
-  async function uploadPatientFile(source: 'image' | 'document') {
-    if (!ensureFeature(pkg, FEATURE_HASTA_DOSYA, goPackages)) return;
-    const hastaId = Number(detail?.id ?? detail?.hasta_id);
-    if (!hastaId) {
-      Alert.alert('Hata', 'Hasta kaydı bulunamadı.');
-      return;
-    }
-    try {
-      let uri = '';
-      let name = `hasta_${Date.now()}.jpg`;
-      let type = 'image/jpeg';
-
-      if (source === 'image') {
-        const pick = await pickImageSource();
-        if (!pick) return;
-        const asset = await launchImagePicker(pick);
-        if (!asset) return;
-        uri = asset.uri;
-        name = asset.fileName || name;
-        type = asset.mimeType || type;
-      } else {
-        const result = await DocumentPicker.getDocumentAsync({
-          type: [
-            'application/pdf',
-            'image/*',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          ],
-          copyToCacheDirectory: true,
-          multiple: false,
-        });
-        if (result.canceled || !result.assets?.[0]) return;
-        const asset = result.assets[0];
-        uri = asset.uri;
-        name = asset.name || `belge_${Date.now()}.pdf`;
-        type = asset.mimeType || 'application/pdf';
-      }
-
-      setFileUploading(true);
-      const form = new FormData();
-      form.append('dosya', { uri, name, type } as unknown as Blob);
-      if (fileBaslik.trim()) form.append('baslik', fileBaslik.trim());
-      if (fileNot.trim()) form.append('not', fileNot.trim());
-      await apiUpload(`/doctor/patients/${hastaId}/files`, form);
-      setFileBaslik('');
-      setFileNot('');
-      await loadPatientFiles(hastaId);
-      Alert.alert('Tamam', 'Dosya yüklendi.');
-    } catch (e) {
-      alertError(e, 'Dosya yüklenemedi.');
-    } finally {
-      setFileUploading(false);
-    }
-  }
-
-  function removePatientFile(fileId: number) {
-    const hastaId = Number(detail?.id ?? detail?.hasta_id);
-    confirmDestructive('Dosyayı sil', 'Bu hasta dosyası kalıcı olarak silinsin mi?', 'Sil', () => {
-      void (async () => {
-        try {
-          await apiDelete(`/doctor/patients/files/${fileId}`);
-          if (hastaId) await loadPatientFiles(hastaId);
-        } catch (e) {
-          alertError(e, 'Dosya silinemedi.');
-        }
-      })();
-    });
-  }
-
-  function openPatientFile(file: PatientFileItem) {
-    const url = file.url || (file.dosya_yolu
-      ? (file.dosya_yolu.startsWith('http')
-        ? file.dosya_yolu
-        : `${SITE_URL}/${String(file.dosya_yolu).replace(/^\/+/, '')}`)
-      : null);
-    if (!url) {
-      Alert.alert('Dosya yok', 'Dosya adresi bulunamadı.');
-      return;
-    }
-    void Linking.openURL(url);
-  }
-
-  async function signConsentForPatient(formId: number) {
-    if (!ensureFeature(pkg, FEATURE_ONAM, goPackages)) return;
-    const hastaId = Number(detail?.id ?? detail?.hasta_id);
-    if (!hastaId) return;
-    setSigningConsentId(formId);
-    try {
-      await apiPost('/doctor/consent-forms/sign', {
-        onam_form_id: formId,
-        hasta_id: hastaId,
-        not: null,
-      });
-      Alert.alert('Tamam', 'Onam imzası kaydedildi.');
-    } catch (e) {
-      alertError(e, 'Onam imzalanamadı.');
-    } finally {
-      setSigningConsentId(null);
     }
   }
 
@@ -1406,227 +1229,6 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
               Hesabı Gör / Detay İncele
             </Text>
           </Pressable>
-        </View>
-
-        {/* 📎 Hasta dosyaları (hasta_not_dosya) */}
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 14,
-            marginBottom: 12,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: 'rgba(15,23,42,0.08)',
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="document" size={16} color={colors.brand.orange} />
-              <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>
-                Hasta dosyaları
-              </Text>
-            </View>
-            {filesLoading ? <ActivityIndicator size="small" color={colors.brand.orange} /> : null}
-          </View>
-
-          {filesError ? (
-            <View style={{ marginBottom: 8 }}>
-              <Text style={{ color: '#B45309', fontSize: 12, marginBottom: 6 }}>{filesError}</Text>
-              {!canFiles ? (
-                <Pressable onPress={goPackages}>
-                  <Text style={{ color: colors.brand.orange, fontSize: 12, fontWeight: '700' }}>
-                    Paketlere git →
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-
-          <Text style={s.label}>Başlık (opsiyonel)</Text>
-          <TextInput
-            style={[s.input, { marginBottom: 8 }]}
-            value={fileBaslik}
-            onChangeText={setFileBaslik}
-            placeholder="Örn: Laboratuvar sonucu"
-            placeholderTextColor="#94A3B8"
-          />
-          <Text style={s.label}>Not (opsiyonel)</Text>
-          <TextInput
-            style={[s.input, { marginBottom: 10 }]}
-            value={fileNot}
-            onChangeText={setFileNot}
-            placeholder="Kısa açıklama"
-            placeholderTextColor="#94A3B8"
-          />
-
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-            <Pressable
-              style={({ pressed }) => [
-                {
-                  flex: 1,
-                  height: 40,
-                  borderRadius: 10,
-                  backgroundColor: 'rgba(238,125,49,0.12)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'row',
-                  gap: 6,
-                },
-                (pressed || fileUploading) && { opacity: 0.7 },
-              ]}
-              disabled={fileUploading || !canFiles}
-              onPress={() => void uploadPatientFile('image')}
-            >
-              <AppIcon name="camera" size={15} color={colors.brand.orange} />
-              <Text style={{ color: colors.brand.orange, fontSize: 12, fontWeight: '700' }}>
-                {fileUploading ? 'Yükleniyor…' : canFiles ? 'Fotoğraf' : 'Paket'}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                {
-                  flex: 1,
-                  height: 40,
-                  borderRadius: 10,
-                  backgroundColor: '#F1F5F9',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'row',
-                  gap: 6,
-                },
-                (pressed || fileUploading || !canFiles) && { opacity: 0.7 },
-              ]}
-              disabled={fileUploading || !canFiles}
-              onPress={() => void uploadPatientFile('document')}
-            >
-              <AppIcon name="document" size={15} color="#475569" />
-              <Text style={{ color: '#475569', fontSize: 12, fontWeight: '700' }}>
-                PDF / belge
-              </Text>
-            </Pressable>
-          </View>
-
-          {patientFiles.length === 0 && !filesLoading ? (
-            <Text style={{ color: '#94A3B8', fontSize: 12 }}>
-              Henüz dosya yok. Fotoğraf veya PDF yükleyebilirsiniz (maks. 10 MB).
-            </Text>
-          ) : (
-            patientFiles.map((file) => (
-              <View
-                key={file.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  paddingVertical: 10,
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: 'rgba(15,23,42,0.08)',
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700' }} numberOfLines={1}>
-                    {file.baslik || file.orijinal_ad || `Dosya #${file.id}`}
-                  </Text>
-                  <Text style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>
-                    {formatBytes(file.boyut)}
-                    {file.created_at ? ` · ${formatDateTime(file.created_at)}` : ''}
-                  </Text>
-                  {file.not ? (
-                    <Text style={{ color: '#475569', fontSize: 11, marginTop: 2 }} numberOfLines={2}>
-                      {file.not}
-                    </Text>
-                  ) : null}
-                </View>
-                <Pressable onPress={() => openPatientFile(file)} hitSlop={8}>
-                  <Text style={{ color: '#3B82F6', fontSize: 12, fontWeight: '700' }}>Aç</Text>
-                </Pressable>
-                <Pressable onPress={() => removePatientFile(file.id)} hitSlop={8}>
-                  <Text style={{ color: '#DC2626', fontSize: 12, fontWeight: '700' }}>Sil</Text>
-                </Pressable>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* ✍️ Onam imzala (aktif formlar) */}
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 14,
-            marginBottom: 12,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: 'rgba(15,23,42,0.08)',
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <AppIcon name="document" size={16} color="#0D9488" />
-            <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '700' }}>Onam imzala</Text>
-            {consentLoading ? <ActivityIndicator size="small" color="#0D9488" /> : null}
-          </View>
-          <Text style={{ color: '#64748B', fontSize: 12, marginBottom: 10 }}>
-            Aktif onam formlarından birini bu hastaya kaydedin. Formları Menü → Onam formları’ndan düzenleyin.
-          </Text>
-          {!canOnam ? (
-            <Pressable onPress={goPackages} style={{ marginBottom: 8 }}>
-              <Text style={{ color: colors.brand.orange, fontSize: 12, fontWeight: '700' }}>
-                Onam formu paketinizde yok — Paketlere git →
-              </Text>
-            </Pressable>
-          ) : null}
-          {consentForms.length === 0 && !consentLoading ? (
-            <Text style={{ color: '#94A3B8', fontSize: 12 }}>
-              Aktif onam formu yok veya paketinizde bu özellik kapalı.
-            </Text>
-          ) : (
-            consentForms.map((form) => (
-              <View
-                key={form.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  paddingVertical: 10,
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: 'rgba(15,23,42,0.08)',
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700' }} numberOfLines={1}>
-                    {form.baslik}
-                  </Text>
-                </View>
-                <Pressable
-                  disabled={signingConsentId === form.id}
-                  onPress={() =>
-                    confirmDestructive(
-                      'Onam kaydet',
-                      `"${form.baslik}" bu hasta için imzalandı olarak kaydedilsin mi?`,
-                      'Kaydet',
-                      () => {
-                        void signConsentForPatient(form.id);
-                      },
-                    )
-                  }
-                  style={({ pressed }) => [
-                    {
-                      paddingHorizontal: 12,
-                      height: 34,
-                      borderRadius: 8,
-                      backgroundColor: '#0D9488',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    },
-                    (pressed || signingConsentId === form.id) && { opacity: 0.7 },
-                  ]}
-                >
-                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
-                    {signingConsentId === form.id ? '…' : 'İmzala'}
-                  </Text>
-                </Pressable>
-              </View>
-            ))
-          )}
         </View>
 
         {/* 💳 Hasta Hesabı & Ödeme Hareketleri Modalı */}
@@ -2124,11 +1726,6 @@ export function PatientsScreen({ onBack, onNavigate }: ModuleProps) {
                   {r.hizmet ? (
                     <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '500', marginTop: 2 }}>
                       Hizmet: {r.hizmet}
-                    </Text>
-                  ) : null}
-                  {r.hekim_notu ? (
-                    <Text style={{ color: '#475569', fontSize: 11, fontStyle: 'italic', marginTop: 2 }}>
-                      Hekim Notu: "{r.hekim_notu}"
                     </Text>
                   ) : null}
                 </View>
@@ -5122,216 +4719,6 @@ export function FaqScreen({ onBack }: ModuleProps) {
     </ScreenShell>
   );
 }
-
-// ── Onam formları ──────────────────────────────────────────────────────────
-
-export function ConsentFormsScreen({ onBack }: ModuleProps) {
-  const loader = useCallback(async () => {
-    const res = await apiGet<ConsentFormItem[]>('/doctor/consent-forms');
-    return res.data ?? [];
-  }, []);
-  const { items, loading, refreshing, onRefresh, reload } = useModuleList(loader, {
-    key: 'consent-forms',
-    tags: ['content', 'consent'],
-  });
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [baslik, setBaslik] = useState('');
-  const [icerik, setIcerik] = useState('');
-  const [aktif, setAktif] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<ConsentFormItem | null>(null);
-
-  function openCreate() {
-    setEditId(null);
-    setBaslik('');
-    setIcerik('');
-    setAktif(true);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  function openEdit(item: ConsentFormItem) {
-    setEditId(item.id);
-    setBaslik(item.baslik || '');
-    setIcerik((item.icerik || '').replace(/<[^>]+>/g, ''));
-    setAktif(item.aktif_mi !== false);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  async function save() {
-    if (!baslik.trim() || !icerik.trim()) {
-      setFormError('Başlık ve içerik zorunludur.');
-      return;
-    }
-    setSubmitting(true);
-    setFormError(null);
-    try {
-      const body = {
-        baslik: baslik.trim(),
-        icerik: icerik.trim(),
-        aktif_mi: aktif,
-      };
-      if (editId) {
-        await apiPut(`/doctor/consent-forms/${editId}`, body);
-      } else {
-        await apiPost('/doctor/consent-forms', body);
-      }
-      setModalOpen(false);
-      await reload(false);
-    } catch (e) {
-      setFormError(errMessage(e, 'Onam formu kaydedilemedi.'));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function remove(id: number) {
-    confirmDestructive('Onam formunu sil', 'Bu form silinsin mi? Kayıtlı imzalar etkilenebilir.', 'Sil', () => {
-      void (async () => {
-        try {
-          await apiDelete(`/doctor/consent-forms/${id}`);
-          await reload(false);
-        } catch (e) {
-          alertError(e);
-        }
-      })();
-    });
-  }
-
-  async function toggleAktif(item: ConsentFormItem) {
-    try {
-      await apiPut(`/doctor/consent-forms/${item.id}`, {
-        baslik: item.baslik,
-        icerik: item.icerik,
-        aktif_mi: !item.aktif_mi,
-      });
-      await reload(false);
-    } catch (e) {
-      alertError(e, 'Durum güncellenemedi.');
-    }
-  }
-
-  return (
-    <ScreenShell
-      title="Onam formları"
-      subtitle="Form şablonları ve hasta imzası (hasta detayından)."
-      onBack={onBack}
-      loading={loading}
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      rightAction={
-        <Pressable onPress={openCreate}>
-          <Text style={s.modalClose}>+ Ekle</Text>
-        </Pressable>
-      }
-    >
-      {items.length === 0 ? (
-        <EmptyState
-          title="Onam formu yok"
-          text="İlk onam formunu ekleyin. Hastaya imza hasta detayından kaydedilir."
-        />
-      ) : (
-        items.map((item) => (
-          <View key={item.id} style={s.card}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <Text style={[s.cardTitle, { flex: 1 }]} numberOfLines={2}>
-                {item.baslik}
-              </Text>
-              <StatusChip
-                label={item.aktif_mi ? 'Aktif' : 'Pasif'}
-                tone={item.aktif_mi ? 'success' : 'warning'}
-              />
-            </View>
-            <Text style={s.cardBody} numberOfLines={4}>
-              {(item.icerik || '').replace(/<[^>]+>/g, ' ').trim() || '—'}
-            </Text>
-            <View style={s.actions}>
-              <Pressable style={s.actionBtn} onPress={() => setPreview(item)}>
-                <Text style={s.actionBtnText}>Önizle</Text>
-              </Pressable>
-              <Pressable style={s.actionBtn} onPress={() => openEdit(item)}>
-                <Text style={s.actionBtnText}>Düzenle</Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnMuted]} onPress={() => void toggleAktif(item)}>
-                <Text style={[s.actionBtnText, s.actionBtnMutedText]}>
-                  {item.aktif_mi ? 'Pasifleştir' : 'Aktifleştir'}
-                </Text>
-              </Pressable>
-              <Pressable style={[s.actionBtn, s.actionBtnDanger]} onPress={() => remove(item.id)}>
-                <Text style={[s.actionBtnText, s.actionBtnDangerText]}>Sil</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))
-      )}
-
-      <FormModal
-        visible={modalOpen}
-        title={editId ? 'Onam formunu düzenle' : 'Yeni onam formu'}
-        onClose={() => setModalOpen(false)}
-        onSubmit={() => void save()}
-        submitting={submitting}
-        error={formError}
-      >
-        <Text style={s.label}>Başlık</Text>
-        <TextInput
-          style={s.input}
-          value={baslik}
-          onChangeText={setBaslik}
-          placeholder="Örn: Tedavi onam formu"
-          placeholderTextColor="#6B7F93"
-        />
-        <Text style={s.label}>İçerik</Text>
-        <TextInput
-          style={[s.input, s.textArea, { minHeight: 160 }]}
-          value={icerik}
-          onChangeText={setIcerik}
-          multiline
-          textAlignVertical="top"
-          placeholder="Form metni…"
-          placeholderTextColor="#6B7F93"
-        />
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-          <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '600' }}>Aktif</Text>
-          <Switch value={aktif} onValueChange={setAktif} trackColor={{ true: colors.brand.orange }} />
-        </View>
-      </FormModal>
-
-      <Modal visible={!!preview} animationType="slide" onRequestClose={() => setPreview(null)}>
-        <View style={{ flex: 1, backgroundColor: '#F8FAFC', paddingTop: Platform.OS === 'ios' ? 52 : 16 }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 16,
-              paddingBottom: 12,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: 'rgba(15,23,42,0.08)',
-              backgroundColor: '#FFFFFF',
-            }}
-          >
-            <Text style={{ color: '#0F172A', fontSize: 17, fontWeight: '800', flex: 1 }} numberOfLines={2}>
-              {preview?.baslik || 'Önizleme'}
-            </Text>
-            <Pressable onPress={() => setPreview(null)} hitSlop={10}>
-              <AppIcon name="close" size={20} color="#0F172A" />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-            <Text style={{ color: '#334155', fontSize: 15, lineHeight: 22 }}>
-              {(preview?.icerik || '').replace(/<[^>]+>/g, '\n').trim() || 'İçerik yok.'}
-            </Text>
-          </ScrollView>
-        </View>
-      </Modal>
-    </ScreenShell>
-  );
-}
-
 
 type EducationItem = {
   id: number;
@@ -11152,7 +10539,6 @@ export const MODULE_SCREENS: Partial<Record<ScreenId, ComponentType<ModuleProps>
   financeBalances: FinanceBalancesScreen,
   financePatientAccount: FinancePatientAccountScreen,
   faq: FaqScreen,
-  consentForms: ConsentFormsScreen,
   education: EducationScreen,
   educationApps: EducationAppsScreen,
   profile: ProfileScreen,

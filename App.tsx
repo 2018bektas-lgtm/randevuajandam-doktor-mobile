@@ -34,7 +34,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Button, Card, TextField, SelectField, VideoCallModal } from './src/components';
+import { Button, Card, TextField, SelectField } from './src/components';
 import { AppIcon } from './src/components/AppIcon';
 import {
   AppointmentTile,
@@ -76,16 +76,18 @@ import {
 } from './src/services/push';
 import { applyPendingPackageAfterAuth, loginPurchasesUser } from './src/services/iap';
 import {
-  FEATURE_HASTA_DOSYA,
+  FEATURE_AI_ASISTAN,
   FEATURE_ICAL,
   FEATURE_ONLINE_GORUSME,
   FEATURE_SERI_RANDEVU,
   clearPackageFeaturesCache,
   ensureFeature,
   ensureScreen,
+  hasAnyFeature,
   loadPackageFeatures,
 } from './src/services/packageFeatures';
 import { usePackageFeatures } from './src/hooks/usePackageFeatures';
+import { AsistanFab } from './src/components/AsistanFab';
 import { colors } from './src/theme';
 import { useLayout } from './src/layout';
 
@@ -936,12 +938,8 @@ type Appointment = {
   hizmet_id?: number | null;
   hizmet: string | null;
   not: string | null;
-  hekim_notu: string | null;
   online_mi?: boolean;
-  join_url?: string | null;
-  join_app_url?: string | null;
-  can_join?: boolean;
-  platform_join_url?: string | null;
+  meeting_url?: string | null;
 };
 
 type PatientOption = {
@@ -1052,6 +1050,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
   useEffect(() => {
     void loadPackageFeatures(true);
   }, [doctor.id]);
+  const pkg = usePackageFeatures();
   const L = useLayout();
   const title = [doctor.unvan, doctor.ad_soyad].filter(Boolean).join(' ');
   const specialty = doctor.branslar.join(' · ') || doctor.uzmanlik_alani || 'Doktor paneli';
@@ -1145,6 +1144,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
       screen === 'menu'
       || screen === 'profile'
       || screen === 'quickClose'
+      || screen === 'asistan'
     ) {
       setScreen('overview');
       return;
@@ -1497,6 +1497,12 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
     />
   );
 
+  const showAsistanFab =
+    screen !== 'asistan'
+    && !createOpen
+    && !pkg.loading
+    && hasAnyFeature(pkg.features, FEATURE_AI_ASISTAN, pkg.restrict);
+
   if (ModuleScreen) {
     return (
       <View style={styles.dashboard}>
@@ -1508,6 +1514,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
           />
         </View>
         {bottomNav}
+        {showAsistanFab ? <AsistanFab onPress={() => goToScreen('asistan')} /> : null}
       </View>
     );
   }
@@ -1995,6 +2002,7 @@ function WelcomeScreen({ doctor, onSignOut }: { doctor: Doctor; onSignOut: () =>
       </ScrollView>
 
       {bottomNav}
+      {showAsistanFab ? <AsistanFab onPress={() => goToScreen('asistan')} /> : null}
 
       <CreateAppointmentModal
         visible={createOpen}
@@ -2176,12 +2184,11 @@ function AppointmentDetailModal({
   onReschedule: (a: Appointment) => void;
 }) {
   const [detail, setDetail] = useState<Appointment | null>(null);
-  const [hekimNotu, setHekimNotu] = useState('');
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [hizmetId, setHizmetId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [videoCallOpen, setVideoCallOpen] = useState(false);
 
   useEffect(() => {
     if (!appointment) {
@@ -2189,7 +2196,7 @@ function AppointmentDetailModal({
       return;
     }
     setDetail(appointment);
-    setHekimNotu(appointment.hekim_notu || '');
+    setMeetingUrl(appointment.meeting_url || '');
     setHizmetId(appointment.hizmet_id ?? null);
     setError(null);
     void (async () => {
@@ -2202,7 +2209,7 @@ function AppointmentDetailModal({
         const sPayload = await sRes.json();
         if (dRes.ok && dPayload.success) {
           setDetail(dPayload.data as Appointment);
-          setHekimNotu(dPayload.data.hekim_notu || '');
+          setMeetingUrl(dPayload.data.meeting_url || '');
           setHizmetId(dPayload.data.hizmet_id ?? null);
         }
         if (sRes.ok && sPayload.success) {
@@ -2223,7 +2230,7 @@ function AppointmentDetailModal({
         method: 'PUT',
         headers: await authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          hekim_notu: hekimNotu,
+          meeting_url: meetingUrl || null,
           hizmet_id: hizmetId,
         }),
       });
@@ -2248,7 +2255,7 @@ function AppointmentDetailModal({
       const response = await fetch(`${API_URL}/doctor/appointments/${detail.id}/status`, {
         method: 'POST',
         headers: await authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ durum, hekim_notu: hekimNotu }),
+        body: JSON.stringify({ durum }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -2346,48 +2353,51 @@ function AppointmentDetailModal({
               {(detail.online_mi || detail.gorusme_tipi === 'online') ? (
                 <>
                   <Text style={[styles.appointmentMeta, { marginTop: 10 }]}>
-                    Online görüşme — uygulama içinde kamera ve mikrofon ile bağlanırsınız. Hasta kendi linkinden katılır.
+                    Online görüşme — kendi görüşme linkinizi (Zoom, Meet, Teams vb.) aşağıya yapıştırın. Hasta bu linkten katılır.
                   </Text>
-                  {detail.durum === 'onaylandi' ? (
-                    <Pressable
-                      style={[styles.modalPrimaryButton, { marginTop: 14 }]}
-                      onPress={() => {
-                        void (async () => {
-                          await loadPackageFeatures();
-                          if (!ensureFeature(null, FEATURE_ONLINE_GORUSME)) return;
-                          setVideoCallOpen(true);
-                        })();
-                      }}
-                    >
-                      <Text style={styles.modalPrimaryButtonText}>📹 Görüşmeye katıl</Text>
-                    </Pressable>
-                  ) : (
-                    <Text style={[styles.appointmentMeta, { marginTop: 8 }]}>
-                      Görüşme odası randevu onaylandıktan sonra açılır.
-                    </Text>
-                  )}
-                  {detail.platform_join_url ? (
-                    <Pressable
-                      style={[styles.modalPrimaryButton, { marginTop: 10, backgroundColor: '#FFFFFF' }]}
-                      onPress={() => {
-                        const url = detail.platform_join_url!;
-                        void (async () => {
-                          try {
-                            await Share.share({
-                              message: `Online görüşme linkiniz:\n${url}`,
-                              url,
-                              title: 'Hasta görüşme linki',
-                            });
-                          } catch {
-                            Alert.alert('Hasta linki', url);
-                          }
-                        })();
-                      }}
-                    >
-                      <Text style={[styles.modalPrimaryButtonText, { color: '#7A8B9C' }]}>
-                        Hasta linkini paylaş
-                      </Text>
-                    </Pressable>
+                  <Text style={[styles.modalLabel, { marginTop: 12 }]}>Görüşme linki</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={meetingUrl}
+                    onChangeText={setMeetingUrl}
+                    placeholder="https://…"
+                    placeholderTextColor="#6B7F93"
+                    autoCapitalize="none"
+                    keyboardType="url"
+                  />
+                  {detail.durum === 'onaylandi' && meetingUrl ? (
+                    <>
+                      <Pressable
+                        style={[styles.modalPrimaryButton, { marginTop: 10 }]}
+                        onPress={() => {
+                          void Linking.openURL(meetingUrl).catch(() =>
+                            Alert.alert('Link açılamadı', meetingUrl),
+                          );
+                        }}
+                      >
+                        <Text style={styles.modalPrimaryButtonText}>📹 Görüşme linkini aç</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.modalPrimaryButton, { marginTop: 10, backgroundColor: '#FFFFFF' }]}
+                        onPress={() => {
+                          void (async () => {
+                            try {
+                              await Share.share({
+                                message: `Online görüşme linkiniz:\n${meetingUrl}`,
+                                url: meetingUrl,
+                                title: 'Hasta görüşme linki',
+                              });
+                            } catch {
+                              Alert.alert('Hasta linki', meetingUrl);
+                            }
+                          })();
+                        }}
+                      >
+                        <Text style={[styles.modalPrimaryButtonText, { color: '#7A8B9C' }]}>
+                          Hasta linkini paylaş
+                        </Text>
+                      </Pressable>
+                    </>
                   ) : null}
                 </>
               ) : null}
@@ -2405,18 +2415,9 @@ function AppointmentDetailModal({
                 searchable={services.length > 6}
               />
 
-              <Text style={styles.modalLabel}>Hekim notu</Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalTextArea]}
-                value={hekimNotu}
-                onChangeText={setHekimNotu}
-                multiline
-                placeholder="Not ekleyin"
-                placeholderTextColor="#6B7F93"
-              />
               {detail.not ? (
                 <>
-                  <Text style={styles.modalLabel}>Danışan notu</Text>
+                  <Text style={styles.modalLabel}>Randevu notu</Text>
                   <Text style={styles.appointmentService}>{detail.not}</Text>
                 </>
               ) : null}
@@ -2455,11 +2456,6 @@ function AppointmentDetailModal({
         </View>
       </View>
 
-      <VideoCallModal
-        visible={videoCallOpen}
-        appointmentId={detail?.id ?? appointment?.id ?? null}
-        onClose={() => setVideoCallOpen(false)}
-      />
     </Modal>
   );
 }
@@ -2477,7 +2473,6 @@ function CreateAppointmentModal({
 }) {
   const pkg = usePackageFeatures();
   const canSeri = pkg.can(FEATURE_SERI_RANDEVU);
-  const canNote = pkg.can(FEATURE_HASTA_DOSYA);
   const [tarih, setTarih] = useState(defaultDate);
   const [saat, setSaat] = useState('09:00');
   const [seri, setSeri] = useState(false);
@@ -2692,7 +2687,7 @@ function CreateAppointmentModal({
           hizmet_id: selectedServiceId,
           tarih,
           saat,
-          aciklama: canNote ? note || null : null,
+          aciklama: note || null,
           gorusme_tipi: gorusmeTipi,
           ...(canSeri && seri
             ? { seri: true, seri_adet: adet, seri_aralik_gun: aralik }
@@ -2951,21 +2946,20 @@ function CreateAppointmentModal({
                 </>
               ) : null}
 
-              {canNote ? (
-                <>
-                  <Text style={styles.modalLabel}>Not (opsiyonel)</Text>
-                  <TextInput
-                    style={[styles.modalInput, styles.modalTextArea]}
-                    value={note}
-                    onChangeText={setNote}
-                    multiline
-                    placeholder="Hekim notu veya açıklama"
-                    placeholderTextColor="#6B7F93"
-                  />
-                </>
-              ) : (
-                <Text style={styles.modalHint}>Randevu notu paketinizde yok (hasta not / dosya).</Text>
-              )}
+              <Text style={styles.modalLabel}>
+                Randevu notu (opsiyonel){' '}
+                <Text style={{ fontSize: 10, color: '#94A3B8', fontWeight: 'normal' }}>
+                  — organizasyonel, tıbbi bilgi girmeyiniz
+                </Text>
+              </Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalTextArea]}
+                value={note}
+                onChangeText={setNote}
+                multiline
+                placeholder="Randevuya dair organizasyonel not"
+                placeholderTextColor="#6B7F93"
+              />
 
               {formError ? <Text style={styles.modalError}>{formError}</Text> : null}
 
